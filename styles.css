@@ -228,15 +228,6 @@ a:hover {
   background: #111;
 }
 
-.headshot--fallback {
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--gold);
-}
-
 section {
   padding: 3.5rem 0;
 }
