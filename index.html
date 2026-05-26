@@ -18,51 +18,91 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <header class="site-header">
+  <header class="site-header site-header--minimal">
     <div class="container site-header__inner">
       <a class="logo" href="#">Glittercloud <span>Solutions</span></a>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="#journey">Journey</a>
-        <a href="#today">Today</a>
-        <a href="#contact">Contact</a>
-      </nav>
-      <a class="btn btn--primary" href="#contact">Work with Tony</a>
+      <a class="hero-scroll-hint" href="#journey">Scroll to begin ↓</a>
     </div>
   </header>
 
   <main id="main">
-    <section class="hero">
+    <section class="hero" aria-label="Opening">
       <div class="hero__bg" aria-hidden="true">
         <img src="assets/hero-journey.png" alt="" width="1920" height="1080">
       </div>
-      <div class="container hero__content">
-        <div>
-          <p class="eyebrow">Tony Valcarcel · Operator &amp; GTM Lead</p>
-          <h1>Big-company discipline. Startup speed.</h1>
-          <p class="hero__lead">
-            For more than 15 years I have built marketing engines, launched products, and fixed operations
-            at Nintendo, Amazon, EA Sports, Twitch Prime, and dozens of startups — from charity affiliate programs
-            on Reddit to AAA game launches and $1M+ consulting ARR.
-          </p>
-          <div class="hero__actions">
-            <a class="btn btn--primary" href="#contact">Start a conversation</a>
-            <a class="btn btn--ghost" href="#journey">Read my story</a>
-          </div>
-          <div class="hero__tags">
-            <span class="tag">Go-to-market</span>
-            <span class="tag">Operations</span>
-            <span class="tag">AI enablement</span>
-            <span class="tag">Video games &amp; tech</span>
+      <div class="hero__vignette" aria-hidden="true"></div>
+
+      <div class="hero__inner">
+        <p class="hero__opener">
+          <span class="hero__year">2009</span>
+          <span class="hero__opener-text">A Nintendo call center. Speech analytics. IVR routing. The first chapter.</span>
+        </p>
+
+        <h1 class="hero__title">
+          Fifteen years later, the path still runs through<br>
+          <em>launch, scale, and build the machine.</em>
+        </h1>
+
+        <p class="hero__narrative">
+          I’m Tony Valcarcel. This is the story of how I went from onboarding technology
+          for customer support at Nintendo — to pioneering community commerce at Amazon,
+          founding Twitch Prime’s marketing team, launching MUT Rewards at EA Sports,
+          rebuilding startups in Seattle, and leading GTM on AAA titles like Shrapnel
+          and Legacy of Kain Remastered.
+        </p>
+
+        <div class="hero__path" aria-label="Career journey preview">
+          <div class="hero__path-track">
+            <span class="hero__path-node hero__path-node--active">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">Nintendo</span>
+              <span class="hero__path-year">2009</span>
+            </span>
+            <span class="hero__path-line"></span>
+            <span class="hero__path-node">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">Amazon</span>
+              <span class="hero__path-year">2011</span>
+            </span>
+            <span class="hero__path-line"></span>
+            <span class="hero__path-node">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">EA Sports</span>
+              <span class="hero__path-year">2015</span>
+            </span>
+            <span class="hero__path-line"></span>
+            <span class="hero__path-node">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">Twitch Prime</span>
+              <span class="hero__path-year">2016</span>
+            </span>
+            <span class="hero__path-line"></span>
+            <span class="hero__path-node">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">Startups</span>
+              <span class="hero__path-year">2019</span>
+            </span>
+            <span class="hero__path-line"></span>
+            <span class="hero__path-node">
+              <span class="hero__path-dot"></span>
+              <span class="hero__path-label">Today</span>
+              <span class="hero__path-year">Now</span>
+            </span>
           </div>
         </div>
-        <div class="headshot-wrap">
+
+        <div class="hero__guide">
           <img
-            class="headshot"
+            class="hero__guide-photo"
             src="assets/tony-headshot.jpg"
-            alt="Tony Valcarcel"
-            width="320"
-            height="320"
+            alt=""
+            width="56"
+            height="56"
           >
+          <div class="hero__guide-text">
+            <span>Your guide through every chapter</span>
+            <a href="#journey">Follow the timeline below</a>
+          </div>
         </div>
       </div>
     </section>
@@ -292,5 +332,17 @@
       <span>Tony Valcarcel · Tampa, FL</span>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var header = document.querySelector(".site-header");
+      if (!header) return;
+      function onScroll() {
+        header.classList.toggle("site-header--scrolled", window.scrollY > 80);
+      }
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    })();
+  </script>
 </body>
 </html>
