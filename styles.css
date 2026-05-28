@@ -179,7 +179,7 @@ a:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* Hero — cinematic story opening */
+/* Hero */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -281,7 +281,7 @@ a:hover {
 
 .hero__year {
   font-family: var(--font-display);
-  font-size: clamp(3.5rem, 12vw, 6.5rem);
+  font-size: clamp(2.75rem, 9vw, 5.25rem);
   font-weight: 700;
   line-height: 1;
   color: transparent;
@@ -291,12 +291,12 @@ a:hover {
   letter-spacing: -0.03em;
 }
 
-.hero__opener-text {
-  max-width: 28ch;
-  font-size: 1.05rem;
+.hero__tagline {
+  max-width: 32ch;
+  font-size: 1.1rem;
   color: #b8c0cc;
-  font-style: italic;
-  line-height: 1.5;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .hero__title {
@@ -326,17 +326,16 @@ a:hover {
 .hero__path {
   margin-bottom: 2.5rem;
   animation: heroFadeUp 0.9s ease 0.45s both;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.5rem;
+  overflow: hidden;
 }
 
 .hero__path-track {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 0;
-  min-width: min-content;
+  gap: 0.25rem 0;
+  row-gap: 0.75rem;
 }
 
 .hero__path-node {
@@ -573,14 +572,35 @@ a:hover {
 }
 
 .chapter__brands--duo,
-.chapter__brands--stack {
+.chapter__brands--stacked {
   flex-wrap: wrap;
+}
+
+.chapter__brands--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .chapter__logo {
   height: 28px;
   width: auto;
   filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
+.chapter__logo--prime {
+  height: 32px;
+  width: auto;
+  max-width: min(100%, 200px);
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.65));
+}
+
+.chapter__ip {
+  height: 36px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.7));
 }
 
 .chapter__brand-text {
@@ -635,25 +655,10 @@ a:hover {
   z-index: 1;
 }
 
-.chapter__characters {
-  position: absolute;
+.chapter__character--lok {
   bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 0.35rem;
-  padding: 0 0.5rem;
-  z-index: 1;
-}
-
-.chapter__character--duo {
-  position: static;
-  transform: none;
-  flex: 1;
-  width: auto;
-  border-radius: 10px 10px 0 0;
-  object-fit: cover;
-  aspect-ratio: 16/10;
+  z-index: 2;
+  width: 88%;
 }
 
 .chapter__year {
@@ -836,7 +841,15 @@ a:hover {
   }
 
   .hero__path-track {
-    justify-content: flex-start;
+    justify-content: center;
+  }
+
+  .hero__path-line {
+    display: none;
+  }
+
+  .hero__path-node {
+    min-width: 4rem;
   }
 
   .bridge__grid {

@@ -1,4 +1,4 @@
-# Glittercloud Solutions — placeholder site
+# Glittercloud Solutions site
 
 Static site for GitHub Pages + GoDaddy DNS (same pattern as sectorscavengers.com).
 

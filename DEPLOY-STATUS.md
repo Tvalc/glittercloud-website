@@ -28,7 +28,7 @@ In GoDaddy → **DNS** for `glittercloud.solutions`:
 | A     | @    | 185.199.111.153      |
 | CNAME | www  | tvalc.github.io      |
 
-After saving, wait 5–30 minutes, then open https://glittercloud.solutions — you should see the new Tony-led site.
+After saving, wait 5-30 minutes, then open https://glittercloud.solutions. You should see the new Tony-led site.
 
 In GitHub → repo **Settings → Pages**, enable **Enforce HTTPS** once the domain verifies.
 
