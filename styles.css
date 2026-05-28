@@ -560,6 +560,20 @@ a:hover {
   object-fit: cover;
 }
 
+.chapter__visual--wide {
+  aspect-ratio: 16 / 9;
+}
+
+.chapter__visual--contain {
+  aspect-ratio: 1;
+}
+
+.chapter__art--contain {
+  object-fit: contain;
+  object-position: center;
+  image-rendering: auto;
+}
+
 .chapter__brands {
   position: absolute;
   top: 1rem;
