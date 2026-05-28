@@ -24,15 +24,13 @@ blend = Image.composite(leaf, conv, mask)
 blend = blend.filter(ImageFilter.UnsharpMask(radius=1.2, percent=120, threshold=3))
 blend.save(root / "leafly-convoy-blend.png", optimize=True)
 
-# Founder: Convoy, Shrapnel, Makko (no Bandm8) — three equal panels
+# Founder: Shrapnel + Makko only — two equal panels
 founder_imgs = [
-    Image.open(root / "ConvoyBanner.jpg").convert("RGB"),
     Image.open(root / "ShrapnelBanner.jpg").convert("RGB"),
     Image.open(root / "MakkoBanner.png").convert("RGB"),
 ]
-cols = len(founder_imgs)
 canvas_w, canvas_h = 1800, 1200
-cell_w = canvas_w // cols
+cell_w = canvas_w // 2
 canvas = Image.new("RGB", (canvas_w, canvas_h), (10, 10, 10))
 for i, img in enumerate(founder_imgs):
     panel = img.resize((cell_w, canvas_h), Image.Resampling.LANCZOS)
