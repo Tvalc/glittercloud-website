@@ -24,17 +24,28 @@ blend = Image.composite(leaf, conv, mask)
 blend = blend.filter(ImageFilter.UnsharpMask(radius=1.2, percent=120, threshold=3))
 blend.save(root / "leafly-convoy-blend.png", optimize=True)
 
-# Founder: Shrapnel + Makko only — two equal panels
+def cover_crop(img, target_w, target_h):
+    """Scale to fill, center-crop — no horizontal squish."""
+    src_w, src_h = img.size
+    scale = max(target_w / src_w, target_h / src_h)
+    new_w, new_h = int(src_w * scale), int(src_h * scale)
+    resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    left = (new_w - target_w) // 2
+    top = (new_h - target_h) // 2
+    return resized.crop((left, top, left + target_w, top + target_h))
+
+
+# Founder: Makko top, Shrapnel bottom — stacked rows, full width
 founder_imgs = [
-    Image.open(root / "ShrapnelBanner.jpg").convert("RGB"),
     Image.open(root / "MakkoBanner.png").convert("RGB"),
+    Image.open(root / "ShrapnelBanner.jpg").convert("RGB"),
 ]
-canvas_w, canvas_h = 1800, 1200
-cell_w = canvas_w // 2
+canvas_w, canvas_h = 1800, 1800
+row_h = canvas_h // 2
 canvas = Image.new("RGB", (canvas_w, canvas_h), (10, 10, 10))
 for i, img in enumerate(founder_imgs):
-    panel = img.resize((cell_w, canvas_h), Image.Resampling.LANCZOS)
-    canvas.paste(panel, (i * cell_w, 0))
+    panel = cover_crop(img, canvas_w, row_h)
+    canvas.paste(panel, (0, i * row_h))
 
 v = Image.new("L", canvas.size, 0)
 vp = v.load()
