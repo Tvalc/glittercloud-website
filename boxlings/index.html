@@ -585,16 +585,77 @@ BB.config = (() => {
     ],
   };
 
-  /* Value bands -> where the run ends. Terminal rung 10 with vaultWin=false
-     is the near-miss (red crack); band 4 wins the Vault (gold crack).
-     Within-band rung weights shape the published run-length envelope. */
+  /* Value bands. The band a prize falls in is a property of the DROP TABLE and
+     never changes; where a band ends its run is a property of the LADDER,
+     which is a preset. Changing ladder height therefore changes how a prize is
+     dramatised, never which prize you get — the item is drawn before the
+     terminal rung is chosen, from the same stream position either way. */
   const bands = [
-    { i:0, label:'under 0.35×',  range:[0,    0.35], share:'59.95%', rungs:[{r:1, weight:1}] },
-    { i:1, label:'0.35× – 0.8×', range:[0.35, 0.8 ], share:'26%',    rungs:[{r:2, weight:55},{r:3, weight:45}] },
-    { i:2, label:'0.8× – 1.6×',  range:[0.8,  1.6 ], share:'10%',    rungs:[{r:4, weight:55},{r:5, weight:45}] },
-    { i:3, label:'1.6× – 8×',    range:[1.6,  8   ], share:'4%',     rungs:[{r:6, weight:30},{r:7, weight:25},{r:8, weight:20},{r:9, weight:15},{r:10, weight:10}] },
-    { i:4, label:'8× or more',   range:[8, Infinity], share:'0.05%', rungs:[{r:10, weight:1, vaultWin:true}] },
+    { i:0, label:'under 0.35×',  range:[0,    0.35],  share:'59.95%' },
+    { i:1, label:'0.35× – 0.8×', range:[0.35, 0.8 ],  share:'26%'    },
+    { i:2, label:'0.8× – 1.6×',  range:[0.8,  1.6 ],  share:'10%'    },
+    { i:3, label:'1.6× – 8×',    range:[1.6,  8   ],  share:'4%'     },
+    { i:4, label:'8× or more',   range:[8, Infinity], share:'0.05%'  },
   ];
+
+  /* THE LADDER — a preset, not a constant.
+     Rung 1 is always the opener and the top rung is always the Vault, so a
+     height-H ladder has H-2 battle rungs. `bandRungs[i]` says where band i
+     ends; terminal === height with vaultWin=false is the near-miss (red
+     crack), and band 4 takes the Vault (gold crack).
+
+     A note on the 3-rung ladder: five bands cannot each own a distinct height
+     when only four outcomes exist (fall at 1, fall at 2, Vault denied, Vault
+     taken), so bands 1 and 2 share rung 2. That is the design's own
+     "neighbouring bands share rungs" ambiguity rather than a compromise — but
+     it does mean the Vault is reached on ~4% of runs instead of ~1.5%. */
+  const ladderPresets = [
+    {
+      id:'3', label:'3 rungs — opener, one battle, the Vault', height:3,
+      rungGrade:    { 2:'pro' },
+      rungBoxGrade: { 1:'cardboard', 2:'steel', 3:'vault' },
+      earlySlots:   [0],                       // parade indices eligible for the apex tell
+      bandRungs: [
+        [{ r:1, weight:1 }],
+        [{ r:2, weight:1 }],
+        [{ r:2, weight:1 }],                   // shares rung 2 with band 1
+        [{ r:3, weight:1 }],                   // the Vault, denied
+        [{ r:3, weight:1, vaultWin:true }],
+      ],
+    },
+    {
+      id:'5', label:'5 rungs — opener, three battles, the Vault', height:5,
+      rungGrade:    { 2:'scrappy', 3:'pro', 4:'apex' },
+      rungBoxGrade: { 1:'cardboard', 2:'crate', 3:'steel', 4:'gilded', 5:'vault' },
+      earlySlots:   [0, 1],                    // rungs 2 and 3
+      bandRungs: [
+        [{ r:1, weight:1 }],
+        [{ r:2, weight:62 }, { r:3, weight:38 }],
+        [{ r:3, weight:48 }, { r:4, weight:52 }],
+        [{ r:4, weight:38 }, { r:5, weight:62 }],
+        [{ r:5, weight:1, vaultWin:true }],
+      ],
+    },
+    {
+      id:'10', label:'10 rungs — the original ladder', height:10,
+      rungGrade:    { 2:'scrappy',3:'scrappy',4:'pro',5:'pro',6:'pro',7:'apex',8:'apex',9:'apex' },
+      rungBoxGrade: { 1:'cardboard',2:'cardboard',3:'cardboard',4:'crate',5:'crate',6:'crate',
+                      7:'steel',8:'steel',9:'gilded',10:'vault' },
+      earlySlots:   [1, 2, 3, 4],              // rungs 3-6
+      bandRungs: [
+        [{ r:1, weight:1 }],
+        [{ r:2, weight:55 }, { r:3, weight:45 }],
+        [{ r:4, weight:55 }, { r:5, weight:45 }],
+        [{ r:6, weight:30 },{ r:7, weight:25 },{ r:8, weight:20 },{ r:9, weight:15 },{ r:10, weight:10 }],
+        [{ r:10, weight:1, vaultWin:true }],
+      ],
+    },
+  ];
+
+  let activeLadder = ladderPresets[0];
+  const ladder = () => activeLadder;
+  const setLadder = id => { activeLadder = ladderPresets.find(p => p.id === id) || activeLadder; };
+  const bandRungs = i => activeLadder.bandRungs[i];
 
   /* Elements. Four everyday + Aurum. The cycle: Ember>Bramble>Volt>Frost>Ember.
      One immunity exists (Frost is immune to Bramble) and the planner never
@@ -656,19 +717,9 @@ BB.config = (() => {
   };
   const rivalSpecies = ['cindersnap','frostuft','voltcrate','bramblewrap','pyrepip','glacierkin'];
 
-  function gradeForRung(r){
-    if (r <= 3) return 'scrappy';
-    if (r <= 6) return 'pro';
-    if (r <= 9) return 'apex';
-    return 'keeper';
-  }
-  function boxGradeForRung(r){
-    if (r <= 3) return 'cardboard';
-    if (r <= 6) return 'crate';
-    if (r <= 8) return 'steel';
-    if (r === 9) return 'gilded';
-    return 'vault';
-  }
+  // Both are pure functions of height, which is what keeps them legal as tells.
+  const gradeForRung    = r => activeLadder.rungGrade[r] || 'keeper';
+  const boxGradeForRung = r => activeLadder.rungBoxGrade[r] || 'vault';
 
   /* Timing presets (ms). The design's open question is settled in the hand,
      so the opener length is a toggle, never a constant. */
@@ -740,18 +791,21 @@ BB.config = (() => {
   const badges = [
     { id:'first-open',   name:'First Seal',     desc:'Sealed your first box.' },
     { id:'witness',      name:'Witness',        desc:'Stood before the Vault.' },
-    { id:'apex-faced',   name:'Apex Handler',   desc:'Faced three apex challengers in one run.' },
+    // Both thresholds scale with ladder height — a 3-rung run has one battle,
+    // so a flat "three apex challengers" would be unearnable.
+    { id:'apex-faced',   name:'Apex Handler',   desc:'Faced the apex challengers of a whole run.' },
     { id:'charm-saved',  name:'Charm Holder',   desc:'Watched a Charm hold at 1 HP.' },
     // Only two species per element exist, so a single-element 3-pack is
     // impossible — this asks for two, which is the real "doubled down".
-    { id:'mono-climb',   name:'Doubled Down',   desc:'Climbed past rung 4 on a pack of only two elements.' },
+    { id:'mono-climb',   name:'Doubled Down',   desc:'Climbed past the halfway rung on a pack of only two elements.' },
     { id:'loyalist',     name:'Loyalist',       desc:'Opened ten times on one pack without re-packing.' },
   ];
 
   return { box, bands, elements, immunity, effectiveness, moves, species, colorways,
            rivals, rivalSpecies, gradeForRung, boxGradeForRung,
            timingPresets, lossDelta, rungWiden, gags, omens, bandGroup,
-           paradeApexWeights, badges, interactionPresets, challengerSelect };
+           paradeApexWeights, badges, interactionPresets, challengerSelect,
+           ladderPresets, ladder, setLadder, bandRungs };
 })();
 
 </script>
@@ -1271,7 +1325,7 @@ BB.registry = (() => {
       data.witness[o]++;
       if (data.witness[o] === 1) lines.push(`NEW Witness card: ${BB.config.omens[o]?.name || o}`);
     }
-    if (plan.terminal === 10){
+    if (plan.terminal === plan.height){
       data.witness.vaultSeen++;
       grant('witness', lines);
     }
@@ -1280,12 +1334,17 @@ BB.registry = (() => {
        these now judge the one choice that remains — the packing — plus what
        the player actually witnessed. Still never the prize. */
     if (data.opens === 1) grant('first-open', lines);
-    if ((choices.apexFaced || 0) >= 3) grant('apex-faced', lines);
+
+    // Thresholds are relative to the ladder so a short ladder cannot make a
+    // badge unearnable: a 3-rung run has exactly one battle to face.
+    const H = plan.height || 10;
+    const apexNeeded = Math.max(1, Math.min(3, H - 2));
+    if ((choices.apexFaced || 0) >= apexNeeded) grant('apex-faced', lines);
     if ((choices.charmSaves || 0) >= 1) grant('charm-saved', lines);
 
     const members = plan.packSnapshot.members;
     const els = new Set(members.map(m => BB.config.species.find(s => s.id === m.speciesId).el));
-    if (els.size <= 2 && plan.terminal > 4) grant('mono-climb', lines);
+    if (els.size <= 2 && plan.terminal > Math.ceil(H / 2)) grant('mono-climb', lines);
 
     const packKey = members.map(m => m.speciesId + '.' + m.colorway).join('-');
     if (data.packKey === packKey) data.packStreak++;
@@ -1547,13 +1606,15 @@ BB.planner = (() => {
       cosmetic: F.stream(seal, 'cosmetic'),
     };
 
+    const H = C.ladder().height;
     const item = drawItem(S.outcome, forcedBand);
     const mult = item.value / C.box.price;
     const band = bandOf(mult);
-    const termPick = F.weighted(S.outcome, band.rungs);
+    // The item is already drawn; only its dramatisation depends on the ladder.
+    const termPick = F.weighted(S.outcome, C.bandRungs(band.i));
     const terminal = termPick.r;
     const vaultWin = !!termPick.vaultWin;
-    const vaultLoss = terminal === 10 && !vaultWin;
+    const vaultLoss = terminal === H && !vaultWin;
     const group = C.bandGroup(band.i);
 
     /* THE PARADE — dealt after the seal, and now a persistent roster rather
@@ -1564,15 +1625,18 @@ BB.planner = (() => {
        actually spot — and that count correlates with band at the published
        rates shown in the setup panel. */
     const w = C.paradeApexWeights[group];
-    const earlyApex = F.weighted(S.tells, w.map((weight,i)=>({weight, n:i}))).n;
+    const drawn = F.weighted(S.tells, w.map((weight,i)=>({weight, n:i}))).n;
     const paradeGrades = [];
-    for (let r = 2; r <= 9; r++) paradeGrades.push(C.gradeForRung(r));
-    const earlySlots = [1,2,3,4];               // indices of rungs 3,4,5,6
+    for (let r = 2; r <= H - 1; r++) paradeGrades.push(C.gradeForRung(r));
+    const slots = C.ladder().earlySlots.filter(i => i < paradeGrades.length).slice();
+    // A short ladder has fewer slots than the weights can name, so the tell
+    // saturates rather than overflowing; it stays monotonic either way.
+    const earlyApex = Math.min(drawn, slots.length);
     let ups = earlyApex;
-    while (ups > 0 && earlySlots.length){
-      const k = Math.floor(S.tells() * earlySlots.length);
-      paradeGrades[earlySlots[k]] = 'apex';
-      earlySlots.splice(k, 1);
+    while (ups > 0 && slots.length){
+      const k = Math.floor(S.tells() * slots.length);
+      paradeGrades[slots[k]] = 'apex';
+      slots.splice(k, 1);
       ups--;
     }
     const apexCount = paradeGrades.filter(g => g === 'apex').length;
@@ -1606,13 +1670,13 @@ BB.planner = (() => {
     };
     const battles = [];
     if (terminal >= 2){
-      const lastBattleRung = Math.min(terminal, 9);
+      const lastBattleRung = Math.min(terminal, H - 1);
+      // The bench is eaten mid-climb, but only on ladders long enough to have
+      // a mid-climb; a 3-rung run reaches the Vault with the pack intact.
+      const benchAt = terminal >= 5 ? Math.max(2, Math.floor(terminal * 0.6)) : -1;
       for (let r = 2; r <= lastBattleRung; r++){
-        const isLoss = (r === terminal);                    // rung 10 handled by the Vault
-        const benchFaintHere =
-          (terminal >= 8 && terminal <= 9 && r === 6) ||
-          (vaultLoss && (r === 6 || r === 8)) ||
-          (vaultWin && r === 6);
+        const isLoss = (r === terminal);                    // the top rung is the Vault
+        const benchFaintHere = (r === benchAt);
         battles.push(scriptBattle(r, isLoss, st, S, {
           grade: paradeGrades[r - 2],   // the roster IS the schedule of grades
           benchFaintHere,
@@ -1623,7 +1687,7 @@ BB.planner = (() => {
 
     // The Vault.
     let vault = null;
-    if (terminal === 10){
+    if (terminal === H){
       const aliveIdx = st.alive.map((a,i)=>a?i:null).filter(i=>i!==null);
       vault = {
         crack: vaultWin ? 'gold' : 'red',
@@ -1648,6 +1712,7 @@ BB.planner = (() => {
 
     return {
       demo: forcedBand != null,
+      height: H,
       seal, serverSeed, clientSeed, openIndex,
       item, mult, band: band.i, bandGroup: group,
       terminal, vaultWin, vaultLoss,
@@ -1757,11 +1822,12 @@ BB.present = (() => {
   // ------------------------------------------------------------------ HUD
   function buildLadder(){
     const l = st.hud.ladder; l.innerHTML = '';
-    for (let r = 10; r >= 1; r--){
+    const H = C.ladder().height;
+    for (let r = H; r >= 1; r--){
       const d = document.createElement('div');
       d.className = 'rung g-' + C.boxGradeForRung(r);
       d.dataset.rung = r;
-      d.innerHTML = `<span class="rn">${r===10?'V':r}</span>`;
+      d.innerHTML = `<span class="rn">${r === H ? 'V' : r}</span>`;
       l.appendChild(d);
     }
   }
@@ -1805,7 +1871,7 @@ BB.present = (() => {
     if (!r) return;
     r.innerHTML = plan.parade.grades.map((g, i) =>
       `<span class="pip g-${g}" data-rung="${i + 2}" title="Rung ${i + 2} · ${C.rivals[g].label}">${A.rosterPip(g)}</span>`
-    ).join('') + `<span class="pip g-keeper" data-rung="10" title="The Vault">◈</span>`;
+    ).join('') + `<span class="pip g-keeper" data-rung="${C.ladder().height}" title="The Vault">◈</span>`;
   }
   function rosterMark(rung, cls){
     const r = st.hud.roster;
@@ -2368,8 +2434,9 @@ BB.present = (() => {
   // ---------------------------------------------------------------- vault
   async function sceneVault(plan){
     const v = plan.vault;
-    ladderCurrent(10);
-    rosterMark(10, 'current');
+    const VR = C.ladder().height;          // the Vault is always the top rung
+    ladderCurrent(VR);
+    rosterMark(VR, 'current');
     clearLayer('#fxLayer');
     removeActor('rival'); removeActor('rt1'); removeActor('rt2');
     rivalBar(false);
@@ -2445,7 +2512,7 @@ BB.present = (() => {
     await wait(scale(1400));
 
     if (v.crack === 'red'){
-      ladderMark(10, 'lost');
+      ladderMark(VR, 'lost');
       await wait(scale(800));
       return false;
     }
@@ -2514,12 +2581,15 @@ BB.present = (() => {
     await anim(animEl(auric), [
       { transform:'rotate(0)', opacity:1 }, { transform:'rotate(20deg) translateY(30px)', opacity:0 },
     ], scale(1100));
-    ladderMark(10, 'won');
+    ladderMark(VR, 'won');
     banner('THE GRAIL', 'gold big', 3000);
     await wait(scale(1200));
     return true;
   }
   function animBar(el, from, to, ms){
+    // SKIP has to actually skip: without this the Vault drain still waited out
+    // its full duration after the player asked to be shown the door.
+    if (st.skipping){ el.style.width = (to * 100) + '%'; return Promise.resolve(); }
     return new Promise(res => {
       let done = false;
       const finish = () => { if (done) return; done = true; el.style.width = (to * 100) + '%'; res(); };
@@ -2558,7 +2628,7 @@ BB.present = (() => {
         const won = await sceneBattle(plan, battle);
         if (!won) break;
       }
-      if (plan.terminal === 10) await sceneVault(plan);
+      if (plan.terminal === C.ladder().height) await sceneVault(plan);
     } else {
       ladderMark(1, 'lost');
     }
@@ -2610,8 +2680,11 @@ window.BB = window.BB || {};
   function renderSetup(){
     const rows = C.box.dropTable.map(it =>
       `<tr><td>${it.name}</td><td class="num">${money(it.value)}</td><td class="num">${it.weight}%</td></tr>`).join('');
+    const H = C.ladder().height;
     const bandRows = C.bands.map(b => {
-      const rungs = b.rungs.map(r => r.vaultWin ? 'takes the Vault' : r.r === 1 ? 'boxed at the opener' : (r.r===10?'the Vault, denied':'rung '+r.r));
+      const rungs = C.bandRungs(b.i).map(r => r.vaultWin ? 'takes the Vault'
+        : r.r === 1 ? 'boxed at the opener'
+        : r.r === H ? 'the Vault, denied' : 'rung ' + r.r);
       return `<tr><td>${b.label}</td><td class="num">${b.share}</td><td>${[...new Set(rungs)].join(' / ')}</td></tr>`;
     }).join('');
     const om = C.omens;
@@ -2648,6 +2721,9 @@ window.BB = window.BB || {};
         <label>Interaction
           <select id="interSel">${C.interactionPresets.map(p=>`<option value="${p.id}" ${p.id===session.interactionId?'selected':''}>${p.label}</option>`).join('')}</select>
         </label>
+        <label>Ladder
+          <select id="ladderSel">${C.ladderPresets.map(p=>`<option value="${p.id}" ${p.id===C.ladder().id?'selected':''}>${p.label}</option>`).join('')}</select>
+        </label>
         <label>Force outcome (demo)
           <select id="forceSel">
             <option value="">— fair draw —</option>
@@ -2659,6 +2735,9 @@ window.BB = window.BB || {};
       </section>`;
     $('presetSel').onchange = e => session.presetId = e.target.value;
     $('interSel').onchange = e => session.interactionId = e.target.value;
+    // Height changes which rung a band ends on, so the published table has to
+    // be redrawn with it — the panel must never show a mapping that isn't live.
+    $('ladderSel').onchange = e => { C.setLadder(e.target.value); renderSetup(); };
     $('forceSel').onchange = e => session.forcedBand = e.target.value === '' ? null : +e.target.value;
     $('turboChk').onchange = e => session.turbo = e.target.checked;
     $('newSeedBtn').onclick = () => {
@@ -2826,7 +2905,7 @@ window.BB = window.BB || {};
       const openerAt = start + SB.OPENER;
       const climbEnd = p.terminal === 1 ? openerAt : openerAt + (p.terminal - 2) * SB.STEP;
       return { p, i, start, openerAt, climbEnd,
-               finalAt: climbEnd + (p.terminal === 10 ? SB.VAULT_HOLD : 0) };
+               finalAt: climbEnd + (p.terminal === p.height ? SB.VAULT_HOLD : 0) };
     });
     const waveEnd = Math.max(...sched.map(s => s.finalAt)) + SB.TAIL;
     const spend = C.box.price * N;
@@ -2892,19 +2971,19 @@ window.BB = window.BB || {};
           row.classList.add('live');
           statusEl.className = 'sbStatus live';
           statusEl.innerHTML = '<i class="dot"></i>LIVE';
-          if (r >= 10){ posEl.textContent = 'VAULT ◈'; row.classList.add('vault'); }
+          if (r >= p.height){ posEl.textContent = 'VAULT ◈'; row.classList.add('vault'); }
           else posEl.textContent = 'RUNG ' + r + ' ▲';
-          bar.style.width = (r / 10 * 100) + '%';
+          bar.style.width = (r / p.height * 100) + '%';
         } else {
           row.classList.remove('live');
           row.classList.add('final');
           statusEl.className = 'sbStatus';
           statusEl.textContent = 'FINAL';
           posEl.textContent = endLabel(p);
-          bar.style.width = (p.terminal / 10 * 100) + '%';
+          bar.style.width = (p.terminal / p.height * 100) + '%';
           const win = p.item.value >= C.box.price;
           row.classList.toggle('good', win);
-          row.classList.toggle('vault', p.terminal === 10);
+          row.classList.toggle('vault', p.terminal === p.height);
           row.classList.toggle('grail', !!p.vaultWin);
           const itemEl = row.querySelector('.sbItem');
           itemEl.textContent = p.item.name;
