@@ -279,21 +279,57 @@ body.running #setup { margin-left: -322px; }   /* the panel folds away when a ru
 .stamp { font-size: 0.82rem; padding: 3px 0; color: var(--ink); }
 #regReset { margin-top: 14px; }
 
-/* stable */
-.stablePanel { width: 640px; max-width: 94vw; }
-.ledger { margin: 10px 0; }
-.lrow {
-  display: flex; align-items: center; gap: 12px; padding: 7px 6px;
-  border-bottom: 1px solid #16233f; font-size: 0.88rem;
+/* stable — the live scoreboard */
+.stablePanel { width: 780px; max-width: 96vw; }
+.sbHead {
+  display: flex; align-items: baseline; gap: 14px; padding: 10px 12px;
+  background: #0b1730; border: 1px solid var(--line); border-bottom: 2px solid var(--gold);
+  border-radius: 9px 9px 0 0;
 }
-.lno { color: var(--dim); width: 42px; }
-.lstate { width: 60px; letter-spacing: 1px; color: var(--dim); }
-.lstate.good { color: var(--good); }
-.lstate.meh { color: var(--bad); }
-.lend { flex: 1; }
-.lval { width: 76px; text-align: right; }
-.lval.good { color: var(--good); font-weight: 700; }
-.lbest { margin-top: 12px; padding: 12px; background: var(--panel2); border-radius: 10px; border: 1px solid var(--gold); }
+.sbWave { font-weight: 800; letter-spacing: 2.5px; }
+.sbSpend { color: var(--dim); font-size: 0.8rem; letter-spacing: 1px; }
+.sbCount { margin-left: auto; font-size: 0.76rem; color: var(--dim); letter-spacing: 1.2px; }
+.sbCount b { color: var(--ink); }
+
+.sbRows { border: 1px solid var(--line); border-top: none; border-radius: 0 0 9px 9px; overflow: hidden; }
+.sbRow {
+  display: grid; align-items: center; gap: 8px; padding: 7px 10px;
+  grid-template-columns: 46px 66px 108px 1fr 156px 66px 58px;
+  border-bottom: 1px solid #16233f; font-size: 0.83rem; transition: background 0.35s;
+}
+.sbRow:last-child { border-bottom: none; }
+.sbRow.live { background: #101d38; }
+.sbRow.good { background: #12301f; }
+.sbRow.grail { background: #3a2a10; box-shadow: inset 0 0 0 1px var(--gold); }
+.sbNo { color: var(--dim); font-variant-numeric: tabular-nums; }
+.sbStatus { font-size: 0.68rem; letter-spacing: 1.3px; color: var(--dim); display: flex; align-items: center; gap: 5px; }
+.sbStatus.live { color: #ff6b5a; }
+.sbStatus .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff3b2f; animation: sbPulse 1s infinite; }
+@keyframes sbPulse { 50% { opacity: 0.2; } }
+.sbPos { font-weight: 700; letter-spacing: 0.6px; font-variant-numeric: tabular-nums; }
+.sbRow.vault .sbPos { color: var(--gold); }
+.sbTrack { height: 5px; background: #0a1224; border-radius: 3px; overflow: hidden; }
+.sbTrack i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #3f6fa8, #6fb7ff); transition: width 0.45s cubic-bezier(.3,1.4,.5,1); }
+.sbRow.vault .sbTrack i { background: linear-gradient(90deg, #b8860b, var(--gold)); }
+.sbItem { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbItem.revealed { color: var(--goldHi); animation: sbReveal 0.4s ease-out; }
+@keyframes sbReveal { from { opacity: 0; transform: translateY(-5px); } }
+.sbVal { text-align: right; }
+.sbVal.good { color: var(--good); font-weight: 700; }
+.sbReplay { opacity: 0; pointer-events: none; padding: 3px 8px; font-size: 0.68rem; transition: opacity 0.3s; }
+.sbReplay.shown { opacity: 1; pointer-events: auto; }
+
+.sbFoot { margin-top: 10px; }
+.sbTop { padding: 10px 12px; background: var(--panel2); border: 1px solid var(--gold); border-radius: 9px; font-size: 0.9rem; }
+.sbTop b { color: var(--goldHi); }
+.sbWaveTot { color: var(--dim); }
+.sbTicker { margin-top: 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: #0a1428; padding: 5px 0; }
+.sbTickerInner { display: inline-flex; gap: 12px; white-space: nowrap; animation: sbTick 26s linear infinite; }
+@keyframes sbTick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tk { font-size: 0.73rem; color: var(--dim); }
+.tk.good { color: var(--good); }
+.tkSep { color: #33507a; }
+.sbNote { margin-top: 9px; }
 
 /* ---------------- svg animation bits ---------------- */
 .snowflake { animation: snowfall linear infinite; }
@@ -2758,7 +2794,17 @@ window.BB = window.BB || {};
   $('recStableBtn').onclick = () => { $('receiptOverlay').classList.remove('shown'); openStable(); };
 
   // ---------------------------------------------------------------- stable
-  async function openStable(){
+  /* THE STABLE — the batch mode as a live scoreboard.
+     Every open in the wave is settled AND banked from one seed before the
+     first row turns; what follows is a player for those plans, exactly as the
+     arena is a player for one. All ten climb concurrently on a single rAF
+     timeline, so the floor runs go FINAL almost at once and the deep runs are
+     left climbing alone on the board — which is the entire reason to watch.
+     The item stays "???" until a row goes FINAL: a scoreboard that printed
+     the prize while the run was still climbing would spoil its own reveal. */
+  const SB = { STEP: 560, OPENER: 850, VAULT_HOLD: 1500, TAIL: 700 };
+
+  function openStable(){
     if (!session.pack){ openPacking(); return; }
     const N = 10;
     const plans = [];
@@ -2770,38 +2816,139 @@ window.BB = window.BB || {};
       }));
     }
     session.openIndex += N;
+    session.waveNo = (session.waveNo || 0) + 1;
+    plans.forEach(p => { if (!p.demo) BB.registry.bank(p, { omensSeen: [], apexFaced: 0, charmSaves: 0 }); });
+
+    // One deterministic schedule per run. The index-derived jitter keeps the
+    // board from ticking in lockstep, which is what makes it read as live.
+    const sched = plans.map((p, i) => {
+      const start = i * 80 + ((i * 137) % 240);
+      const openerAt = start + SB.OPENER;
+      const climbEnd = p.terminal === 1 ? openerAt : openerAt + (p.terminal - 2) * SB.STEP;
+      return { p, i, start, openerAt, climbEnd,
+               finalAt: climbEnd + (p.terminal === 10 ? SB.VAULT_HOLD : 0) };
+    });
+    const waveEnd = Math.max(...sched.map(s => s.finalAt)) + SB.TAIL;
+    const spend = C.box.price * N;
+
     $('stableBody').innerHTML = `
-      <p class="tiny">One seed settles the whole wave — the ledger exists before the first row turns. Spend ${money(C.box.price*N)}.</p>
-      <div class="ledger">${plans.map((p,i)=>`
-        <div class="lrow" data-i="${i}">
-          <span class="lno">#${p.openIndex}</span>
-          <span class="lstate">SEALED</span>
-          <span class="lend"></span>
-          <span class="lval num"></span>
-          <button class="ghost lreplay" style="visibility:hidden">replay</button>
+      <div class="sbHead">
+        <span class="sbWave">WAVE ${session.waveNo}</span>
+        <span class="sbSpend">SPEND ${money(spend)}</span>
+        <span class="sbCount" id="sbCount"></span>
+      </div>
+      <div class="sbRows">${sched.map(s => `
+        <div class="sbRow" data-i="${s.i}">
+          <span class="sbNo">#${s.p.openIndex}</span>
+          <span class="sbStatus">— —</span>
+          <span class="sbPos">SEALED</span>
+          <span class="sbTrack"><i></i></span>
+          <span class="sbItem">???</span>
+          <span class="sbVal num"></span>
+          <button class="ghost sbReplay" tabindex="-1">replay</button>
         </div>`).join('')}</div>
-      <div class="lbest" id="lbest"></div>`;
+      <div class="sbFoot">
+        <div class="sbTop" id="sbTop">TOP PULL: <b>—</b></div>
+        <div class="sbTicker"><div class="sbTickerInner" id="sbTick"></div></div>
+        <p class="tiny sbNote">One seed settled this whole wave. Every result above existed before the first row turned — the board is replaying them, not deciding them.</p>
+      </div>`;
     $('stableOverlay').classList.add('shown');
+
+    const rows = [...$('stableBody').querySelectorAll('.sbRow')];
+    const seen = sched.map(() => ({ key: null }));
+    const finals = [];
     let best = null;
-    for (let i = 0; i < N; i++){
-      const p = plans[i];
-      await new Promise(r => setTimeout(r, 240));
-      const row = $('stableBody').querySelector(`.lrow[data-i="${i}"]`);
-      const ended = p.vaultWin ? 'THE VAULT' : p.vaultLoss ? 'Vault, denied' : p.terminal === 1 ? 'boxed' : 'rung ' + p.terminal;
-      row.querySelector('.lstate').textContent = p.terminal === 1 ? '✕' : '▲';
-      row.querySelector('.lstate').className = 'lstate ' + (p.item.value >= C.box.price ? 'good' : 'meh');
-      row.querySelector('.lend').textContent = ended + ' · ' + p.item.name;
-      row.querySelector('.lval').textContent = money(p.item.value);
-      row.querySelector('.lval').className = 'lval num ' + (p.item.value >= C.box.price ? 'good' : '');
-      const rb = row.querySelector('.lreplay');
-      rb.style.visibility = 'visible';
-      rb.onclick = () => { $('stableOverlay').classList.remove('shown'); startRun(p, false); };
-      if (!p.demo) BB.registry.bank(p, { omensSeen: [], apexFaced: 0, charmSaves: 0 });
-      if (!best || p.item.value > best.item.value) best = p;
+
+    const rungAt = (s, t) => t < s.openerAt ? 1
+      : Math.min(s.p.terminal, Math.floor((t - s.openerAt) / SB.STEP) + 2);
+
+    const endLabel = p => p.terminal === 1 ? 'BOXED'
+      : p.vaultWin ? 'VAULT TAKEN' : p.vaultLoss ? 'VAULT DENIED' : 'RUNG ' + p.terminal;
+
+    function renderTicker(){
+      const strip = finals.map(p =>
+        `<span class="tk ${p.item.value >= C.box.price ? 'good' : ''}">#${p.openIndex} ${endLabel(p)} · ${p.item.name} ${money(p.item.value)}</span>`
+      ).join('<span class="tkSep">•</span>');
+      $('sbTick').innerHTML = strip + '<span class="tkSep">•</span>' + strip;
     }
-    const spend = C.box.price*N, ret = plans.reduce((s,p)=>s+p.item.value,0);
-    $('lbest').innerHTML = `<b>Best pull:</b> ${best.item.name} — ${money(best.item.value)}
-      <span class="tiny">· wave: spend ${money(spend)}, returned ${money(ret)}</span>`;
+
+    function paint(t){
+      let live = 0, done = 0;
+      for (const s of sched){
+        const row = rows[s.i], p = s.p;
+        if (t < s.start) continue;
+        const isFinal = t >= s.finalAt;
+        const r = rungAt(s, t);
+        if (isFinal) done++; else live++;
+        const key = isFinal ? 'F' : 'R' + r;
+        if (seen[s.i].key === key) continue;
+        seen[s.i].key = key;
+
+        const statusEl = row.querySelector('.sbStatus');
+        const posEl = row.querySelector('.sbPos');
+        const bar = row.querySelector('.sbTrack > i');
+
+        if (!isFinal){
+          row.classList.add('live');
+          statusEl.className = 'sbStatus live';
+          statusEl.innerHTML = '<i class="dot"></i>LIVE';
+          if (r >= 10){ posEl.textContent = 'VAULT ◈'; row.classList.add('vault'); }
+          else posEl.textContent = 'RUNG ' + r + ' ▲';
+          bar.style.width = (r / 10 * 100) + '%';
+        } else {
+          row.classList.remove('live');
+          row.classList.add('final');
+          statusEl.className = 'sbStatus';
+          statusEl.textContent = 'FINAL';
+          posEl.textContent = endLabel(p);
+          bar.style.width = (p.terminal / 10 * 100) + '%';
+          const win = p.item.value >= C.box.price;
+          row.classList.toggle('good', win);
+          row.classList.toggle('vault', p.terminal === 10);
+          row.classList.toggle('grail', !!p.vaultWin);
+          const itemEl = row.querySelector('.sbItem');
+          itemEl.textContent = p.item.name;
+          itemEl.classList.add('revealed');
+          const valEl = row.querySelector('.sbVal');
+          valEl.textContent = money(p.item.value);
+          valEl.className = 'sbVal num' + (win ? ' good' : '');
+          const rb = row.querySelector('.sbReplay');
+          rb.classList.add('shown'); rb.tabIndex = 0;
+          rb.onclick = () => { $('stableOverlay').classList.remove('shown'); startRun(p, false); };
+          finals.push(p);
+          if (!best || p.item.value > best.item.value){
+            best = p;
+            $('sbTop').innerHTML = `TOP PULL: <b>${best.item.name}</b> <span class="num">${money(best.item.value)}</span> <span class="tiny">· #${best.openIndex} ${endLabel(best)}</span>`;
+          }
+          renderTicker();
+        }
+      }
+      const c = $('sbCount');
+      if (c) c.innerHTML = `<b>${live}</b> LIVE · <b>${done}</b> FINAL`;
+    }
+
+    // One rAF timeline drives every row — not a timer per row, which drifts
+    // on a slow device and stalls outright in a backgrounded tab.
+    const t0 = performance.now();
+    let stopped = false;
+    const finish = () => {
+      if (stopped || !document.body.contains(rows[0])) return;
+      stopped = true;
+      paint(waveEnd);
+      const ret = plans.reduce((a, p) => a + p.item.value, 0);
+      const tot = document.createElement('span');
+      tot.className = 'tiny sbWaveTot';
+      tot.textContent = ` · wave returned ${money(ret)} of ${money(spend)}`;
+      $('sbTop').appendChild(tot);
+    };
+    const tick = now => {
+      if (stopped || !$('stableOverlay').classList.contains('shown')) return;
+      const t = now - t0;
+      paint(Math.min(t, waveEnd));
+      if (t < waveEnd) requestAnimationFrame(tick); else finish();
+    };
+    requestAnimationFrame(tick);
+    setTimeout(finish, waveEnd + 900);   // rAF is paused in hidden tabs
   }
   $('stableClose').onclick = () => $('stableOverlay').classList.remove('shown');
 
