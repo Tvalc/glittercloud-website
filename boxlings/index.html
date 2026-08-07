@@ -165,22 +165,31 @@ body.running #setup { margin-left: -322px; }   /* the panel folds away when a ru
 }
 #skipBtn.shown { opacity: 1; pointer-events: auto; }
 
-/* doors */
-#doors {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 26px;
-  opacity: 0; pointer-events: none; transition: opacity 0.25s; background: #050a16aa;
+/* the roster — the Parade, persistent, depleting as you climb */
+#roster {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 9px;
+  padding: 7px 14px; border-radius: 10px;
+  background: #0a1428b0; border: 1px solid var(--line);
 }
-#doors.shown { opacity: 1; pointer-events: auto; }
-.doorCard {
-  width: 220px; padding: 20px 18px; border-radius: 12px;
-  background: linear-gradient(180deg, var(--panel2), var(--panel));
-  border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; text-align: left;
-  transition: transform 0.15s, border-color 0.15s;
+#roster .pip {
+  display: flex; align-items: flex-end; justify-content: center;
+  color: #55708f; line-height: 1; transition: all 0.35s;
+  position: relative;
 }
-.doorCard:hover { transform: translateY(-4px); border-color: var(--gold); }
-.doorGrade { font-size: 0.68rem; letter-spacing: 1.6px; color: var(--dim); }
-.doorName { font-size: 1.05rem; font-weight: 700; }
-.doorShape { font-size: 0.85rem; color: var(--accent); }
+#roster .pip.g-pro { color: #7d8ca0; }
+#roster .pip.g-apex { color: #b07ad8; filter: drop-shadow(0 0 5px #b07ad877); }
+#roster .pip.g-keeper { color: var(--gold); font-size: 1.05rem; padding-bottom: 2px; }
+#roster .pip.current { color: var(--accent); filter: drop-shadow(0 0 7px var(--accent)); transform: translateY(-3px) scale(1.15); }
+#roster .pip.g-keeper.current { color: var(--gold); filter: drop-shadow(0 0 9px var(--gold)); }
+#roster .pip.done { opacity: 0.22; filter: grayscale(1); transform: scale(0.85); }
+#roster .pip.done::after {
+  content: ''; position: absolute; left: -2px; right: -2px; top: 50%;
+  border-top: 2px solid var(--bad); opacity: 0.8;
+}
+
+/* the challenger select slate */
+.slateCand { transition: opacity 0.12s linear; }
 
 /* ---------------- overlays ---------------- */
 .overlay {
@@ -347,7 +356,7 @@ body.running #setup { margin-left: -322px; }   /* the panel folds away when a ru
       <div id="rivalBar"><span class="rname"></span><span class="rhp"><span class="rhpfill"></span></span></div>
       <div id="ladder"></div>
       <div id="team"></div>
-      <div id="doors"></div>
+      <div id="roster"></div>
       <div id="stakes"></div>
       <button id="actionBtn"></button>
       <button id="skipBtn">SKIP ▸</button>
@@ -673,18 +682,40 @@ BB.config = (() => {
     grail: [2, 18, 45, 35],
   };
 
+  /* Interaction model. The run is watched, not played: packing is the only
+     choice in the design, and everything after the seal resolves itself.
+     Kept as a toggle so the alternative is a demo switch, not a second build. */
+  const interactionPresets = [
+    { id:'watch',    label:'Packing only — everything auto', resolveTaps:false, witness:'auto' },
+    { id:'ritual',   label:'Packing + WITNESS tap',          resolveTaps:false, witness:'tap'  },
+    { id:'handson',  label:'Packing + all resolve taps',     resolveTaps:true,  witness:'tap'  },
+  ];
+
+  /* The Challenger Select replaces the door. The ceremony lengthens with
+     height and nothing else — the sweep is theater over a predetermined
+     landing, so it cannot carry outcome information. */
+  const challengerSelect = {
+    scrappy: { sweepMs: 620,  hovers:0, shake:4  },
+    pro:     { sweepMs: 1150, hovers:1, shake:6  },
+    apex:    { sweepMs: 2100, hovers:2, shake:9  },
+    keeper:  { sweepMs: 0,    hovers:0, shake:0  },   // the Vault has no select
+  };
+
   const badges = [
-    { id:'first-open',    name:'First Seal',       desc:'Sealed your first box.' },
-    { id:'champions-road',name:"Champion's Road",  desc:'Chose the champion door three times in one run.' },
-    { id:'wolfpack',      name:'Wolfpack',         desc:'Chose the trio door three times in one run.' },
-    { id:'witness',       name:'Witness',          desc:'Stood before the Vault.' },
-    { id:'braced',        name:'Braced',           desc:'Tapped BRACE or BELIEVE five times.' },
+    { id:'first-open',   name:'First Seal',     desc:'Sealed your first box.' },
+    { id:'witness',      name:'Witness',        desc:'Stood before the Vault.' },
+    { id:'apex-faced',   name:'Apex Handler',   desc:'Faced three apex challengers in one run.' },
+    { id:'charm-saved',  name:'Charm Holder',   desc:'Watched a Charm hold at 1 HP.' },
+    // Only two species per element exist, so a single-element 3-pack is
+    // impossible — this asks for two, which is the real "doubled down".
+    { id:'mono-climb',   name:'Doubled Down',   desc:'Climbed past rung 4 on a pack of only two elements.' },
+    { id:'loyalist',     name:'Loyalist',       desc:'Opened ten times on one pack without re-packing.' },
   ];
 
   return { box, bands, elements, immunity, effectiveness, moves, species, colorways,
            rivals, rivalSpecies, gradeForRung, boxGradeForRung,
            timingPresets, lossDelta, rungWiden, gags, omens, bandGroup,
-           paradeApexWeights, badges };
+           paradeApexWeights, badges, interactionPresets, challengerSelect };
 })();
 
 </script>
@@ -1048,6 +1079,27 @@ BB.art = (() => {
     return `<g class="silh silh-${grade}" transform="scale(${w})"><path d="${d}" fill="#0b1526" stroke="#3d6288" stroke-width="1.6" opacity="0.96"/></g>`;
   }
 
+  /* The Challenger Select reticle — corner brackets that snap around whoever
+     the sweep is currently over. Reads instantly at a glance, sound off. */
+  function selectorBracket(){
+    return `<g class="selBracket" filter="url(#softGlow)">
+      <rect x="-48" y="-120" width="96" height="146" rx="6" fill="#f2c14e" opacity="0.10"/>
+      <path d="M -48 -102 L -48 -120 L -30 -120  M 48 -102 L 48 -120 L 30 -120
+               M -48 8 L -48 26 L -30 26        M 48 8 L 48 26 L 30 26"
+            stroke="#f2c14e" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    </g>`;
+  }
+
+  /* Roster pip: the Parade rendered small enough to live in the HUD for the
+     whole climb, so the player watches the apexes coming. */
+  function rosterPip(grade){
+    const h = grade === 'apex' ? 22 : grade === 'pro' ? 17 : 13;
+    const w = grade === 'apex' ? 13 : grade === 'pro' ? 10 : 8;
+    return `<svg viewBox="-14 -26 28 30" width="20" height="22"><g transform="scale(${w/13} ${h/22})">
+      <path d="M 0 0 L -9 0 L -8 -14 L -12 -16 L -6 -24 Q 2 -28 8 -22 L 11 -16 L 7 -14 L 9 0 Z"
+            fill="currentColor"/></g></svg>`;
+  }
+
   // -------------------------------------------------------------- the Auric
   function auric(){
     let drops='';
@@ -1123,7 +1175,8 @@ BB.art = (() => {
     return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');
   }
 
-  return { arena, creature, boxArt, fragments, silhouette, auric, fx, shade, mix };
+  return { arena, creature, boxArt, fragments, silhouette, selectorBracket, rosterPip,
+           auric, fx, shade, mix };
 })();
 
 </script>
@@ -1142,7 +1195,8 @@ BB.registry = (() => {
       stamps: {},                 // "species@rungLabel" -> count
       witness: { stormFront:0, auricTrace:0, goldMeteor:0, vaultSeen:0 },
       badges: {},                 // id -> timestamp
-      braceTaps: 0,
+      packKey: null,              // the pack the current streak is running
+      packStreak: 0,
       recentGags: [],             // anti-repeat window (cosmetic context only)
       bestPull: null,
       log: [],                    // last 40 receipts
@@ -1186,12 +1240,21 @@ BB.registry = (() => {
       grant('witness', lines);
     }
 
-    // Path badges — judged only on what was visible and decidable at the time.
+    /* Path badges. With the doors gone there are no in-run decisions left, so
+       these now judge the one choice that remains — the packing — plus what
+       the player actually witnessed. Still never the prize. */
     if (data.opens === 1) grant('first-open', lines);
-    if ((choices.championPicks||0) >= 3) grant('champions-road', lines);
-    if ((choices.trioPicks||0) >= 3) grant('wolfpack', lines);
-    data.braceTaps += (choices.braceTaps||0);
-    if (data.braceTaps >= 5) grant('braced', lines);
+    if ((choices.apexFaced || 0) >= 3) grant('apex-faced', lines);
+    if ((choices.charmSaves || 0) >= 1) grant('charm-saved', lines);
+
+    const members = plan.packSnapshot.members;
+    const els = new Set(members.map(m => BB.config.species.find(s => s.id === m.speciesId).el));
+    if (els.size <= 2 && plan.terminal > 4) grant('mono-climb', lines);
+
+    const packKey = members.map(m => m.speciesId + '.' + m.colorway).join('-');
+    if (data.packKey === packKey) data.packStreak++;
+    else { data.packKey = packKey; data.packStreak = 1; }
+    if (data.packStreak >= 10) grant('loyalist', lines);
 
     // Anti-repeat gag window (last 3).
     if (!plan.openerContinue){
@@ -1260,25 +1323,18 @@ BB.planner = (() => {
   const bandOf = mult => C.bands.find(b => mult >= b.range[0] && mult < b.range[1]);
 
   /* Pick the rival's element for a battle.
-     Wins mix favorable/neutral/counter so composition can't leak the fall;
-     losses always counter the lead and never look weak. Immunity is never
-     routed in either direction. */
-  function rivalElementFor(leadEl, isLoss, rng){
+     PILLAR 3: drawn with NO reference to whether this rung is the fall. An
+     earlier build countered the lead on every loss, which let a player read
+     "double damage against me" as "I fall here" — naming their band earlier
+     than height allows. Element is now pure flavour; the fall is delivered by
+     the script (grade, HP, the burn countdown, the deep-red finish) instead.
+     Immunity is never routed in either direction. */
+  function rivalElementFor(leadEl, rng){
     const everyday = ['ember','bramble','volt','frost'];
     const legal = everyday.filter(el =>
       !(leadEl === C.immunity.attacker && el === C.immunity.defender) &&   // player swing immune: never
       !(el === C.immunity.attacker && leadEl === C.immunity.defender));    // rival swing immune: never
-    if (isLoss){
-      const counter = beatenBy(leadEl);
-      return legal.includes(counter) ? counter : F.pick(rng, legal);
-    }
-    const counter = beatenBy(leadEl), fav = beats(leadEl);
-    const roll = rng();
-    let el = roll < 0.40 ? fav : roll < 0.75
-      ? F.pick(rng, legal.filter(e => e!==fav && e!==counter && e!==leadEl).concat(leadEl===fav?[]:[]))
-      : counter;
-    if (!el || !legal.includes(el)) el = F.pick(rng, legal);
-    return el;
+    return F.pick(rng, legal);
   }
 
   function speciesForElement(el, rng){
@@ -1288,35 +1344,36 @@ BB.planner = (() => {
 
   /* Author one battle. Mutates hp/alive state. */
   function scriptBattle(rung, isLoss, st, S, opts={}){
-    const grade = C.gradeForRung(rung);
+    // Grade comes from the Parade roster, which is a published tell. It is
+    // NOT upgraded on the fall: an earlier build promoted rung-6 losses to
+    // apex, which made "apex at rung 6" mean "I fall here".
+    const gradeKey = opts.grade || C.gradeForRung(rung);
     const aliveIdx = st.alive.map((a,i)=>a?i:null).filter(i=>i!==null);
     const leadIndex = aliveIdx[(rung - 1) % aliveIdx.length];
     const lead = st.pack.members[leadIndex];
     const leadEl = C.species.find(s=>s.id===lead.speciesId).el;
 
-    const rEl = rivalElementFor(leadEl, isLoss, S.script);
-    const useApex = isLoss && rung >= 6;          // a strong pack never falls to something that looks weak
-    const gradeKey = useApex ? 'apex' : grade;
-    const rivalHp = F.rint(S.script, ...C.rivals[gradeKey].hp);
-    const rival = {
-      name: F.pick(S.cosmetic, C.rivals[gradeKey].names),
-      grade: gradeKey,
-      el: rEl,
-      speciesId: speciesForElement(rEl, S.cosmetic),
-      hp: rivalHp,
-    };
+    /* THE CHALLENGER SELECT — replaces the door.
+       A slate of candidates of this rung's grade. Which one steps forward is
+       the reveal. The grade was already public from the roster, and every
+       candidate is the same grade, so the slate carries no new information:
+       the sweep is theatre over a landing that was fixed at the seal. */
+    const slateSize = gradeKey === 'apex' ? 5 : gradeKey === 'pro' ? 4 : 3;
+    const pool = C.rivals[gradeKey].names;
+    const seen = new Set();
+    const candidates = [];
+    for (let i = 0; i < slateSize; i++){
+      const el = rivalElementFor(leadEl, S.cosmetic);
+      let name = F.pick(S.cosmetic, pool), guard = 0;
+      while (seen.has(name) && guard++ < 10) name = F.pick(S.cosmetic, pool);
+      seen.add(name);
+      candidates.push({ name, el, grade: gradeKey, speciesId: speciesForElement(el, S.cosmetic) });
+    }
+    const chosenIndex = Math.floor(S.cosmetic() * candidates.length);
+    const chosen = candidates[chosenIndex];
+    const select = { candidates, chosenIndex, grade: gradeKey };
 
-    // Door (rung >= 2): two rivals, same matchup class; shape is the real choice.
-    const shapes = S.cosmetic() < 0.5 ? ['trio','champion'] : ['champion','trio'];
-    const door = {
-      options: shapes.map(shape => ({
-        shape,
-        name: F.pick(S.cosmetic, C.rivals[gradeKey].names),
-        speciesId: speciesForElement(rEl, S.cosmetic),
-      })),
-      autopick: S.cosmetic() < 0.5 ? 0 : 1,
-    };
-
+    const rEl = chosen.el;
     const effP = C.effectiveness(leadEl, rEl);     // player's swing
     const effR = C.effectiveness(rEl, leadEl);     // rival's swing
     const events = [];
@@ -1324,6 +1381,16 @@ BB.planner = (() => {
 
     // Player hit sizes: honest printed ranges must contain what lands.
     const loP = Math.round(14*effP), hiP = Math.round(28*effP);
+
+    /* Rival HP is derived from the matchup so the number of exchanges is a
+       function of HEIGHT ALONE. A flat HP pool would make a half-damage
+       matchup take three times as many turns, and battle length would then
+       leak the matchup — and, through it, the pacing of the run. */
+    const wantHits = rung <= 4 ? 2 : rung <= 7 ? 3 : 4;
+    const avgP = (loP + hiP) / 2;
+    const rivalHp = Math.max(24, Math.round(avgP * wantHits) + F.rint(S.script, -5, 5));
+    const rival = { name: chosen.name, grade: gradeKey, el: rEl,
+                    speciesId: chosen.speciesId, hp: rivalHp };
     function playerHit(dmg, rivalLeft, finish){
       dmg = Math.max(loP, Math.min(hiP, dmg));
       const mv = dmg > Math.round(20*effP) ? moveset[1] : moveset[0];
@@ -1350,7 +1417,6 @@ BB.planner = (() => {
 
     if (!isLoss){
       // A win: 2-4 exchanges, rival driven to zero, wear scaled by height.
-      const wantHits = rung <= 4 ? 2 : rung <= 7 ? 3 : 4;
       const minHits = Math.ceil(rivalHp / hiP), maxHits = Math.floor(rivalHp / Math.max(1,loP));
       const nHits = Math.max(minHits, Math.min(wantHits, Math.max(minHits, maxHits)));
       let left = rivalHp;
@@ -1388,7 +1454,7 @@ BB.planner = (() => {
       if (left > 0){ // safety: land the finisher regardless
         playerHit(Math.min(left, hiP), 0, true);
       }
-      return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, door,
+      return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, select,
                leadIndex, win: true, events };
     }
 
@@ -1431,7 +1497,7 @@ BB.planner = (() => {
         events.push({ t:'swap', toIndex: alive[0] });
       }
     }
-    return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, door,
+    return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, select,
              leadIndex, win: false, events, deepRedLeft: left };
   }
 
@@ -1454,15 +1520,26 @@ BB.planner = (() => {
     const vaultLoss = terminal === 10 && !vaultWin;
     const group = C.bandGroup(band.i);
 
-    // Parade: dealt after the seal, apex count at published rates.
+    /* THE PARADE — dealt after the seal, and now a persistent roster rather
+       than a one-second flash, because it is the spine of the anticipation:
+       the player watches it deplete for the whole climb.
+       Baseline grade is a pure function of height. The tell is how many APEX
+       challengers appear EARLY (rungs 3-6) — the anomaly a player can
+       actually spot — and that count correlates with band at the published
+       rates shown in the setup panel. */
     const w = C.paradeApexWeights[group];
-    const apexCount = F.weighted(S.tells, w.map((weight,i)=>({weight, n:i}))).n;
+    const earlyApex = F.weighted(S.tells, w.map((weight,i)=>({weight, n:i}))).n;
     const paradeGrades = [];
-    for (let r = 2; r <= 9; r++) paradeGrades.push(C.gradeForRung(r) === 'apex' ? 'apex' : C.gradeForRung(r));
-    // upgrade the tail with apexCount apexes (positions from the tells stream)
-    const tail = [4,5,6,7]; // indices of rungs 6-9 in paradeGrades
-    let ups = apexCount;
-    for (const i of tail){ if (ups > 0 && S.tells() < 0.8){ paradeGrades[i] = 'apex'; ups--; } }
+    for (let r = 2; r <= 9; r++) paradeGrades.push(C.gradeForRung(r));
+    const earlySlots = [1,2,3,4];               // indices of rungs 3,4,5,6
+    let ups = earlyApex;
+    while (ups > 0 && earlySlots.length){
+      const k = Math.floor(S.tells() * earlySlots.length);
+      paradeGrades[earlySlots[k]] = 'apex';
+      earlySlots.splice(k, 1);
+      ups--;
+    }
+    const apexCount = paradeGrades.filter(g => g === 'apex').length;
 
     // Omens: fire at published rates; timing drawn blind to run length.
     const omens = [];
@@ -1501,8 +1578,9 @@ BB.planner = (() => {
           (vaultLoss && (r === 6 || r === 8)) ||
           (vaultWin && r === 6);
         battles.push(scriptBattle(r, isLoss, st, S, {
+          grade: paradeGrades[r - 2],   // the roster IS the schedule of grades
           benchFaintHere,
-          charmOk: !vaultWin,          // the grail keeps the Charm for the Auric
+          charmOk: !vaultWin,           // the grail keeps the Charm for the Auric
         }));
       }
     }
@@ -1539,7 +1617,7 @@ BB.planner = (() => {
       terminal, vaultWin, vaultLoss,
       openerContinue: terminal >= 2,
       openerRival, gag,
-      parade: { grades: paradeGrades, apexCount },
+      parade: { grades: paradeGrades, apexCount, earlyApex },
       omens, battles, vault,
       packSnapshot: JSON.parse(JSON.stringify(pack)),
     };
@@ -1681,6 +1759,28 @@ BB.present = (() => {
     chip.querySelector('.hpfill').classList.toggle('low', hp <= 30);
     chip.classList.toggle('ko', !!ko);
   }
+  /* THE ROSTER — the Parade made persistent instead of a one-second flash.
+     This is the long arc of the anticipation: the apexes waiting up the
+     ladder are visible from the first second, and the line visibly depletes
+     as the player climbs. It shows grades only, which are already published
+     (height baseline + the Parade's published early-apex correlation). */
+  function buildRoster(plan){
+    const r = st.hud.roster;
+    if (!r) return;
+    r.innerHTML = plan.parade.grades.map((g, i) =>
+      `<span class="pip g-${g}" data-rung="${i + 2}" title="Rung ${i + 2} · ${C.rivals[g].label}">${A.rosterPip(g)}</span>`
+    ).join('') + `<span class="pip g-keeper" data-rung="10" title="The Vault">◈</span>`;
+  }
+  function rosterMark(rung, cls){
+    const r = st.hud.roster;
+    if (!r) return;
+    if (cls === 'current') r.querySelectorAll('.pip').forEach(x => x.classList.remove('current'));
+    const p = r.querySelector(`.pip[data-rung="${rung}"]`);
+    if (!p) return;
+    if (cls !== 'current') p.classList.remove('current');
+    p.classList.add(cls);
+  }
+
   function rivalBar(show, name, grade, hpPct){
     const rb = st.hud.rival;
     rb.classList.toggle('shown', show);
@@ -1939,28 +2039,114 @@ BB.present = (() => {
   }
 
   // ------------------------------------------------------------- battles
-  async function sceneDoor(battle, rung){
-    const doors = st.hud.doors;
-    const opts = battle.door.options;
-    doors.innerHTML = opts.map((o, i) => `
-      <button class="doorCard" data-i="${i}">
-        <span class="doorGrade">${C.rivals[battle.grade].label.toUpperCase()} HANDLER</span>
-        <span class="doorName">${o.name}</span>
-        <span class="doorShape">${o.shape === 'champion' ? '☗ One champion' : '☗☗☗ Three lesser'}</span>
-      </button>`).join('');
-    doors.classList.add('shown');
-    stakes('Two doors. Same class of matchup behind each — shape is the real choice.');
-    const picked = await new Promise(res => {
-      let done = false;
-      const finish = i => { if (done) return; done = true; doors.classList.remove('shown'); res(i); };
-      doors.querySelectorAll('.doorCard').forEach(b => b.addEventListener('click', () => finish(+b.dataset.i)));
-      offerTap('PICK YOUR ROAD', { timeout: st.turbo ? 300 : 3800 }).then(r => {
-        finish(battle.door.autopick);
-      });
+  /* The order the reticle visits candidates: two full loops, a final approach
+     to the winner, then `hovers` near-misses that overshoot and come back.
+     Always terminates on the chosen index. */
+  function sweepSchedule(n, chosen, hovers){
+    const seq = [];
+    for (let loop = 0; loop < 2; loop++) for (let i = 0; i < n; i++) seq.push(i);
+    for (let i = 0; i <= chosen; i++) seq.push(i);
+    for (let h = 0; h < hovers; h++){ seq.push((chosen + 1) % n); seq.push(chosen); }
+    return seq;
+  }
+
+  /* THE CHALLENGER SELECT — the anticipation beat that replaced the door.
+     Every candidate on the slate is the same grade, and that grade was
+     already public from the roster, so the sweep cannot let a player name
+     their band any earlier than height allows. Its entire job is to make the
+     landing feel earned. Ceremony scales with HEIGHT alone — a rung-2 select
+     is a flash, a rung-9 select is an event — never with whether this rung
+     is the fall. */
+  async function sceneChallengerSelect(battle, widen){
+    const sel = battle.select;
+    const cfg = C.challengerSelect[sel.grade] || C.challengerSelect.scrappy;
+    if (!cfg.sweepMs || st.skipping) return;
+
+    const n = sel.candidates.length;
+    const spread = Math.min(140, 660 / n);
+    const x0 = 480 - ((n - 1) * spread) / 2;
+    const SY = 402;             // above the floor line, clear of the team HUD
+
+    // a scrim over the whole frame so the slate reads against the arena,
+    // without touching the tone dial's dimmer that the fall scenes own
+    const scrim = addActor('#fxLayer',
+      `<g class="pos"><g class="anim"><rect x="0" y="0" width="960" height="540" fill="#02060f"/></g></g>`, 0, 0);
+    animEl(scrim).style.opacity = '0';
+    anim(animEl(scrim), [{ opacity: 0 }, { opacity: 0.44 }], scale(220));
+
+    /* Candidates get deterministic scale/facing jitter so a slate reads as
+       five individuals rather than five copies of one shape. Derived from the
+       index alone, so it stays replayable and carries nothing. */
+    const nodes = sel.candidates.map((cand, i) => {
+      const jitter = 0.92 + ((i * 7) % 5) * 0.035;
+      const flip = (i % 2) ? ' scaleX(-1)' : '';
+      const g = addActor('#fxLayer',
+        `<g class="pos slateCand"><g class="anim">${A.silhouette(cand.grade)}</g></g>`,
+        x0 + i * spread, SY);
+      animEl(g).style.transform = `scale(${jitter.toFixed(3)})${flip}`;
+      g.style.opacity = '0.26';
+      return g;
     });
-    const shape = opts[picked].shape;
-    if (shape === 'champion') st.result.championPicks++; else st.result.trioPicks++;
-    battle.chosen = opts[picked];
+    const reticle = addActor('#fxLayer',
+      `<g class="pos"><g class="anim">${A.selectorBracket()}</g></g>`, x0, SY);
+
+    banner(sel.grade === 'apex' ? 'AN APEX ANSWERS' : 'NEXT CHALLENGER',
+           sel.grade === 'apex' ? 'bad' : 'sub', 1000);
+    stakes('The ladder picks your next fight.');
+
+    const seq = sweepSchedule(n, sel.chosenIndex, cfg.hovers);
+    const weights = seq.map((_, i) => Math.pow((i + 1) / seq.length, 2.3));
+    const wSum = weights.reduce((a, b) => a + b, 0);
+    const total = scale(cfg.sweepMs, widen);
+
+    /* Driven by ONE rAF timeline rather than a chain of ~17 setTimeouts.
+       Chained timers drift on a slow device, and a backgrounded tab clamps
+       each one to a second or more, which stalled the whole run. */
+    const bounds = [];
+    let acc = 0;
+    for (let s = 0; s < seq.length; s++){ acc += total * weights[s] / wSum; bounds.push(acc); }
+    const paint = i => {
+      reticle.style.transform = `translate(${x0 + i * spread}px, ${SY}px)`;
+      nodes.forEach((nd, j) => nd.style.opacity = j === i ? '1' : '0.26');
+    };
+    await new Promise(resolve => {
+      const t0 = performance.now();
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        paint(sel.chosenIndex);
+        resolve();
+      };
+      const frame = now => {
+        if (settled) return;
+        const elapsed = now - t0;
+        if (elapsed >= total) return finish();
+        let k = 0;
+        while (k < bounds.length - 1 && elapsed > bounds[k]) k++;
+        paint(seq[k]);
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+      setTimeout(finish, total + 400);   // rAF is paused in hidden tabs; never hang a run
+    });
+
+    // the lock
+    shake(cfg.shake, 260);
+    fxAt(A.fx.impact(), x0 + sel.chosenIndex * spread, SY - 46, 700);
+    nodes.forEach((nd, j) => {
+      if (j !== sel.chosenIndex) anim(nd, [{ opacity: 0.26 }, { opacity: 0 }], scale(300));
+    });
+    const winEl = animEl(nodes[sel.chosenIndex]);
+    const base = winEl.style.transform;            // keep the candidate's jitter
+    await anim(winEl, [
+      { transform: base }, { transform: base + ' scale(1.28)' },
+    ], scale(260), { easing: 'cubic-bezier(.2,1.5,.5,1)' });
+    await wait(scale(200, widen));
+    await anim(animEl(scrim), [{ opacity: 0.42 }, { opacity: 0 }], scale(240));
+    nodes.forEach(nd => nd.remove());
+    reticle.remove();
+    scrim.remove();
     stakes('');
   }
 
@@ -1968,12 +2154,14 @@ BB.present = (() => {
     const widen = C.rungWiden(battle.rung);
     ladderCurrent(battle.rung);
 
+    clearLayer('#fxLayer');
+    removeActor('rivalBox'); removeActor('rival'); removeActor('rt1'); removeActor('rt2');
+
     for (const o of plan.omens) if (o.beforeRung === battle.rung) await playOmen(o.id);
-    if (battle.rung >= 2) await sceneDoor(battle, battle.rung);
+    if (battle.rung >= 2) await sceneChallengerSelect(battle, widen);
+    rosterMark(battle.rung, 'current');
 
     // the rival's box drops — this loop's setup, the last loop's reward
-    clearLayer('#fxLayer');
-    removeActor('rivalBox'); removeActor('rival');
     const rbox = addActor('#actorLayer', A.boxArt(battle.boxGrade), RX, GY-240);
     st.actors.rivalBox = rbox;
     await anim(rbox, [{ transform:`translate(${RX}px, ${GY-240}px)` }, { transform:`translate(${RX}px, ${GY}px)` }],
@@ -1982,24 +2170,25 @@ BB.present = (() => {
     shake(6 + Math.min(4, battle.rung), 200);
     fxAt(A.fx.dustRing(), RX, GY+4, 800);
 
-    const chosen = battle.chosen || battle.door.options[0];
+    const chosen = battle.select.candidates[battle.select.chosenIndex];
     banner(`${chosen.name}`, 'rival', 1200);
     await wait(scale(420, widen));
 
-    // emerge
+    // emerge — escorts are derived from the plan, so they stay deterministic
     rbox.remove(); delete st.actors.rivalBox;
-    const shape = chosen.shape || 'champion';
+    const escorted = battle.grade !== 'apex' && battle.select.chosenIndex % 2 === 0;
     const rTint = battle.grade === 'apex' ? '#6b5b8c' : battle.grade === 'pro' ? '#7d8ca0' : '#98a5b5';
     const rC = addActor('#actorLayer', A.creature(battle.rival.speciesId, { tint: rTint }), RX, GY, true);
     st.actors.rival = rC;
     if (battle.grade === 'apex') rC.style.transform += ' scale(1.22)';
-    if (shape === 'trio'){
+    if (escorted){
       st.actors.rt1 = addActor('#actorLayer', A.creature(chosen.speciesId, {tint:rTint}), RX+74, GY-8, true);
       st.actors.rt2 = addActor('#actorLayer', A.creature(chosen.speciesId, {tint:rTint}), RX+40, GY+16, true);
       [st.actors.rt1, st.actors.rt2].forEach(n => n.style.transform += ' scale(0.62)');
     }
     setEx(rC, 'fierce');
     rivalBar(true, chosen.name, battle.grade, 1);
+    if (battle.grade === 'apex') st.result.apexFaced++;
 
     // make sure the right player creature is on the floor
     await ensureLead(plan, battle.leadIndex);
@@ -2011,7 +2200,12 @@ BB.present = (() => {
       if (ev.t === 'pHit'){
         const atkName = C.species.find(s=>s.id===plan.packSnapshot.members[ev.who].speciesId).name;
         stakes(`${atkName} · ${ev.move} — should land ${ev.range[0]}–${ev.range[1]}${ev.eff===2?' (double)':ev.eff===0.5?' (half)':''} · Rival ${ev.rivalHpAfter + ev.dmg} HP`);
-        if (ev.finish && battle.rung >= 3) await offerTap('FINISH IT', { timeout: 1900 });
+        // The pause before the killing blow. With taps off the anticipation
+        // still gets its beat — it just stops asking the player for anything.
+        if (ev.finish && battle.rung >= 3){
+          if (st.interaction.resolveTaps) await offerTap('FINISH IT', { timeout: 1900 });
+          else await wait(scale(300, widen));
+        }
         const pc = st.actors.player;
         await anim(animEl(pc), [
           { transform:'translateX(0)' }, { transform:`translateX(${RX-PX-130}px)` }, { transform:'translateX(0)' },
@@ -2033,11 +2227,14 @@ BB.present = (() => {
       else if (ev.t === 'rHit'){
         stakes(`${chosen.name} winds up${ev.heavy ? ' — it looks heavy' : ''}…`);
         if (ev.heavy){
-          // Label derives from VISIBLE state only (the charm is shown on the
-          // collar before the run) — never from whether this hit is the fall.
-          const label = (ev.target === plan.packSnapshot.charmIndex && !st.charmSpent) ? 'BELIEVE' : 'BRACE';
-          const r = await offerTap(label, { timeout: 1700 });
-          if (r.tapped) st.result.braceTaps++;
+          if (st.interaction.resolveTaps){
+            // Label derives from VISIBLE state only (the charm is shown on the
+            // collar before the run) — never from whether this hit is the fall.
+            const label = (ev.target === plan.packSnapshot.charmIndex && !st.charmSpent) ? 'BELIEVE' : 'BRACE';
+            await offerTap(label, { timeout: 1700 });
+          } else {
+            await wait(scale(260, widen));   // the wind-up gets its air
+          }
         }
         const rv = st.actors.rival;
         if (rv) await anim(animEl(rv), [
@@ -2049,6 +2246,7 @@ BB.present = (() => {
         const pc = st.actors.player;
         if (ev.charm){
           st.charmSpent = true;
+          st.result.charmSaves++;
           fxAt(A.fx.charmFlare(), PX, GY-60, 1500);
           banner('THE CHARM HOLDS — 1 HP', 'gold', 1400);
           setEx(pc, 'fierce');
@@ -2099,6 +2297,7 @@ BB.present = (() => {
       removeActor('rt1'); removeActor('rt2');
       rivalBar(false);
       ladderMark(battle.rung, 'won');
+      rosterMark(battle.rung, 'done');
       banner(`RUNG ${battle.rung} — TAKEN`, 'good', 900);
       await wait(scale(330, widen));
       return true;
@@ -2134,6 +2333,7 @@ BB.present = (() => {
   async function sceneVault(plan){
     const v = plan.vault;
     ladderCurrent(10);
+    rosterMark(10, 'current');
     clearLayer('#fxLayer');
     removeActor('rival'); removeActor('rt1'); removeActor('rt2');
     rivalBar(false);
@@ -2167,8 +2367,16 @@ BB.present = (() => {
     }
 
     await ensureLead(plan, v.witnessIndex);
-    stakes('One tap. The crack tells the truth.');
-    await offerTap('WITNESS', { mandatory: true, gold: true });
+    if (st.interaction.witness === 'tap'){
+      stakes('One tap. The crack tells the truth.');
+      await offerTap('WITNESS', { mandatory: true, gold: true });
+    } else {
+      // Auto: the ritual keeps its held beat, it just fires itself, so a run
+      // start to finish still needs no input at all.
+      banner('WITNESS', 'gold big', 1500);
+      stakes('The crack tells the truth.');
+      await wait(scale(1200));
+    }
     stakes('');
 
     // the strike — after nine rungs of your things being struck, this box is theirs
@@ -2297,12 +2505,13 @@ BB.present = (() => {
     st.turbo = !!opts.turbo;
     st.skipping = false;
     st.preset = C.timingPresets.find(p=>p.id === (opts.presetId || '3.0')) || C.timingPresets[1];
-    st.result = { omensSeen:[], championPicks:0, trioPicks:0, braceTaps:0 };
+    st.interaction = C.interactionPresets.find(p=>p.id === (opts.interactionId || 'watch')) || C.interactionPresets[0];
+    st.result = { omensSeen:[], apexFaced:0, charmSaves:0 };
     st.charmSpent = false;
     clearLayer('#actorLayer'); clearLayer('#fxLayer'); clearLayer('#farLayer');
     q('#dimmer').setAttribute('opacity', 0);
     q('#sky').setAttribute('fill','url(#skyGrad)');
-    buildLadder(); buildTeam(plan.packSnapshot);
+    buildLadder(); buildTeam(plan.packSnapshot); buildRoster(plan);
     hideTap(); stakes('');
     st.hud.skip.classList.add('shown');
 
@@ -2349,6 +2558,7 @@ window.BB = window.BB || {};
     pack: null,
     nonce: '',
     presetId: '3.0',
+    interactionId: 'watch',
     turbo: false,
     forcedBand: null,
     running: false,
@@ -2388,12 +2598,19 @@ window.BB = window.BB || {};
       </section>
       <section>
         <h3>Published tells</h3>
-        <p class="tiny"><b>Height</b> never misleads. <b>The Parade</b>: apex silhouettes correlate with band (low ${pct(C.paradeApexWeights.low)} · high ${pct(C.paradeApexWeights.high)} chance of 2+). <b>Storm Front</b> fires on ${(om.stormFront.rates.low*100)}% of low runs, ${(om.stormFront.rates.high*100)}% of high. <b>Auric Trace</b>: ${(om.auricTrace.rates.low*100)}% low → ${(om.auricTrace.rates.grail*100)}% grail. <b>Gold Meteor</b>: Vault only, conclusive, never false.</p>
+        <p class="tiny"><b>Height</b> never misleads. <b>The Parade</b> is the roster along the top: an apex appearing <i>early</i> (rungs 3–6) correlates with band — ${pct(C.paradeApexWeights.low)} of low runs show 2+, versus ${pct(C.paradeApexWeights.high)} of high ones. <b>Storm Front</b> fires on ${(om.stormFront.rates.low*100)}% of low runs, ${(om.stormFront.rates.high*100)}% of high. <b>Auric Trace</b>: ${(om.auricTrace.rates.low*100)}% low → ${(om.auricTrace.rates.grail*100)}% grail. <b>Gold Meteor</b>: Vault only, conclusive, never false.</p>
+      </section>
+      <section>
+        <h3>Your only choice</h3>
+        <p class="tiny">Packing is the whole of it. Once the box seals, the run plays itself — the ladder picks each challenger and every blow resolves without you. The Challenger Select is a reveal, never a decision: every candidate on the slate is the same grade, and that grade was already on the roster before the sweep started.</p>
       </section>
       <section>
         <h3>Rig controls</h3>
         <label>Opener preset
           <select id="presetSel">${C.timingPresets.map(p=>`<option value="${p.id}" ${p.id===session.presetId?'selected':''}>${p.label}</option>`).join('')}</select>
+        </label>
+        <label>Interaction
+          <select id="interSel">${C.interactionPresets.map(p=>`<option value="${p.id}" ${p.id===session.interactionId?'selected':''}>${p.label}</option>`).join('')}</select>
         </label>
         <label>Force outcome (demo)
           <select id="forceSel">
@@ -2405,6 +2622,7 @@ window.BB = window.BB || {};
         <button id="newSeedBtn" class="ghost">New server seed</button>
       </section>`;
     $('presetSel').onchange = e => session.presetId = e.target.value;
+    $('interSel').onchange = e => session.interactionId = e.target.value;
     $('forceSel').onchange = e => session.forcedBand = e.target.value === '' ? null : +e.target.value;
     $('turboChk').onchange = e => session.turbo = e.target.checked;
     $('newSeedBtn').onclick = () => {
@@ -2495,7 +2713,9 @@ window.BB = window.BB || {};
       });
       session.openIndex++;
     }
-    const result = await BB.present.playRun(plan, { turbo: session.turbo, presetId: session.presetId });
+    const result = await BB.present.playRun(plan, {
+      turbo: session.turbo, presetId: session.presetId, interactionId: session.interactionId,
+    });
     let regLines = [];
     if (bank && !plan.demo) regLines = BB.registry.bank(plan, result);
     else if (bank && plan.demo) regLines = ['Demo draw — nothing banked.'];
@@ -2576,7 +2796,7 @@ window.BB = window.BB || {};
       const rb = row.querySelector('.lreplay');
       rb.style.visibility = 'visible';
       rb.onclick = () => { $('stableOverlay').classList.remove('shown'); startRun(p, false); };
-      if (!p.demo) BB.registry.bank(p, { omensSeen: [], championPicks:0, trioPicks:0, braceTaps:0 });
+      if (!p.demo) BB.registry.bank(p, { omensSeen: [], apexFaced: 0, charmSaves: 0 });
       if (!best || p.item.value > best.item.value) best = p;
     }
     const spend = C.box.price*N, ret = plans.reduce((s,p)=>s+p.item.value,0);
@@ -2626,7 +2846,7 @@ window.BB = window.BB || {};
   BB.present.mount($('stage'), {
     action: $('actionBtn'), stakes: $('stakes'), banner: $('banner'),
     ladder: $('ladder'), team: $('team'), rival: $('rivalBar'),
-    doors: $('doors'), fxHtml: $('fxHtml'), skip: $('skipBtn'),
+    roster: $('roster'), fxHtml: $('fxHtml'), skip: $('skipBtn'),
   });
   renderSetup();
   openPacking();
