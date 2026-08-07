@@ -1,0 +1,2637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boxlings Battle — Glacier Vault Box</title>
+<style>
+/* Boxlings Battle — glacial theme */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #070d1c; --panel: #0d1830; --panel2: #122142; --line: #22355c;
+  --ink: #d7e4f2; --dim: #7f93b0; --gold: #f2c14e; --goldHi: #ffe9a3;
+  --bad: #e8654c; --good: #5fd68a; --accent: #6fb7ff;
+  font-size: 15px;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+}
+button { font: inherit; cursor: pointer; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: Consolas, monospace; word-break: break-all; }
+.tiny { font-size: 0.78rem; color: var(--dim); line-height: 1.45; }
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ---------------- topbar ---------------- */
+#topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.logo { font-weight: 800; letter-spacing: 2px; font-size: 1.05rem; }
+.logo em { color: var(--gold); font-style: normal; }
+.boxname { color: var(--dim); font-size: 0.85rem; }
+.spacer { flex: 1; }
+.ghost {
+  background: none; border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 12px; color: var(--dim); font-size: 0.82rem;
+}
+.ghost:hover { color: var(--ink); border-color: var(--accent); }
+
+/* ---------------- layout ---------------- */
+#layout { flex: 1; display: flex; min-height: 0; }
+#setup {
+  width: 322px; min-width: 322px; overflow-y: auto;
+  background: var(--panel); border-right: 1px solid var(--line);
+  padding: 14px; transition: margin-left 0.5s ease;
+}
+body.running #setup { margin-left: -322px; }   /* the panel folds away when a run starts */
+#setup section { margin-bottom: 18px; }
+#setup h3 {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1.4px;
+  color: var(--gold); margin-bottom: 7px;
+}
+#setup label { display: block; font-size: 0.82rem; color: var(--dim); margin: 7px 0; }
+#setup label.row { display: flex; gap: 8px; align-items: center; }
+#setup select { width: 100%; margin-top: 3px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px; }
+#setup details summary { cursor: pointer; color: var(--accent); font-size: 0.82rem; margin: 4px 0; }
+.dropT { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.dropT th { text-align: left; color: var(--dim); font-weight: 600; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.dropT td { padding: 3px 4px; border-bottom: 1px solid #16233f; }
+.dropT td.num { text-align: right; white-space: nowrap; }
+
+/* ---------------- stage ---------------- */
+#stageWrap { flex: 1; position: relative; min-width: 0; background: #050a16; }
+#stage, #stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#fxHtml { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+.dmgPop {
+  position: absolute; font-weight: 800; font-size: 1.5rem; pointer-events: none;
+  text-shadow: 0 2px 6px #000; animation: popRise 1.05s ease-out forwards;
+}
+.dmgPop.gold { color: var(--goldHi); }
+.dmgPop.red { color: var(--bad); }
+.dmgPop.burn { color: #ff8a4d; font-size: 1rem; }
+@keyframes popRise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  18% { transform: translateY(-8px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-52px) scale(1); opacity: 0; }
+}
+
+#banner {
+  position: absolute; top: 12%; left: 0; right: 0; text-align: center;
+  font-weight: 800; font-size: 2rem; letter-spacing: 3px; pointer-events: none;
+  opacity: 0; transition: opacity 0.22s, transform 0.22s; transform: translateY(-8px) scale(0.96);
+  text-shadow: 0 3px 14px #000;
+}
+#banner.shown { opacity: 1; transform: none; }
+#banner.sub { font-size: 1.1rem; color: var(--dim); letter-spacing: 4px; }
+#banner.good { color: var(--good); }
+#banner.bad { color: var(--bad); }
+#banner.gold { color: var(--gold); }
+#banner.omen { color: var(--accent); font-size: 1.3rem; }
+#banner.omen.gold { color: var(--gold); }
+#banner.rival { color: var(--ink); font-size: 1.3rem; }
+#banner.big { font-size: 3.2rem; }
+
+#rivalBar {
+  position: absolute; top: 14px; right: 74px; width: 300px;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+#rivalBar.shown { opacity: 1; }
+#rivalBar .rname { display: block; font-size: 0.8rem; letter-spacing: 1px; color: var(--dim); margin-bottom: 4px; text-align: right; }
+#rivalBar .rhp { display: block; height: 10px; background: #0a1224; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#rivalBar .rhpfill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #d8564c, #e8907a); transition: width 0.35s; }
+#rivalBar .rhpfill.deep { background: #7a1f16; }
+
+/* the ladder — height reads at a glance */
+#ladder {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 5px;
+}
+.rung {
+  width: 44px; height: 30px; border-radius: 6px; border: 1px solid var(--line);
+  background: #0a1428cc; display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; color: var(--dim); position: relative; transition: all 0.3s;
+}
+.rung .rn { font-weight: 700; }
+.rung.g-crate { border-color: #7a5426; }
+.rung.g-steel { border-color: #8494a6; }
+.rung.g-gilded { border-color: var(--gold); }
+.rung.g-vault { border-color: var(--gold); box-shadow: 0 0 8px #f2c14e44; height: 38px; }
+.rung.current { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 10px #6fb7ff66; animation: pulse 1.2s infinite; }
+.rung.won { background: #1d3a2acc; border-color: var(--good); color: var(--good); }
+.rung.lost { background: #3a1d1dcc; border-color: var(--bad); color: var(--bad); }
+@keyframes pulse { 50% { box-shadow: 0 0 16px #6fb7ffaa; } }
+
+/* team chips */
+#team { position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.chip {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+  background: #0a1428cc; border: 1px solid var(--line); border-radius: 8px; min-width: 190px;
+  transition: opacity 0.3s;
+}
+.chip.ko { opacity: 0.4; filter: grayscale(1); }
+.chip .dot { width: 14px; height: 14px; border-radius: 50%; }
+.chip .cname { font-size: 0.8rem; flex: 1; white-space: nowrap; }
+.chip .charm { color: var(--gold); }
+.chip .hpbar { width: 64px; height: 7px; background: #0a1224; border-radius: 4px; overflow: hidden; }
+.chip .hpfill { display: block; height: 100%; background: var(--good); transition: width 0.35s; }
+.chip .hpfill.low { background: var(--bad); }
+
+/* stakes + taps */
+#stakes {
+  position: absolute; bottom: 76px; left: 0; right: 0; text-align: center;
+  font-size: 0.88rem; color: var(--dim); pointer-events: none; text-shadow: 0 2px 6px #000;
+  min-height: 1.2em;
+}
+#actionBtn {
+  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%) scale(0.9);
+  padding: 12px 44px; font-size: 1.05rem; font-weight: 800; letter-spacing: 2px;
+  background: linear-gradient(180deg, #2a4a7d, #1b3157); color: var(--ink);
+  border: 1px solid var(--accent); border-radius: 10px; opacity: 0; pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s; box-shadow: 0 4px 18px #0009;
+}
+#actionBtn.shown { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
+#actionBtn.gold { background: linear-gradient(180deg, #b8860b, #7d5b06); border-color: var(--gold); color: #fff8dd; }
+#actionBtn:active { transform: translateX(-50%) scale(0.97); }
+#skipBtn {
+  position: absolute; top: 14px; right: 14px; opacity: 0; pointer-events: none;
+  background: none; border: 1px solid var(--line); color: var(--dim);
+  border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; transition: opacity 0.2s;
+}
+#skipBtn.shown { opacity: 1; pointer-events: auto; }
+
+/* doors */
+#doors {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 26px;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s; background: #050a16aa;
+}
+#doors.shown { opacity: 1; pointer-events: auto; }
+.doorCard {
+  width: 220px; padding: 20px 18px; border-radius: 12px;
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; text-align: left;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.doorCard:hover { transform: translateY(-4px); border-color: var(--gold); }
+.doorGrade { font-size: 0.68rem; letter-spacing: 1.6px; color: var(--dim); }
+.doorName { font-size: 1.05rem; font-weight: 700; }
+.doorShape { font-size: 0.85rem; color: var(--accent); }
+
+/* ---------------- overlays ---------------- */
+.overlay {
+  position: fixed; inset: 0; background: #04081299; backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 20;
+}
+.overlay.shown { opacity: 1; pointer-events: auto; }
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 22px 26px; max-height: 88vh; overflow-y: auto; box-shadow: 0 12px 50px #000a;
+}
+.panel h2 { font-size: 1.15rem; letter-spacing: 1px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.panel h2 .x { margin-left: auto; background: none; border: none; color: var(--dim); font-size: 1rem; }
+.panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.3px; color: var(--gold); margin: 14px 0 7px; }
+.big {
+  padding: 11px 34px; font-weight: 800; letter-spacing: 2px; font-size: 1rem;
+  background: linear-gradient(180deg, #b8860b, #7d5b06); color: #fff8dd;
+  border: 1px solid var(--gold); border-radius: 10px;
+}
+.big:disabled { filter: grayscale(1) brightness(0.6); cursor: default; }
+.btnRow { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+
+/* packing */
+.packPanel { width: 720px; max-width: 94vw; }
+#packGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 8px; }
+.packCard {
+  position: relative; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.packCard:hover { transform: translateY(-3px); }
+.packCard.sel { border-color: var(--gold); box-shadow: 0 0 12px #f2c14e33; }
+.slotNo {
+  position: absolute; top: 7px; left: 9px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--gold); color: #221a04; font-weight: 800; font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.packCard:not(.sel) .slotNo { display: none; }
+.cardArt { width: 104px; height: 104px; }
+.pcName { font-weight: 700; }
+.pcEl { font-size: 0.72rem; letter-spacing: 1.6px; text-transform: uppercase; }
+.pcBlurb { font-size: 0.7rem; color: var(--dim); text-align: center; min-height: 2.1em; }
+.cwRow { display: flex; gap: 6px; margin-top: 5px; }
+.sw { width: 15px; height: 15px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.sw.on { border-color: var(--ink); }
+.packFoot { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+#nonceInput {
+  flex: 1; background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px; padding: 9px 12px; font-family: Consolas, monospace; font-size: 0.85rem;
+}
+#packOverlay.sealing .packPanel { animation: sealSnap 0.5s ease-in forwards; }
+@keyframes sealSnap {
+  60% { transform: scale(1.01); }
+  100% { transform: scale(0.1) rotate(2deg); opacity: 0; }
+}
+
+/* receipt */
+.receiptPanel { width: 440px; max-width: 92vw; }
+.receiptPanel h2 { color: var(--dim); text-transform: uppercase; letter-spacing: 2px; font-size: 0.95rem; }
+.receiptPanel h2.winH { color: var(--good); }
+.endLine { margin: 4px 0 14px; color: var(--ink); font-size: 1.02rem; }
+.rrow { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px solid #16233f; font-size: 0.92rem; }
+.rrow.item span:first-child { color: var(--goldHi); }
+.rrow.winRow { color: var(--good); font-weight: 700; }
+.regLines { margin-top: 12px; }
+.regLine { font-size: 0.82rem; color: var(--gold); padding: 2px 0; }
+.verify { margin-top: 14px; }
+.verify summary { cursor: pointer; color: var(--accent); font-size: 0.82rem; }
+.demoTag { background: #3a2a10; border: 1px solid var(--gold); color: var(--gold); border-radius: 7px; padding: 5px 10px; font-size: 0.75rem; margin-bottom: 12px; }
+
+/* registry */
+.registryPanel { width: 560px; max-width: 94vw; }
+.rstats { display: flex; gap: 12px; margin: 8px 0; }
+.rstats div { flex: 1; background: var(--panel2); border-radius: 10px; padding: 10px; text-align: center; }
+.rstats b { display: block; font-size: 1.15rem; }
+.rstats span { font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+.wcards { display: flex; flex-wrap: wrap; gap: 8px; }
+.wcard {
+  padding: 8px 13px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel2);
+  font-size: 0.82rem; color: var(--dim); display: flex; gap: 8px; align-items: center;
+}
+.wcard.have { color: var(--ink); border-color: var(--accent); }
+.wcard.gold.have, .wcard.gold b { color: var(--gold); }
+.wcard.gold.have { border-color: var(--gold); box-shadow: 0 0 10px #f2c14e44; }
+.stamps { max-height: 180px; overflow-y: auto; }
+.stamp { font-size: 0.82rem; padding: 3px 0; color: var(--ink); }
+#regReset { margin-top: 14px; }
+
+/* stable */
+.stablePanel { width: 640px; max-width: 94vw; }
+.ledger { margin: 10px 0; }
+.lrow {
+  display: flex; align-items: center; gap: 12px; padding: 7px 6px;
+  border-bottom: 1px solid #16233f; font-size: 0.88rem;
+}
+.lno { color: var(--dim); width: 42px; }
+.lstate { width: 60px; letter-spacing: 1px; color: var(--dim); }
+.lstate.good { color: var(--good); }
+.lstate.meh { color: var(--bad); }
+.lend { flex: 1; }
+.lval { width: 76px; text-align: right; }
+.lval.good { color: var(--good); font-weight: 700; }
+.lbest { margin-top: 12px; padding: 12px; background: var(--panel2); border-radius: 10px; border: 1px solid var(--gold); }
+
+/* ---------------- svg animation bits ---------------- */
+.snowflake { animation: snowfall linear infinite; }
+@keyframes snowfall {
+  from { transform: translateY(0); }
+  to { transform: translateY(560px); }
+}
+.aurora { animation: auroraDrift 14s ease-in-out infinite alternate; }
+.aurora.a2 { animation-duration: 19s; animation-delay: -6s; }
+@keyframes auroraDrift {
+  from { transform: translateX(-30px); opacity: 0.75; }
+  to { transform: translateX(30px); opacity: 1; }
+}
+.creature .exv { display: none; }
+.creature[data-ex="normal"] .exv-normal,
+.creature[data-ex="worried"] .exv-worried,
+.creature[data-ex="fierce"] .exv-fierce,
+.creature[data-ex="dizzy"] .exv-dizzy,
+.creature[data-ex="ko"] .exv-ko,
+.creature[data-ex="happy"] .exv-happy { display: block; }
+.creature .anim { transform-origin: 0px 0px; }
+.box .anim { transform-origin: 0px 0px; }
+
+@media (max-width: 900px) {
+  #setup { display: none; }
+  #packGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+</style>
+
+<meta name="description" content="Boxlings Battle — a mystery-box reveal played as a creature battle. Interactive prototype.">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boxlings Battle — interactive prototype">
+<meta property="og:description" content="Your box drops into the arena, a rival strikes it, and three seconds later you know. A mystery-box reveal delivered as a fight.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Boxlings Battle — interactive prototype">
+<meta name="twitter:description" content="Your box drops into the arena, a rival strikes it, and three seconds later you know.">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <span class="logo">BOXLINGS <em>BATTLE</em></span>
+    <span class="boxname">Glacier Vault Box · $25.00 · 18+</span>
+    <span class="spacer"></span>
+    <button id="packBtn" class="ghost">Re-pack</button>
+    <button id="stableBtn" class="ghost">The Stable ×10</button>
+    <button id="registryBtn" class="ghost">Registry</button>
+  </header>
+
+  <div id="layout">
+    <aside id="setup">
+      <div id="setupBody"></div>
+    </aside>
+
+    <main id="stageWrap">
+      <div id="stage"></div>
+      <div id="fxHtml"></div>
+      <div id="banner"></div>
+      <div id="rivalBar"><span class="rname"></span><span class="rhp"><span class="rhpfill"></span></span></div>
+      <div id="ladder"></div>
+      <div id="team"></div>
+      <div id="doors"></div>
+      <div id="stakes"></div>
+      <button id="actionBtn"></button>
+      <button id="skipBtn">SKIP ▸</button>
+    </main>
+  </div>
+
+  <!-- packing -->
+  <div id="packOverlay" class="overlay">
+    <div class="panel packPanel">
+      <h2>Pack your box</h2>
+      <p class="tiny">Three Boxlings, colours, order — your signature on the draw. Every possible packing is exactly as lucky as every other, and the seal is the draw.</p>
+      <div id="packGrid"></div>
+      <p id="packHint" class="tiny"></p>
+      <div class="packFoot">
+        <input id="nonceInput" placeholder="optional: your own seed words" spellcheck="false">
+        <button id="sealBtn" class="big">SEAL IT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- receipt -->
+  <div id="receiptOverlay" class="overlay">
+    <div class="panel receiptPanel">
+      <div id="receiptBody"></div>
+      <div class="btnRow">
+        <button id="againBtn" class="big">OPEN AGAIN</button>
+        <button id="repackBtn" class="ghost">Re-pack</button>
+        <button id="recStableBtn" class="ghost">Stable ×10</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- registry -->
+  <div id="registryOverlay" class="overlay">
+    <div class="panel registryPanel">
+      <h2>The Registry <button id="registryClose" class="x">✕</button></h2>
+      <div id="registryBody"></div>
+    </div>
+  </div>
+
+  <!-- the stable -->
+  <div id="stableOverlay" class="overlay">
+    <div class="panel stablePanel">
+      <h2>The Stable — one wave, one seed <button id="stableClose" class="x">✕</button></h2>
+      <div id="stableBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- js/fair.js ---- */
+/* Boxlings Battle — fairness core.
+   Pure, synchronous, dependency-free. The prize is a function of
+   (serverSeed, clientSeed, openIndex) and nothing else. */
+window.BB = window.BB || {};
+BB.fair = (() => {
+
+  // ---- SHA-256 (compact, sync, correct for byte arrays) ----
+  const K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+
+  function utf8(s){ const out=[]; for(let i=0;i<s.length;i++){ let c=s.codePointAt(i);
+    if(c>0xffff) i++;
+    if(c<0x80) out.push(c);
+    else if(c<0x800){ out.push(0xc0|c>>6, 0x80|c&63); }
+    else if(c<0x10000){ out.push(0xe0|c>>12, 0x80|c>>6&63, 0x80|c&63); }
+    else { out.push(0xf0|c>>18, 0x80|c>>12&63, 0x80|c>>6&63, 0x80|c&63); } }
+    return out; }
+
+  function sha256Bytes(bytes){
+    const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    const l = bytes.length;
+    const msg = bytes.slice();
+    msg.push(0x80);
+    while (msg.length % 64 !== 56) msg.push(0);
+    const hi = Math.floor(l*8 / 0x100000000), lo = (l*8) >>> 0;
+    msg.push(hi>>>24&255, hi>>>16&255, hi>>>8&255, hi&255, lo>>>24&255, lo>>>16&255, lo>>>8&255, lo&255);
+    const w = new Array(64);
+    const rr = (x,n)=> (x>>>n | x<<(32-n)) >>> 0;
+    for(let i=0;i<msg.length;i+=64){
+      for(let t=0;t<16;t++) w[t] = (msg[i+t*4]<<24 | msg[i+t*4+1]<<16 | msg[i+t*4+2]<<8 | msg[i+t*4+3]) >>> 0;
+      for(let t=16;t<64;t++){
+        const s0 = rr(w[t-15],7) ^ rr(w[t-15],18) ^ (w[t-15]>>>3);
+        const s1 = rr(w[t-2],17) ^ rr(w[t-2],19) ^ (w[t-2]>>>10);
+        w[t] = (w[t-16] + s0 + w[t-7] + s1) >>> 0;
+      }
+      let [a,b,c,d,e,f,g,h] = H;
+      for(let t=0;t<64;t++){
+        const S1 = rr(e,6)^rr(e,11)^rr(e,25);
+        const ch = (e&f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[t] + w[t]) >>> 0;
+        const S0 = rr(a,2)^rr(a,13)^rr(a,22);
+        const maj = (a&b)^(a&c)^(b&c);
+        const t2 = (S0 + maj) >>> 0;
+        h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+      }
+      H[0]=(H[0]+a)>>>0; H[1]=(H[1]+b)>>>0; H[2]=(H[2]+c)>>>0; H[3]=(H[3]+d)>>>0;
+      H[4]=(H[4]+e)>>>0; H[5]=(H[5]+f)>>>0; H[6]=(H[6]+g)>>>0; H[7]=(H[7]+h)>>>0;
+    }
+    const out=[];
+    for(const x of H) out.push(x>>>24&255, x>>>16&255, x>>>8&255, x&255);
+    return out;
+  }
+
+  const toHex = bytes => bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+  const sha256Hex = s => toHex(sha256Bytes(utf8(s)));
+
+  function hmacSha256Hex(keyStr, msgStr){
+    let key = utf8(keyStr);
+    if (key.length > 64) key = sha256Bytes(key);
+    while (key.length < 64) key.push(0);
+    const ipad = key.map(b=>b^0x36), opad = key.map(b=>b^0x5c);
+    const inner = sha256Bytes(ipad.concat(utf8(msgStr)));
+    return toHex(sha256Bytes(opad.concat(inner)));
+  }
+
+  // ---- PRNG streams, domain-separated from the seal ----
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* A stream is a PRNG seeded by HMAC(seal, label). "outcome", "script",
+     "tells" and "cosmetic" can never contaminate one another, and every
+     stream replays bit-identically from the seal. */
+  function stream(sealHex, label){
+    const h = hmacSha256Hex(sealHex, 'stream:' + label);
+    return mulberry32(parseInt(h.slice(0, 8), 16));
+  }
+
+  function randomHex(nBytes){
+    const a = new Uint8Array(nBytes);
+    crypto.getRandomValues(a);
+    return toHex(Array.from(a));
+  }
+
+  // rng helpers
+  const pick = (rng, arr) => arr[Math.floor(rng()*arr.length)];
+  const rint = (rng, lo, hi) => lo + Math.floor(rng()*(hi-lo+1)); // inclusive
+  function weighted(rng, entries){ // entries: [{weight, ...}]
+    const total = entries.reduce((s,e)=>s+e.weight, 0);
+    let r = rng()*total;
+    for(const e of entries){ r -= e.weight; if (r < 0) return e; }
+    return entries[entries.length-1];
+  }
+
+  function makeSeal(serverSeed, clientSeed, openIndex){
+    return hmacSha256Hex(serverSeed, clientSeed + '|' + openIndex);
+  }
+
+  return { sha256Hex, hmacSha256Hex, mulberry32, stream, randomHex,
+           pick, rint, weighted, makeSeal };
+})();
+
+</script>
+<script>
+/* ---- js/config.js ---- */
+/* Boxlings Battle — configuration. Every contested number lives here. */
+window.BB = window.BB || {};
+BB.config = (() => {
+
+  const box = {
+    id: 'glacier-vault',
+    name: 'Glacier Vault Box',
+    price: 25.00,
+    // Published drop table. Weights are percent shares and sum to 100.
+    dropTable: [
+      { id:'sticker',  name:'Frostbitten Sticker Pack',   value:  2.00, weight: 20.00 },
+      { id:'pin',      name:'Glacier Enamel Pin',         value:  4.00, weight: 15.00 },
+      { id:'sleeves',  name:'Boxling Card Sleeves',       value:  6.00, weight: 14.95 },
+      { id:'keyring',  name:'Ice Chip Keyring',           value:  8.00, weight: 10.00 },
+      { id:'deckbox',  name:'Rime Deck Box',              value: 12.00, weight: 14.00 },
+      { id:'playmat',  name:'Aurora Playmat',             value: 17.00, weight: 12.00 },
+      { id:'holo',     name:'Holo Boxling Card',          value: 25.00, weight:  6.00 },
+      { id:'tee',      name:'Glacier Vault Tee',          value: 35.00, weight:  4.00 },
+      { id:'case',     name:'Etched Steel Display Case',  value: 60.00, weight:  2.50 },
+      { id:'proof',    name:'Signed Artist Proof',        value:120.00, weight:  1.50 },
+      { id:'auric11',  name:'THE AURIC — 1/1 Gold Foil',  value:500.00, weight:  0.05 },
+    ],
+  };
+
+  /* Value bands -> where the run ends. Terminal rung 10 with vaultWin=false
+     is the near-miss (red crack); band 4 wins the Vault (gold crack).
+     Within-band rung weights shape the published run-length envelope. */
+  const bands = [
+    { i:0, label:'under 0.35×',  range:[0,    0.35], share:'59.95%', rungs:[{r:1, weight:1}] },
+    { i:1, label:'0.35× – 0.8×', range:[0.35, 0.8 ], share:'26%',    rungs:[{r:2, weight:55},{r:3, weight:45}] },
+    { i:2, label:'0.8× – 1.6×',  range:[0.8,  1.6 ], share:'10%',    rungs:[{r:4, weight:55},{r:5, weight:45}] },
+    { i:3, label:'1.6× – 8×',    range:[1.6,  8   ], share:'4%',     rungs:[{r:6, weight:30},{r:7, weight:25},{r:8, weight:20},{r:9, weight:15},{r:10, weight:10}] },
+    { i:4, label:'8× or more',   range:[8, Infinity], share:'0.05%', rungs:[{r:10, weight:1, vaultWin:true}] },
+  ];
+
+  /* Elements. Four everyday + Aurum. The cycle: Ember>Bramble>Volt>Frost>Ember.
+     One immunity exists (Frost is immune to Bramble) and the planner never
+     routes an attack into it. Aurum lands double on everything. */
+  const elements = {
+    ember:   { name:'Ember',   color:'#ff8a4d', beats:'bramble' },
+    bramble: { name:'Bramble', color:'#8fdc7f', beats:'volt'    },
+    volt:    { name:'Volt',    color:'#ffd94d', beats:'frost'   },
+    frost:   { name:'Frost',   color:'#8fd6ff', beats:'ember'   },
+    aurum:   { name:'Aurum',   color:'#ffd700', beats:'*'       },
+  };
+  const immunity = { attacker:'bramble', defender:'frost' };
+
+  function effectiveness(att, def){
+    if (att === 'aurum') return 2;
+    if (att === immunity.attacker && def === immunity.defender) return 0; // never routed
+    if (elements[att].beats === def) return 2;
+    if (elements[def].beats === att) return 0.5;
+    return 1;
+  }
+
+  const moves = {
+    ember:   [ { id:'scorch',  name:'Scorch Seam',   base:[14,20] },
+               { id:'flarep',  name:'Flare Punt',    base:[20,28] } ],
+    bramble: [ { id:'lash',    name:'Twine Lash',    base:[14,20] },
+               { id:'tangle',  name:'Overgrow Tangle', base:[20,28] } ],
+    volt:    [ { id:'zap',     name:'Static Snap',   base:[14,20] },
+               { id:'surge',   name:'Crate Surge',   base:[20,28] } ],
+    frost:   [ { id:'rime',    name:'Rime Jab',      base:[14,20] },
+               { id:'aval',    name:'Avalanche Roll',base:[20,28] } ],
+    aurum:   [ { id:'gild',    name:'Gilding Strike',base:[26,34] },
+               { id:'sunfall', name:'Sunfall',       base:[34,44] } ],
+  };
+
+  /* The six offered Boxlings. Player packs three. */
+  const species = [
+    { id:'cindersnap',  name:'Cindersnap',  el:'ember',   blurb:'Kraft-paper hide, smoulders at the seams.' },
+    { id:'frostuft',    name:'Frostuft',    el:'frost',   blurb:'Bubble-wrap ruff, breath like powder snow.' },
+    { id:'voltcrate',   name:'Voltcrate',   el:'volt',    blurb:'Crate-slat shell, static in the straw.' },
+    { id:'bramblewrap', name:'Bramblewrap', el:'bramble', blurb:'Twine-bound, always sprouting somewhere.' },
+    { id:'pyrepip',     name:'Pyrepip',     el:'ember',   blurb:'Foam-peanut mane, one ember tail.' },
+    { id:'glacierkin',  name:'Glacierkin',  el:'frost',   blurb:'A little box gone to rime and starlight.' },
+  ];
+
+  const colorways = [
+    { id:'kraft',    name:'Kraft',    body:'#c9a06b', trim:'#8a6a42' },
+    { id:'snowmail', name:'Snowmail', body:'#e4edf2', trim:'#9db4c0' },
+    { id:'midnight', name:'Midnight', body:'#5b6b8c', trim:'#38455e' },
+    { id:'stamp',    name:'Stamp Red', body:'#c96b6b', trim:'#8a4242' },
+  ];
+
+  /* Rival handlers by grade. Cosmetic stream picks names/skins; grade is
+     structural (a strong pack must never fall to something that looks weak). */
+  const rivals = {
+    scrappy: { label:'Scrappy', hp:[70, 95],  names:['Courier Brann','Packrat Sil','Dockhand Mo','Skip Tracer Une'] },
+    pro:     { label:'Pro',     hp:[95, 120], names:['Rime Warden Olyx','Freightmaster Vell','Customs Agent Hark','The Palletier'] },
+    apex:    { label:'Apex',    hp:[120,150], names:['Coldline Sovereign','The Manifest','Warden of Ninth Shelf','Glacier Prime'] },
+    keeper:  { label:'Keeper',  hp:[150,170], names:['The Vaultkeeper'] },
+  };
+  const rivalSpecies = ['cindersnap','frostuft','voltcrate','bramblewrap','pyrepip','glacierkin'];
+
+  function gradeForRung(r){
+    if (r <= 3) return 'scrappy';
+    if (r <= 6) return 'pro';
+    if (r <= 9) return 'apex';
+    return 'keeper';
+  }
+  function boxGradeForRung(r){
+    if (r <= 3) return 'cardboard';
+    if (r <= 6) return 'crate';
+    if (r <= 8) return 'steel';
+    if (r === 9) return 'gilded';
+    return 'vault';
+  }
+
+  /* Timing presets (ms). The design's open question is settled in the hand,
+     so the opener length is a toggle, never a constant. */
+  const timingPresets = [
+    { id:'2.5', label:'2.5s (UK slot floor)', opener:{ drop:330, parade:500, windup:420, hitstop:170, branch:750, settle:830 } },
+    { id:'3.0', label:'3.0s (primary)',       opener:{ drop:400, parade:600, windup:500, hitstop:200, branch:900, settle:1000 } },
+    { id:'3.5', label:'3.5s',                 opener:{ drop:470, parade:700, windup:580, hitstop:230, branch:1050, settle:1170 } },
+    { id:'4.0', label:'4.0s (benchmark parity)', opener:{ drop:530, parade:800, windup:670, hitstop:270, branch:1200, settle:1330 } },
+  ];
+  const lossDelta = 0.9; // loss beats run at 90% duration — losses resolve quicker on purpose
+  const rungWiden = r => 1 + 0.07 * Math.max(0, r - 1); // beats widen with height ALONE
+
+  /* The floor gag pool. Every entry cleared the affection charter. */
+  const gags = [
+    { id:'explosion', name:'The Explosion',       register:'slapstick', charterApproved:true },
+    { id:'punt',      name:'The Punt',            register:'slapstick', charterApproved:true },
+    { id:'siton',     name:'The Sit-On',          register:'slapstick', charterApproved:true },
+    { id:'peek',      name:'The Peek & Retreat',  register:'slapstick', charterApproved:true },
+    { id:'fright',    name:'The Faint From Fright', register:'slapstick', charterApproved:true },
+  ];
+
+  /* Published omen rates. An omen must move the player's odds when it fires. */
+  const omens = {
+    stormFront: {
+      name:'Storm Front', desc:'The sky turns gold-grey between battles.',
+      rates: { low:0.06, mid:0.30, high:0.62, grail:0.62 },   // by band group
+      window:[2,5],
+    },
+    auricTrace: {
+      name:'Auric Trace', desc:'A rival box wobbles and leaks gold.',
+      rates: { low:0.02, mid:0.10, high:0.30, grail:0.80 },
+      window:[3,9],
+    },
+    goldMeteor: {
+      name:'Gold Meteor', desc:'Cracks the Vault gold. Conclusive. Never false.',
+      rates: { grailOnly:0.35 },
+    },
+  };
+  function bandGroup(bandI){ return bandI<=1 ? 'low' : bandI===2 ? 'mid' : bandI===3 ? 'high' : 'grail'; }
+
+  /* Parade: silhouettes dealt AFTER the seal; apex count correlates with band
+     at these published rates (index = number of apex silhouettes, 0-3). */
+  const paradeApexWeights = {
+    low:   [55, 35, 9, 1],
+    mid:   [25, 45, 25, 5],
+    high:  [8, 27, 45, 20],
+    grail: [2, 18, 45, 35],
+  };
+
+  const badges = [
+    { id:'first-open',    name:'First Seal',       desc:'Sealed your first box.' },
+    { id:'champions-road',name:"Champion's Road",  desc:'Chose the champion door three times in one run.' },
+    { id:'wolfpack',      name:'Wolfpack',         desc:'Chose the trio door three times in one run.' },
+    { id:'witness',       name:'Witness',          desc:'Stood before the Vault.' },
+    { id:'braced',        name:'Braced',           desc:'Tapped BRACE or BELIEVE five times.' },
+  ];
+
+  return { box, bands, elements, immunity, effectiveness, moves, species, colorways,
+           rivals, rivalSpecies, gradeForRung, boxGradeForRung,
+           timingPresets, lossDelta, rungWiden, gags, omens, bandGroup,
+           paradeApexWeights, badges };
+})();
+
+</script>
+<script>
+/* ---- js/art.js ---- */
+/* Boxlings Battle — vector art library.
+   Everything is hand-authored SVG. Convention: every actor is a group
+   centered on (0,0) at its feet, wrapped as <g class="pos"><g class="anim">
+   so placement (pos) and animation (anim) never fight over transform. */
+window.BB = window.BB || {};
+BB.art = (() => {
+
+  // ---------------------------------------------------------------- defs
+  const DEFS = `
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1228"/>
+      <stop offset="0.55" stop-color="#12234a"/>
+      <stop offset="1" stop-color="#1d3a5f"/>
+    </linearGradient>
+    <linearGradient id="stormSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2416"/>
+      <stop offset="0.5" stop-color="#4a3d1e"/>
+      <stop offset="1" stop-color="#33404f"/>
+    </linearGradient>
+    <linearGradient id="auroraGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3affc3" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#3affc3" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#7a6bff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3affc3" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="iceWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#274a73"/>
+      <stop offset="1" stop-color="#16283f"/>
+    </linearGradient>
+    <radialGradient id="floorGrad" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#9fd3e8"/>
+      <stop offset="0.55" stop-color="#5f92b8"/>
+      <stop offset="1" stop-color="#2c4a6b"/>
+    </radialGradient>
+    <linearGradient id="kraftGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d8b078"/>
+      <stop offset="1" stop-color="#b08a52"/>
+    </linearGradient>
+    <linearGradient id="woodGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9793f"/>
+      <stop offset="1" stop-color="#7a5426"/>
+    </linearGradient>
+    <linearGradient id="steelGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9c6d4"/>
+      <stop offset="0.5" stop-color="#8494a6"/>
+      <stop offset="1" stop-color="#5c6b7d"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset="0.45" stop-color="#f2c14e"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
+    <radialGradient id="auricBody" cx="0.5" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset="0.5" stop-color="#ffd75e"/>
+      <stop offset="1" stop-color="#c8860d"/>
+    </radialGradient>
+    <radialGradient id="goldBloom" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe9a3" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffd700" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="redBloom" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff9a7a" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#e8452c" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="dropShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#020610" flood-opacity="0.55"/>
+    </filter>
+  </defs>`;
+
+  // ---------------------------------------------------------------- arena
+  function arena(){
+    let spires = '';
+    const sp = [[60,180],[150,120],[830,150],[915,200],[770,110]];
+    for(const [x,h] of sp){
+      spires += `<path d="M ${x-42} 360 L ${x} ${360-h} L ${x+42} 360 Z" fill="url(#iceWall)" opacity="0.8"/>
+                 <path d="M ${x-10} ${360-h+18} L ${x} ${360-h} L ${x+10} ${360-h+18} Z" fill="#bfe6ff" opacity="0.5"/>`;
+    }
+    let snow = '';
+    for(let i=0;i<26;i++){
+      const x = Math.round((i*137)%960), d = 9 + (i%7)*2.6, delay = (i*0.83)%9;
+      snow += `<circle class="snowflake" cx="${x}" cy="-10" r="${1+(i%3)*0.7}" fill="#dff1ff" opacity="0.7"
+                style="animation-duration:${d}s;animation-delay:-${delay}s"/>`;
+    }
+    return `
+    <svg id="arenaSvg" viewBox="0 0 960 540" preserveAspectRatio="xMidYMid slice">
+      ${DEFS}
+      <rect id="sky" width="960" height="540" fill="url(#skyGrad)"/>
+      <g id="auroraLayer">
+        <path class="aurora a1" d="M -50 90 C 200 30, 420 150, 700 70 S 980 110, 1020 60 L 1020 0 L -50 0 Z" fill="url(#auroraGrad)"/>
+        <path class="aurora a2" d="M -50 160 C 260 100, 500 210, 760 130 S 1000 180, 1020 130 L 1020 40 C 800 90, 500 40, 200 120 S -20 120, -50 100 Z" fill="url(#auroraGrad)" opacity="0.6"/>
+      </g>
+      <g id="spires">${spires}</g>
+      <g id="vaultDoorFar" opacity="0.9">
+        <path d="M 400 210 L 480 40 L 560 210 Z" fill="url(#iceWall)" opacity="0.9"/>
+        <path d="M 470 60 L 480 40 L 490 60 Z" fill="#bfe6ff" opacity="0.5"/>
+        <rect x="448" y="104" width="64" height="86" rx="6" fill="#141f36" stroke="#f2c14e" stroke-width="2"/>
+        <circle cx="480" cy="142" r="19" fill="none" stroke="#f2c14e" stroke-width="2.6"/>
+        <circle cx="480" cy="142" r="7" fill="#f2c14e" opacity="0.85"/>
+        <path d="M 480 123 v 8 M 480 153 v 8 M 461 142 h 8 M 491 142 h 8" stroke="#f2c14e" stroke-width="2"/>
+        <path d="M 430 210 h 100" stroke="#9fd3e8" stroke-width="3" opacity="0.5"/>
+      </g>
+      <ellipse id="floor" cx="480" cy="452" rx="470" ry="96" fill="url(#floorGrad)"/>
+      <ellipse cx="480" cy="452" rx="470" ry="96" fill="none" stroke="#bfe6ff" stroke-width="2" opacity="0.35"/>
+      <ellipse cx="480" cy="452" rx="330" ry="64" fill="none" stroke="#dff5ff" stroke-width="1.4" opacity="0.22"/>
+      <g id="snowLayer">${snow}</g>
+      <g id="farLayer"></g>
+      <g id="actorLayer"></g>
+      <g id="fxLayer"></g>
+      <g id="omenLayer"></g>
+      <rect id="vignette" width="960" height="540" fill="none" pointer-events="none"/>
+      <rect id="dimmer" width="960" height="540" fill="#02060f" opacity="0" pointer-events="none"/>
+    </svg>`;
+  }
+
+  const wrap = (cls, inner, extra='') =>
+    `<g class="pos ${cls}" ${extra}><g class="anim">${inner}</g></g>`;
+
+  // ---------------------------------------------------------------- faces
+  /* Expression variants live inside every creature; data-ex on .creature
+     picks one via CSS. Variants: normal worried fierce dizzy ko happy */
+  function face(fx, fy, s=1){
+    return `
+    <g class="face" transform="translate(${fx} ${fy}) scale(${s})">
+      <g class="exv exv-normal">
+        <ellipse cx="-14" cy="0" rx="7.6" ry="9.6" fill="#1c1410"/>
+        <ellipse cx="14"  cy="0" rx="7.6" ry="9.6" fill="#1c1410"/>
+        <circle cx="-11.6" cy="-3.4" r="2.6" fill="#fff"/>
+        <circle cx="16.4"  cy="-3.4" r="2.6" fill="#fff"/>
+        <path d="M -4 12 Q 0 15.6 4 12" stroke="#1c1410" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="exv exv-worried">
+        <ellipse cx="-14" cy="1" rx="6.4" ry="8" fill="#1c1410"/>
+        <ellipse cx="14"  cy="1" rx="6.4" ry="8" fill="#1c1410"/>
+        <circle cx="-12" cy="-1.6" r="2.2" fill="#fff"/>
+        <circle cx="16"  cy="-1.6" r="2.2" fill="#fff"/>
+        <path d="M -20 -9 Q -14 -12 -8 -9" stroke="#1c1410" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M 8 -9 Q 14 -12 20 -9" stroke="#1c1410" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="0" cy="13" rx="3.4" ry="4.4" fill="#1c1410"/>
+      </g>
+      <g class="exv exv-fierce">
+        <path d="M -21 -6 L -6 -1 L -6 6 Q -14 9 -21 4 Z" fill="#1c1410"/>
+        <path d="M 21 -6 L 6 -1 L 6 6 Q 14 9 21 4 Z" fill="#1c1410"/>
+        <circle cx="-11" cy="2" r="2" fill="#fff"/>
+        <circle cx="11" cy="2" r="2" fill="#fff"/>
+        <path d="M -5 13 L 0 10.6 L 5 13" stroke="#1c1410" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="exv exv-dizzy">
+        <path d="M -14 0 m 6 0 a 6 6 0 1 1 -6 -6 a 4.4 4.4 0 1 1 -4.4 4.4 a 2.6 2.6 0 1 0 2.6 -2.6"
+              stroke="#1c1410" stroke-width="2" fill="none"/>
+        <path d="M 14 0 m 6 0 a 6 6 0 1 1 -6 -6 a 4.4 4.4 0 1 1 -4.4 4.4 a 2.6 2.6 0 1 0 2.6 -2.6"
+              stroke="#1c1410" stroke-width="2" fill="none"/>
+        <ellipse cx="0" cy="13" rx="4" ry="3" fill="none" stroke="#1c1410" stroke-width="2"/>
+      </g>
+      <g class="exv exv-ko">
+        <path d="M -19 -5 L -9 5 M -9 -5 L -19 5" stroke="#1c1410" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M 9 -5 L 19 5 M 19 -5 L 9 5" stroke="#1c1410" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M -4 13 Q 0 10.6 4 13" stroke="#1c1410" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="exv exv-happy">
+        <path d="M -20 0 Q -14 -7 -8 0" stroke="#1c1410" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M 8 0 Q 14 -7 20 0" stroke="#1c1410" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M -6 11 Q 0 17 6 11" stroke="#1c1410" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      </g>
+    </g>`;
+  }
+
+  const collar = charm => charm ? `
+    <g class="collarG">
+      <path class="collarBand" d="M -26 -34 Q 0 -24 26 -34" stroke="#7a2e2e" stroke-width="6" fill="none"/>
+      <circle class="charmGem" cx="0" cy="-26" r="6.5" fill="url(#goldGrad)" stroke="#8a6508" stroke-width="1.4" filter="url(#softGlow)"/>
+      <circle cx="-2" cy="-28" r="1.8" fill="#fff8dd"/>
+    </g>` : '';
+
+  // ------------------------------------------------------------ creatures
+  /* Each species builds on a common blob-with-feet anatomy; the accents and
+     silhouette carry the identity. tint = colorway body override. */
+  function creature(spId, opts={}){
+    const { tint=null, charm=false, cls='' } = opts;
+    const spec = BB.config.species.find(s=>s.id===spId) || BB.config.species[0];
+    const elC = BB.config.elements[spec.el].color;
+    const body = tint || '#c9a06b';
+    const dark = shade(body, -28);
+    let inner = '';
+
+    const feet = `
+      <ellipse cx="-18" cy="-4" rx="12" ry="7" fill="${dark}"/>
+      <ellipse cx="18"  cy="-4" rx="12" ry="7" fill="${dark}"/>`;
+
+    if (spId==='cindersnap'){
+      inner = `${feet}
+      <path d="M -34 -10 Q -40 -66 0 -72 Q 40 -66 34 -10 Q 20 0 0 0 Q -20 0 -34 -10 Z" fill="${body}" stroke="${dark}" stroke-width="2.4"/>
+      <path d="M -30 -22 L 30 -40" stroke="${shade(body,-14)}" stroke-width="7" opacity="0.7"/>
+      <path class="emberSeam" d="M -32 -14 Q -20 -8 -6 -12 M 8 -8 Q 22 -12 32 -18" stroke="${elC}" stroke-width="2.4" fill="none" filter="url(#softGlow)" opacity="0.9"/>
+      <path class="crest" d="M -20 -66 Q -16 -90 -4 -78 Q 0 -100 10 -80 Q 20 -94 20 -68 Z" fill="${elC}" filter="url(#softGlow)"/>
+      <path d="M -12 -70 Q -4 -86 2 -74 Q 8 -84 10 -70 Z" fill="#ffe9a3" opacity="0.8"/>
+      ${face(0,-42)} ${collar(charm)}`;
+    }
+    else if (spId==='frostuft'){
+      let ruff='';
+      for(let i=0;i<8;i++){ const a=Math.PI*(1.05+0.9*i/7); const x=Math.cos(a)*30, y=-16+Math.sin(a)*9;
+        ruff += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9.5" fill="#eaf6ff" stroke="#a8cee6" stroke-width="2" opacity="0.97"/>`; }
+      inner = `${feet}
+      <path d="M -32 -8 Q -38 -60 0 -66 Q 38 -60 32 -8 Q 18 0 0 0 Q -18 0 -32 -8 Z" fill="${mix(body,'#dfeefc',0.5)}" stroke="${dark}" stroke-width="2.4"/>
+      <path class="tuft" d="M -26 -58 Q -38 -88 -8 -70 Z" fill="${elC}" stroke="${shade(elC,-30)}" stroke-width="1.6"/>
+      <path class="tuft" d="M 26 -58 Q 38 -88 8 -70 Z" fill="${elC}" stroke="${shade(elC,-30)}" stroke-width="1.6"/>
+      <g class="ruff">${ruff}</g>
+      ${face(0,-40)} ${collar(charm)}`;
+    }
+    else if (spId==='voltcrate'){
+      inner = `${feet}
+      <rect x="-32" y="-64" width="64" height="62" rx="10" fill="${body}" stroke="${dark}" stroke-width="2.6"/>
+      <path d="M -32 -46 H 32 M -32 -26 H 32" stroke="${dark}" stroke-width="2" opacity="0.55"/>
+      <rect x="-24" y="-58" width="48" height="30" rx="9" fill="${mix(body,'#f2e9d8',0.72)}" stroke="${dark}" stroke-width="1.8"/>
+      <circle cx="22" cy="-14" r="4.6" fill="${dark}" opacity="0.6"/>
+      <path class="bolt" d="M -18 -64 L -24 -84 L -14 -76 L -16 -92 L -6 -70 L -12 -74 Z" fill="${elC}" filter="url(#softGlow)"/>
+      <path class="bolt" d="M 18 -64 L 26 -80 L 17 -74 L 22 -88 L 8 -68 L 14 -71 Z" fill="${elC}" filter="url(#softGlow)" opacity="0.9"/>
+      ${face(0,-42)} ${collar(charm)}`;
+    }
+    else if (spId==='bramblewrap'){
+      inner = `${feet}
+      <path d="M -30 -6 Q -40 -58 0 -70 Q 40 -58 30 -6 Q 16 2 0 2 Q -16 2 -30 -6 Z" fill="${mix(body,'#9ccf8a',0.35)}" stroke="${dark}" stroke-width="2.4"/>
+      <path d="M -31 -16 Q 0 -6 31 -18 M -25 -60 Q 0 -68 25 -60" stroke="#6b4f2a" stroke-width="4.4" fill="none" opacity="0.85"/>
+      <path d="M -31 -16 Q 0 -6 31 -18" stroke="#8a6a42" stroke-width="1.6" fill="none" stroke-dasharray="3 4"/>
+      <g class="sprout">
+        <path d="M 0 -70 Q -1 -82 2 -88" stroke="#4f7a3a" stroke-width="3" fill="none"/>
+        <path d="M 2 -88 Q -10 -94 -14 -84 Q -4 -80 2 -88 Z" fill="${elC}"/>
+        <path d="M 2 -88 Q 14 -96 18 -86 Q 8 -80 2 -88 Z" fill="${shade(elC,-18)}"/>
+      </g>
+      ${face(0,-40)} ${collar(charm)}`;
+    }
+    else if (spId==='pyrepip'){
+      let mane='';
+      for(let i=0;i<9;i++){ const a=Math.PI*(0.02+0.96*i/8); const x=Math.cos(a)*40, y=-34-Math.sin(a)*40;
+        mane += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="10" ry="7" fill="#f2e4c8" stroke="#cdbc9a" stroke-width="1.4" transform="rotate(${(a*57.3-90).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`; }
+      inner = `${feet}
+      <g class="mane">${mane}</g>
+      <circle cx="0" cy="-34" r="30" fill="${body}" stroke="${dark}" stroke-width="2.4"/>
+      <path class="tail" d="M 26 -14 Q 46 -18 44 -36 Q 43 -46 34 -46" stroke="${elC}" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#softGlow)"/>
+      <circle cx="34" cy="-46" r="5" fill="${elC}" filter="url(#softGlow)"/>
+      ${face(0,-36,0.92)} ${collar(charm)}`;
+    }
+    else { // glacierkin
+      inner = `${feet}
+      <rect x="-28" y="-58" width="56" height="56" rx="8" fill="${mix(body,'#cfe4f4',0.55)}" stroke="${dark}" stroke-width="2.4"/>
+      <path d="M -28 -58 L -20 -66 L 36 -66 L 28 -58 Z" fill="${mix(body,'#e8f4fc',0.6)}" stroke="${dark}" stroke-width="2"/>
+      <path d="M -28 -44 h 8 l 4 6 l 6 -10 l 5 8 h 8" stroke="#eaf8ff" stroke-width="2.4" fill="none" opacity="0.9"/>
+      <path class="rime" d="M -28 -2 l 6 -8 l 5 8 l 6 -10 l 6 10 l 5 -8 l 6 8" stroke="#eaf8ff" stroke-width="2.6" fill="none"/>
+      <path class="spark" d="M 20 -70 l 2.6 6 l 6 2.6 l -6 2.6 l -2.6 6 l -2.6 -6 l -6 -2.6 l 6 -2.6 Z" fill="#dff5ff" filter="url(#softGlow)"/>
+      ${face(0,-34,0.9)} ${collar(charm)}`;
+    }
+
+    return wrap(`creature sp-${spId} ${cls}`, inner, `data-ex="normal"`);
+  }
+
+  // --------------------------------------------------------------- boxes
+  function boxArt(grade, opts={}){
+    const s = opts.scale || 1, cls = opts.cls || '';
+    let inner = '';
+    if (grade==='cardboard'){
+      inner = `
+      <rect x="-46" y="-78" width="92" height="78" rx="6" fill="url(#kraftGrad)" stroke="#7d5c33" stroke-width="2.6"/>
+      <path d="M -46 -78 L -30 -94 L 62 -94 L 46 -78 Z" fill="#e0bd87" stroke="#7d5c33" stroke-width="2.4"/>
+      <path d="M 46 -78 L 62 -94 L 62 -18 L 46 0 Z" fill="#a8804d" stroke="#7d5c33" stroke-width="2.4"/>
+      <rect x="-46" y="-46" width="92" height="13" fill="#e9dcae" opacity="0.9"/>
+      <rect x="-8" y="-78" width="15" height="78" fill="#e9dcae" opacity="0.75"/>
+      <g transform="translate(-24 -66) rotate(-6)">
+        <rect x="-13" y="-9" width="27" height="19" rx="2.4" fill="none" stroke="#9b3535" stroke-width="2"/>
+        <text x="0" y="4.5" text-anchor="middle" font-size="8.4" fill="#9b3535" font-weight="700">FRAGILE</text>
+      </g>`;
+    } else if (grade==='crate'){
+      inner = `
+      <rect x="-52" y="-84" width="104" height="84" rx="4" fill="url(#woodGrad)" stroke="#4f3416" stroke-width="3"/>
+      <path d="M -52 -63 H 52 M -52 -42 H 52 M -52 -21 H 52" stroke="#4f3416" stroke-width="2.2" opacity="0.7"/>
+      <path d="M -52 -84 L 52 0 M 52 -84 L -52 0" stroke="#5f4020" stroke-width="7" opacity="0.7"/>
+      <g fill="#2f2618">
+        <rect x="-52" y="-84" width="14" height="14"/><rect x="38" y="-84" width="14" height="14"/>
+        <rect x="-52" y="-14" width="14" height="14"/><rect x="38" y="-14" width="14" height="14"/>
+      </g>`;
+    } else if (grade==='steel'){
+      let riv='';
+      for(let i=0;i<6;i++) riv += `<circle cx="${-40+16*i}" cy="-80" r="3" fill="#e6eef4"/><circle cx="${-40+16*i}" cy="-8" r="3" fill="#e6eef4"/>`;
+      inner = `
+      <rect x="-52" y="-88" width="104" height="88" rx="10" fill="url(#steelGrad)" stroke="#3a4552" stroke-width="3"/>
+      <rect x="-52" y="-58" width="104" height="16" fill="#3f4c5b"/>
+      <path d="M -46 -50 h 12 m 8 0 h 12 m 8 0 h 12 m 8 0 h 12 m 8 0 h 12" stroke="#f2c14e" stroke-width="7"/>
+      ${riv}
+      <circle cx="0" cy="-30" r="11" fill="#2e3742" stroke="#e6eef4" stroke-width="2.4"/>
+      <path d="M 0 -36 v 12 M -6 -30 h 12" stroke="#e6eef4" stroke-width="2"/>`;
+    } else if (grade==='gilded'){
+      inner = `
+      <rect x="-54" y="-92" width="108" height="92" rx="10" fill="url(#goldGrad)" stroke="#8a6508" stroke-width="3" filter="url(#softGlow)"/>
+      <path d="M -54 -66 H 54" stroke="#8a6508" stroke-width="2.4"/>
+      <path d="M -44 -82 Q -34 -90 -24 -82 T -4 -82 M 4 -82 Q 14 -90 24 -82 T 44 -82" stroke="#fff3c4" stroke-width="2.6" fill="none"/>
+      <path d="M -44 -18 Q -34 -10 -24 -18 T -4 -18 M 4 -18 Q 14 -10 24 -18 T 44 -18" stroke="#8a6508" stroke-width="2.4" fill="none"/>
+      <circle cx="0" cy="-46" r="13" fill="#fff3c4" stroke="#8a6508" stroke-width="3"/>
+      <path d="M 0 -52 L 3 -46 L 0 -40 L -3 -46 Z" fill="#8a6508"/>`;
+    } else { // vault
+      inner = `
+      <g filter="url(#bigGlow)">
+        <rect x="-72" y="-124" width="144" height="124" rx="14" fill="url(#goldGrad)" stroke="#8a6508" stroke-width="4"/>
+      </g>
+      <rect x="-72" y="-124" width="144" height="14" fill="#fff3c4" opacity="0.65"/>
+      <path d="M -60 -110 Q -46 -120 -32 -110 T -4 -110 M 4 -110 Q 18 -120 32 -110 T 60 -110" stroke="#8a6508" stroke-width="2.6" fill="none"/>
+      <circle cx="0" cy="-62" r="34" fill="#e9b83c" stroke="#8a6508" stroke-width="4"/>
+      <circle cx="0" cy="-62" r="22" fill="none" stroke="#fff3c4" stroke-width="3"/>
+      <path d="M 0 -96 v 12 M 0 -40 v 12 M -34 -62 h 12 M 22 -62 h 12
+               M -24 -86 l 8 8 M 16 -46 l 8 8 M 24 -86 l -8 8 M -16 -46 l -8 8" stroke="#8a6508" stroke-width="3.4"/>
+      <circle cx="0" cy="-62" r="7" fill="#fff3c4" stroke="#8a6508" stroke-width="2"/>
+      <g class="crackHost"></g>`;
+    }
+    return wrap(`box grade-${grade} ${cls}`, `<g transform="scale(${s})" filter="url(#dropShadow)">${inner}</g>`);
+  }
+
+  /* Cardboard burst fragments (shared by the continue-branch and gags). */
+  function fragments(){
+    const polys = [
+      [-40,-60,'M 0 0 L 26 -8 L 20 16 L -4 14 Z'],
+      [30,-70,'M 0 0 L 22 6 L 10 22 L -6 12 Z'],
+      [-16,-30,'M 0 0 L 18 -12 L 26 6 L 6 12 Z'],
+      [22,-24,'M 0 0 L 16 -6 L 22 12 L 2 14 Z'],
+      [-36,-16,'M 0 0 L 20 -4 L 12 16 Z'],
+      [8,-88,'M 0 0 L 18 -10 L 24 8 Z'],
+    ];
+    let s='';
+    polys.forEach(([x,y,d],i)=>{
+      s += `<g class="frag frag-${i}" transform="translate(${x} ${y})"><path d="${d}" fill="${i%2?'#d8b078':'#b08a52'}" stroke="#7d5c33" stroke-width="1.6"/></g>`;
+    });
+    s += `<path class="frag frag-tape" transform="translate(-6 -50)" d="M 0 0 q 14 6 10 20 q -4 12 8 18" stroke="#e9dcae" stroke-width="6" fill="none" opacity="0.95"/>`;
+    return wrap('fragments', s);
+  }
+
+  // ---------------------------------------------------- parade silhouettes
+  function silhouette(grade){
+    let d, w=1;
+    if (grade==='apex'){
+      d = `M 0 0 L -20 0 L -16 -46 L -26 -52 L -18 -88 Q 0 -104 18 -88 L 26 -52 L 16 -46 L 20 0 Z
+           M -30 -60 L -40 -20 L -30 -18 Z M 30 -60 L 40 -20 L 30 -18 Z`;
+      w = 1.28;
+    } else if (grade==='pro'){
+      d = `M 0 0 L -15 0 L -13 -40 L -20 -44 L -14 -72 Q 0 -84 14 -72 L 20 -44 L 13 -40 L 15 0 Z
+           M 16 -30 L 30 -28 L 30 -12 L 18 -14 Z`;
+    } else {
+      d = `M 0 0 L -13 0 L -12 -34 L -18 -36 L -10 -60 Q 2 -70 12 -58 L 16 -36 L 11 -33 L 13 0 Z
+           M -14 -46 Q -26 -52 -24 -64 L -18 -58 Z`;
+    }
+    return `<g class="silh silh-${grade}" transform="scale(${w})"><path d="${d}" fill="#0b1526" stroke="#3d6288" stroke-width="1.6" opacity="0.96"/></g>`;
+  }
+
+  // -------------------------------------------------------------- the Auric
+  function auric(){
+    let drops='';
+    for(let i=0;i<7;i++){
+      drops += `<circle class="auricMote m${i}" cx="${-30+i*11}" cy="${-96-(i%3)*14}" r="${2.2+(i%3)}" fill="#ffe9a3" filter="url(#softGlow)"/>`;
+    }
+    const inner = `
+    <g filter="url(#bigGlow)">
+      <path d="M -30 0 Q -46 -30 -34 -66 Q -26 -96 0 -112 Q 26 -96 34 -66 Q 46 -30 30 0 Q 12 8 0 8 Q -12 8 -30 0 Z"
+            fill="url(#auricBody)" stroke="#8a6508" stroke-width="2.4"/>
+    </g>
+    <path d="M 0 -112 Q -6 -128 2 -140 Q 12 -130 8 -116 Z" fill="#fff3c4" filter="url(#softGlow)"/>
+    <path d="M -34 -66 Q -58 -74 -64 -94 Q -46 -92 -36 -80 Z" fill="#ffd75e" opacity="0.9" filter="url(#softGlow)"/>
+    <path d="M 34 -66 Q 58 -74 64 -94 Q 46 -92 36 -80 Z" fill="#ffd75e" opacity="0.9" filter="url(#softGlow)"/>
+    <g class="face" transform="translate(0 -74)">
+      <path d="M -20 -2 L -6 2 L -20 7 Z" fill="#4a3403"/>
+      <path d="M 20 -2 L 6 2 L 20 7 Z" fill="#4a3403"/>
+    </g>
+    <path d="M -14 -34 Q 0 -26 14 -34" stroke="#fff3c4" stroke-width="2.4" fill="none" opacity="0.8"/>
+    ${drops}`;
+    return wrap('creature auric', inner);
+  }
+
+  // ------------------------------------------------------------------ FX
+  const fx = {
+    dustRing(){ return `<g class="fxDust">
+      <ellipse cx="0" cy="0" rx="10" ry="4" fill="none" stroke="#dfe9f2" stroke-width="5" opacity="0.9"/>
+      <ellipse cx="0" cy="0" rx="10" ry="4" fill="none" stroke="#aebfd0" stroke-width="3" opacity="0.7"/></g>`; },
+    impact(){ return `<g class="fxImpact" filter="url(#softGlow)">
+      <path d="M 0 -26 L 5 -7 L 24 -10 L 8 2 L 16 20 L 0 9 L -16 20 L -8 2 L -24 -10 L -5 -7 Z"
+            fill="#fff8dd" stroke="#f2c14e" stroke-width="2"/></g>`; },
+    shock(){ let s=''; for(let i=0;i<8;i++){ const a=i*Math.PI/4;
+        s += `<line x1="${Math.cos(a)*16}" y1="${Math.sin(a)*16}" x2="${Math.cos(a)*34}" y2="${Math.sin(a)*34}" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`; }
+      return `<g class="fxShock" opacity="0.9">${s}</g>`; },
+    stars(){ let s=''; for(let i=0;i<3;i++){ const a=i*2.09;
+        s += `<path transform="translate(${Math.cos(a)*24} ${Math.sin(a)*10-4}) scale(0.8)" d="M 0 -7 L 2 -2 L 7 -2 L 3 1 L 5 6 L 0 3 L -5 6 L -3 1 L -7 -2 L -2 -2 Z" fill="#ffe9a3" stroke="#c8961e" stroke-width="1"/>`; }
+      return `<g class="fxStars">${s}</g>`; },
+    snowPuff(){ let s=''; for(let i=0;i<6;i++){ s += `<circle cx="${-18+i*7}" cy="${-(i%3)*8}" r="${5+(i%3)*3}" fill="#eaf6ff" opacity="0.85"/>`; }
+      return `<g class="fxPuff">${s}</g>`; },
+    burn(){ return `<g class="fxBurn" filter="url(#softGlow)">
+      <path d="M -18 -8 Q -14 -22 -6 -14 Q -2 -26 4 -14 Q 10 -22 14 -8" stroke="#ff8a4d" stroke-width="3.4" fill="none"/></g>`; },
+    chill(){ return `<g class="fxChill" filter="url(#softGlow)">
+      <path d="M 0 -14 v 16 M -7 -10 l 14 8 M 7 -10 l -14 8" stroke="#8fd6ff" stroke-width="2.6"/></g>`; },
+    stun(){ return `<g class="fxStun" filter="url(#softGlow)">
+      <path d="M -12 -6 L -6 -16 L -8 -8 L -2 -14 M 6 -14 L 12 -4 L 6 -8 L 10 0" stroke="#ffd94d" stroke-width="2.6" fill="none"/></g>`; },
+    charmFlare(){ return `<g class="fxCharm"><circle r="26" fill="url(#goldBloom)"/><circle r="9" fill="#fff3c4" filter="url(#bigGlow)"/></g>`; },
+    bloom(kind){ return `<g class="fxBloom"><circle r="120" fill="url(#${kind==='gold'?'goldBloom':'redBloom'})"/></g>`; },
+    meteor(){ return `<g class="fxMeteor" filter="url(#bigGlow)">
+      <path d="M 0 0 L -70 -150 L -54 -152 Z" fill="#ffe9a3" opacity="0.8"/>
+      <circle cx="0" cy="0" r="10" fill="#fff3c4"/><circle cx="0" cy="0" r="5" fill="#fff"/></g>`; },
+    crack(color){
+      const c = color==='gold' ? '#ffd700' : '#e8452c';
+      const glow = color==='gold' ? '#fff3c4' : '#ff9a7a';
+      return `<g class="fxCrack" filter="url(#softGlow)">
+        <path class="crackPath" d="M 0 -62 L -12 -74 L -8 -92 L -22 -104 M 0 -62 L 14 -70 L 12 -92 L 28 -100
+                 M 0 -62 L -18 -52 L -34 -58 M 0 -62 L 16 -48 L 20 -30 L 36 -22 M 0 -62 L -6 -40 L -18 -24"
+              stroke="${c}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path class="crackPath2" d="M 0 -62 L -12 -74 L -8 -92 M 0 -62 L 16 -48 L 20 -30" stroke="${glow}" stroke-width="1.8" fill="none"/>
+      </g>`;
+    },
+  };
+
+  // ------------------------------------------------------------- helpers
+  function shade(hex, amt){
+    const n = parseInt(hex.slice(1),16);
+    const r = Math.max(0,Math.min(255,(n>>16)+amt)), g=Math.max(0,Math.min(255,((n>>8)&255)+amt)), b=Math.max(0,Math.min(255,(n&255)+amt));
+    return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+  }
+  function mix(hexA, hexB, t){
+    const a=parseInt(hexA.slice(1),16), b=parseInt(hexB.slice(1),16);
+    const ch=(sa,sb)=>Math.round(sa+(sb-sa)*t);
+    const r=ch(a>>16,b>>16), g=ch((a>>8)&255,(b>>8)&255), bl=ch(a&255,b&255);
+    return '#'+((r<<16)|(g<<8)|bl).toString(16).padStart(6,'0');
+  }
+
+  return { arena, creature, boxArt, fragments, silhouette, auric, fx, shade, mix };
+})();
+
+</script>
+<script>
+/* ---- js/registry.js ---- */
+/* Boxlings Battle — the Registry. Every open banks something, permanently.
+   Nothing in here can read or touch a drop table, a band, or a terminal rung
+   decision — it only records what already happened. */
+window.BB = window.BB || {};
+BB.registry = (() => {
+  const KEY = 'bb-registry-v1';
+
+  function blank(){
+    return {
+      opens: 0, spend: 0, returned: 0,
+      stamps: {},                 // "species@rungLabel" -> count
+      witness: { stormFront:0, auricTrace:0, goldMeteor:0, vaultSeen:0 },
+      badges: {},                 // id -> timestamp
+      braceTaps: 0,
+      recentGags: [],             // anti-repeat window (cosmetic context only)
+      bestPull: null,
+      log: [],                    // last 40 receipts
+    };
+  }
+
+  let data = blank();
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) data = Object.assign(blank(), JSON.parse(raw));
+  } catch(e){ /* fresh */ }
+
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){} };
+
+  function terminalLabel(plan){
+    if (plan.vaultWin) return 'the Vault, taken';
+    if (plan.vaultLoss) return 'the Vault, denied';
+    return 'rung ' + plan.terminal;
+  }
+
+  /* Bank one open. Returns the lines to print on the receipt. */
+  function bank(plan, choices){
+    const lines = [];
+    data.opens++; data.spend += BB.config.box.price; data.returned += plan.item.value;
+
+    // Odyssey stamp: lead species × where the run ended.
+    const sp = plan.packSnapshot.members[0].speciesId;
+    const stampKey = `${sp}@${terminalLabel(plan)}`;
+    data.stamps[stampKey] = (data.stamps[stampKey]||0) + 1;
+    lines.push(data.stamps[stampKey] === 1
+      ? `NEW Odyssey stamp: ${BB.config.species.find(s=>s.id===sp).name} — ${terminalLabel(plan)}`
+      : `Odyssey stamp ×${data.stamps[stampKey]}: ${terminalLabel(plan)}`);
+
+    // Witness cards.
+    for (const o of (choices.omensSeen||[])){
+      data.witness[o]++;
+      if (data.witness[o] === 1) lines.push(`NEW Witness card: ${BB.config.omens[o]?.name || o}`);
+    }
+    if (plan.terminal === 10){
+      data.witness.vaultSeen++;
+      grant('witness', lines);
+    }
+
+    // Path badges — judged only on what was visible and decidable at the time.
+    if (data.opens === 1) grant('first-open', lines);
+    if ((choices.championPicks||0) >= 3) grant('champions-road', lines);
+    if ((choices.trioPicks||0) >= 3) grant('wolfpack', lines);
+    data.braceTaps += (choices.braceTaps||0);
+    if (data.braceTaps >= 5) grant('braced', lines);
+
+    // Anti-repeat gag window (last 3).
+    if (!plan.openerContinue){
+      data.recentGags = [plan.gag].concat(data.recentGags).slice(0,3);
+    }
+    if (!data.bestPull || plan.item.value > data.bestPull.value)
+      data.bestPull = { name: plan.item.name, value: plan.item.value };
+
+    data.log.unshift({
+      when: Date.now(), item: plan.item.name, value: plan.item.value,
+      ended: terminalLabel(plan), demo: plan.demo,
+    });
+    data.log = data.log.slice(0, 40);
+    save();
+    return lines;
+  }
+
+  function grant(id, lines){
+    if (!data.badges[id]){
+      data.badges[id] = Date.now();
+      const b = BB.config.badges.find(x=>x.id===id);
+      if (b && lines) lines.push(`NEW Path badge: ${b.name}`);
+    }
+  }
+
+  return {
+    get data(){ return data; },
+    bank,
+    recentGags: () => data.recentGags.slice(),
+    reset(){ data = blank(); save(); },
+  };
+})();
+
+</script>
+<script>
+/* ---- js/planner.js ---- */
+/* Boxlings Battle — run planner (reverse authoring).
+   Given a seal, authors the whole run backward from the fixed ending.
+   Pure and synchronous: same seal -> byte-identical plan, every time.
+
+   Stream discipline (pillar 3):
+   - outcome: the draw and the terminal rung. Touches nothing visual.
+   - script:  battle choreography. May know the terminal rung (it must), but
+              win-battle composition mixes favorable/neutral/counter elements
+              so a rung's SETUP never reveals whether it is the fall.
+   - tells:   Parade + omens, at published rates only.
+   - cosmetic: names, skins, gag picks. Receives height context only. */
+window.BB = window.BB || {};
+BB.planner = (() => {
+  const F = BB.fair, C = BB.config;
+
+  const beats = el => C.elements[el].beats;
+  const beatenBy = el => Object.keys(C.elements).find(k => C.elements[k].beats === el);
+
+  function drawItem(rng, forcedBand){
+    let pool = C.box.dropTable;
+    if (forcedBand != null){
+      const b = C.bands[forcedBand];
+      pool = pool.filter(it => {
+        const m = it.value / C.box.price;
+        return m >= b.range[0] && m < b.range[1];
+      });
+    }
+    return F.weighted(rng, pool);
+  }
+  const bandOf = mult => C.bands.find(b => mult >= b.range[0] && mult < b.range[1]);
+
+  /* Pick the rival's element for a battle.
+     Wins mix favorable/neutral/counter so composition can't leak the fall;
+     losses always counter the lead and never look weak. Immunity is never
+     routed in either direction. */
+  function rivalElementFor(leadEl, isLoss, rng){
+    const everyday = ['ember','bramble','volt','frost'];
+    const legal = everyday.filter(el =>
+      !(leadEl === C.immunity.attacker && el === C.immunity.defender) &&   // player swing immune: never
+      !(el === C.immunity.attacker && leadEl === C.immunity.defender));    // rival swing immune: never
+    if (isLoss){
+      const counter = beatenBy(leadEl);
+      return legal.includes(counter) ? counter : F.pick(rng, legal);
+    }
+    const counter = beatenBy(leadEl), fav = beats(leadEl);
+    const roll = rng();
+    let el = roll < 0.40 ? fav : roll < 0.75
+      ? F.pick(rng, legal.filter(e => e!==fav && e!==counter && e!==leadEl).concat(leadEl===fav?[]:[]))
+      : counter;
+    if (!el || !legal.includes(el)) el = F.pick(rng, legal);
+    return el;
+  }
+
+  function speciesForElement(el, rng){
+    const opts = C.species.filter(s => s.el === el).map(s => s.id);
+    return opts.length ? F.pick(rng, opts) : F.pick(rng, C.rivalSpecies);
+  }
+
+  /* Author one battle. Mutates hp/alive state. */
+  function scriptBattle(rung, isLoss, st, S, opts={}){
+    const grade = C.gradeForRung(rung);
+    const aliveIdx = st.alive.map((a,i)=>a?i:null).filter(i=>i!==null);
+    const leadIndex = aliveIdx[(rung - 1) % aliveIdx.length];
+    const lead = st.pack.members[leadIndex];
+    const leadEl = C.species.find(s=>s.id===lead.speciesId).el;
+
+    const rEl = rivalElementFor(leadEl, isLoss, S.script);
+    const useApex = isLoss && rung >= 6;          // a strong pack never falls to something that looks weak
+    const gradeKey = useApex ? 'apex' : grade;
+    const rivalHp = F.rint(S.script, ...C.rivals[gradeKey].hp);
+    const rival = {
+      name: F.pick(S.cosmetic, C.rivals[gradeKey].names),
+      grade: gradeKey,
+      el: rEl,
+      speciesId: speciesForElement(rEl, S.cosmetic),
+      hp: rivalHp,
+    };
+
+    // Door (rung >= 2): two rivals, same matchup class; shape is the real choice.
+    const shapes = S.cosmetic() < 0.5 ? ['trio','champion'] : ['champion','trio'];
+    const door = {
+      options: shapes.map(shape => ({
+        shape,
+        name: F.pick(S.cosmetic, C.rivals[gradeKey].names),
+        speciesId: speciesForElement(rEl, S.cosmetic),
+      })),
+      autopick: S.cosmetic() < 0.5 ? 0 : 1,
+    };
+
+    const effP = C.effectiveness(leadEl, rEl);     // player's swing
+    const effR = C.effectiveness(rEl, leadEl);     // rival's swing
+    const events = [];
+    const moveset = C.moves[leadEl], rivalMoves = C.moves[rEl];
+
+    // Player hit sizes: honest printed ranges must contain what lands.
+    const loP = Math.round(14*effP), hiP = Math.round(28*effP);
+    function playerHit(dmg, rivalLeft, finish){
+      dmg = Math.max(loP, Math.min(hiP, dmg));
+      const mv = dmg > Math.round(20*effP) ? moveset[1] : moveset[0];
+      events.push({ t:'pHit', who: st.currentLead, move: mv.name, eff: effP, dmg,
+                    range:[Math.round(mv.base[0]*effP), Math.round(mv.base[1]*effP)],
+                    rivalHpAfter: rivalLeft, finish: !!finish });
+    }
+    function rivalHit(dmg, opt={}){
+      const idx = st.currentLead;
+      let hp = st.hp[idx] - dmg;
+      let charm = false, ko = false;
+      if (hp <= 0){
+        if (opt.allowCharm && idx === st.pack.charmIndex && !st.charmUsed){
+          st.charmUsed = true; charm = true; hp = 1;
+        } else { ko = true; hp = 0; st.alive[idx] = false; }
+      }
+      st.hp[idx] = hp;
+      events.push({ t:'rHit', target: idx, move: F.pick(S.script, rivalMoves).name,
+                    eff: effR, dmg, leadHpAfter: hp, ko, charm, heavy: dmg >= 22 });
+      return { ko, charm };
+    }
+
+    st.currentLead = leadIndex;
+
+    if (!isLoss){
+      // A win: 2-4 exchanges, rival driven to zero, wear scaled by height.
+      const wantHits = rung <= 4 ? 2 : rung <= 7 ? 3 : 4;
+      const minHits = Math.ceil(rivalHp / hiP), maxHits = Math.floor(rivalHp / Math.max(1,loP));
+      const nHits = Math.max(minHits, Math.min(wantHits, Math.max(minHits, maxHits)));
+      let left = rivalHp;
+      const wearPerHit = effR >= 2 ? F.rint(S.script, 16, 24)
+                       : rung <= 3 ? F.rint(S.script, 8, 14)
+                       : rung <= 6 ? F.rint(S.script, 12, 18) : F.rint(S.script, 14, 22);
+
+      const benchFaint = opts.benchFaintHere; // scripted bench sacrifice on a WIN
+      for (let i = 0; i < nHits; i++){
+        const hitsLeft = nHits - i;
+        let dmg = i === nHits-1 ? left : Math.round(left/hitsLeft) + F.rint(S.script, -3, 3);
+        dmg = Math.max(loP, Math.min(hiP, Math.min(dmg, left)));
+        if (hitsLeft === 1) dmg = Math.min(left, hiP);
+        left = Math.max(0, left - dmg);
+        playerHit(dmg, left, left === 0);
+        if (left === 0) break;
+        // rival answers
+        if (benchFaint && i === nHits - 2){
+          const idx = st.currentLead;
+          const kill = st.hp[idx];
+          const r = rivalHit(kill + F.rint(S.script, 2, 6), { allowCharm: opts.charmOk });
+          if (r.ko){
+            const next = st.alive.map((a,j)=>a?j:null).filter(j=>j!==null)[0];
+            st.currentLead = next;
+            events.push({ t:'swap', toIndex: next });
+          }
+        } else {
+          const safe = Math.min(wearPerHit, Math.max(0, st.hp[st.currentLead] - 6));
+          if (safe > 3) rivalHit(safe);
+        }
+        // flavour status on the rival, never decisive
+        if (S.script() < 0.25 && i === 0 && left > 0)
+          events.push({ t:'status', side:'rival', kind: S.script() < 0.5 ? 'chill' : 'stun' });
+      }
+      if (left > 0){ // safety: land the finisher regardless
+        playerHit(Math.min(left, hiP), 0, true);
+      }
+      return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, door,
+               leadIndex, win: true, events };
+    }
+
+    // The fall. Rival driven deep into the red before the last Boxling goes down.
+    const deepRed = Math.max(6, Math.round(rivalHp * (0.08 + S.script() * 0.10)));
+    let left = rivalHp;
+    const pHits = 2 + (rung >= 5 ? 1 : 0);
+    const toDeal = rivalHp - deepRed;
+    events.push({ t:'status', side:'player', kind:'burn' }); // the visible countdown
+    for (let i = 0; i < pHits; i++){
+      let dmg = Math.round(toDeal / pHits) + F.rint(S.script, -3, 3);
+      dmg = Math.max(loP, Math.min(hiP, dmg));
+      left = Math.max(deepRed, left - dmg);
+      playerHit(dmg, left, false);
+      // burn ticks only while the lead is comfortably alive — a status never ends the run
+      if (st.hp[st.currentLead] > 34){
+        st.hp[st.currentLead] -= F.rint(S.script, 4, 6);
+        events.push({ t:'burnTick', target: st.currentLead, hpAfter: st.hp[st.currentLead] });
+      }
+      const heavy = F.rint(S.script, 20, 30);
+      if (st.hp[st.currentLead] - heavy > 8 || i < pHits - 1){
+        rivalHit(Math.min(heavy, Math.max(4, st.hp[st.currentLead] - 8)));
+      }
+    }
+    // The cascade: remaining creatures fall to direct blows. Charm may buy one swing.
+    let guard = 0;
+    while (st.alive.some(a=>a) && guard++ < 10){
+      const idx = st.currentLead;
+      const kill = st.hp[idx] + F.rint(S.script, 2, 8);
+      const r = rivalHit(kill, { allowCharm: true });
+      if (r.charm){
+        left = Math.max(4, left - F.rint(S.script, 8, Math.max(9, Math.round(hiP*0.7))));
+        playerHit(Math.max(loP, Math.min(hiP, F.rint(S.script, loP, hiP))), left, false);
+        continue;
+      }
+      if (r.ko){
+        const alive = st.alive.map((a,j)=>a?j:null).filter(j=>j!==null);
+        if (rung <= 3 || alive.length === 0) break;   // early rungs: the run ends on the lead
+        st.currentLead = alive[0];
+        events.push({ t:'swap', toIndex: alive[0] });
+      }
+    }
+    return { rung, grade: gradeKey, boxGrade: C.boxGradeForRung(rung), rival, door,
+             leadIndex, win: false, events, deepRedLeft: left };
+  }
+
+  // ------------------------------------------------------------- the plan
+  function planRun({ serverSeed, clientSeed, openIndex, pack, forcedBand = null, recentGags = [] }){
+    const seal = F.makeSeal(serverSeed, clientSeed, openIndex);
+    const S = {
+      outcome:  F.stream(seal, 'outcome'),
+      script:   F.stream(seal, 'script'),
+      tells:    F.stream(seal, 'tells'),
+      cosmetic: F.stream(seal, 'cosmetic'),
+    };
+
+    const item = drawItem(S.outcome, forcedBand);
+    const mult = item.value / C.box.price;
+    const band = bandOf(mult);
+    const termPick = F.weighted(S.outcome, band.rungs);
+    const terminal = termPick.r;
+    const vaultWin = !!termPick.vaultWin;
+    const vaultLoss = terminal === 10 && !vaultWin;
+    const group = C.bandGroup(band.i);
+
+    // Parade: dealt after the seal, apex count at published rates.
+    const w = C.paradeApexWeights[group];
+    const apexCount = F.weighted(S.tells, w.map((weight,i)=>({weight, n:i}))).n;
+    const paradeGrades = [];
+    for (let r = 2; r <= 9; r++) paradeGrades.push(C.gradeForRung(r) === 'apex' ? 'apex' : C.gradeForRung(r));
+    // upgrade the tail with apexCount apexes (positions from the tells stream)
+    const tail = [4,5,6,7]; // indices of rungs 6-9 in paradeGrades
+    let ups = apexCount;
+    for (const i of tail){ if (ups > 0 && S.tells() < 0.8){ paradeGrades[i] = 'apex'; ups--; } }
+
+    // Omens: fire at published rates; timing drawn blind to run length.
+    const omens = [];
+    const om = C.omens;
+    if (S.tells() < om.stormFront.rates[group])
+      omens.push({ id:'stormFront', beforeRung: F.rint(S.tells, ...om.stormFront.window) });
+    if (S.tells() < om.auricTrace.rates[group])
+      omens.push({ id:'auricTrace', beforeRung: F.rint(S.tells, ...om.auricTrace.window) });
+    const goldMeteor = vaultWin && S.tells() < om.goldMeteor.rates.grailOnly;
+
+    // The floor gag (cosmetic; the anti-repeat window is height-legal context).
+    const gagPool = C.gags.filter(g => g.charterApproved && !recentGags.includes(g.id));
+    const gag = F.pick(S.cosmetic, gagPool.length ? gagPool : C.gags).id;
+
+    // Opener rival (cosmetic skin over a structural scrappy).
+    const openerRival = {
+      name: F.pick(S.cosmetic, C.rivals.scrappy.names),
+      speciesId: F.pick(S.cosmetic, C.rivalSpecies),
+    };
+
+    // Battles.
+    const st = {
+      pack,
+      hp: pack.members.map(()=>100),
+      alive: pack.members.map(()=>true),
+      charmUsed: false,
+      currentLead: 0,
+    };
+    const battles = [];
+    if (terminal >= 2){
+      const lastBattleRung = Math.min(terminal, 9);
+      for (let r = 2; r <= lastBattleRung; r++){
+        const isLoss = (r === terminal);                    // rung 10 handled by the Vault
+        const benchFaintHere =
+          (terminal >= 8 && terminal <= 9 && r === 6) ||
+          (vaultLoss && (r === 6 || r === 8)) ||
+          (vaultWin && r === 6);
+        battles.push(scriptBattle(r, isLoss, st, S, {
+          benchFaintHere,
+          charmOk: !vaultWin,          // the grail keeps the Charm for the Auric
+        }));
+      }
+    }
+
+    // The Vault.
+    let vault = null;
+    if (terminal === 10){
+      const aliveIdx = st.alive.map((a,i)=>a?i:null).filter(i=>i!==null);
+      vault = {
+        crack: vaultWin ? 'gold' : 'red',
+        goldMeteor,
+        witnessIndex: aliveIdx[0] ?? 0,
+        auric: null,
+      };
+      if (vaultWin){
+        const front = aliveIdx[0] ?? 0;
+        const nextIdx = aliveIdx[1] ?? front;
+        const charmSave = (nextIdx === pack.charmIndex && !st.charmUsed);
+        vault.auric = {
+          hp: 160,
+          frontIndex: front,
+          nextIndex: nextIdx,
+          // the next survivor either lives on the Charm at 1 HP,
+          // or the Auric's finishing blow falls a point short
+          save: charmSave ? 'charm' : 'short',
+        };
+      }
+    }
+
+    return {
+      demo: forcedBand != null,
+      seal, serverSeed, clientSeed, openIndex,
+      item, mult, band: band.i, bandGroup: group,
+      terminal, vaultWin, vaultLoss,
+      openerContinue: terminal >= 2,
+      openerRival, gag,
+      parade: { grades: paradeGrades, apexCount },
+      omens, battles, vault,
+      packSnapshot: JSON.parse(JSON.stringify(pack)),
+    };
+  }
+
+  return { planRun };
+})();
+
+</script>
+<script>
+/* ---- js/present.js ---- */
+/* Boxlings Battle — presentation. A player for the RunPlan.
+   Law of the layer: it may READ the plan, never write it. */
+window.BB = window.BB || {};
+BB.present = (() => {
+  const C = BB.config, A = BB.art;
+
+  const PX = 290, RX = 668, GY = 442;      // player x, rival x, ground y
+  const st = { turbo:false, skipping:false, preset:C.timingPresets[1], stage:null, hud:null, actors:{}, tapResolve:null, result:null };
+
+  // ------------------------------------------------------------- utilities
+  const q  = sel => st.stage.querySelector(sel);
+  function svgNode(str){
+    const t = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    t.innerHTML = str;
+    return t.firstElementChild;
+  }
+  function addActor(layer, str, x, y, flip=false){
+    const n = svgNode(str);
+    q(layer).appendChild(n);
+    n.style.transform = `translate(${x}px, ${y}px)` + (flip ? ' scaleX(-1)' : '');
+    return n;
+  }
+  const animEl = n => n.querySelector(':scope > .anim') || n;
+  function scale(ms, widen=1){
+    if (st.skipping) return 1;
+    return Math.max(1, ms * widen * (st.turbo ? 0.22 : 1));
+  }
+  const wait = ms => st.skipping ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+  function anim(node, frames, ms, opts={}){
+    if (st.skipping){ try { node.animate(frames, { duration:1, fill: opts.fill || 'forwards' }); } catch(e){} return Promise.resolve(); }
+    const a = node.animate(frames, Object.assign({ duration: Math.max(1, ms), fill:'forwards', easing:'ease-out' }, opts));
+    // Race a timer: if the tab is hidden the compositor stops and `finished`
+    // would never resolve — a run must always be able to complete.
+    return Promise.race([
+      a.finished.catch(()=>{}),
+      new Promise(r => setTimeout(() => { try { if (a.playState === 'running') a.finish(); } catch(e){} r(); }, Math.max(1, ms) + 260)),
+    ]);
+  }
+  const setEx = (cre, ex) => cre && cre.setAttribute('data-ex', ex);
+  function clearLayer(sel){ const l = q(sel); while(l.firstChild) l.removeChild(l.firstChild); }
+  function removeActor(name){ const a = st.actors[name]; if (a){ a.remove(); delete st.actors[name]; } }
+  function shake(px=6, ms=220){
+    const svg = q('#arenaSvg');
+    return anim(svg, [
+      { transform:'translate(0,0)' }, { transform:`translate(${px}px,${-px/2}px)` },
+      { transform:`translate(${-px}px,${px/2}px)` }, { transform:'translate(0,0)' }
+    ], scale(ms), { fill:'none' });
+  }
+  function fxAt(str, x, y, life=700){
+    const n = addActor('#fxLayer', `<g class="pos"><g class="anim">${str}</g></g>`, x, y);
+    if (life) setTimeout(()=>n.remove(), Math.max(life, scale(life)) + 400);
+    return n;
+  }
+  function popupDmg(x, y, text, klass){
+    const wrap = st.hud.fxHtml;
+    const r = st.stage.getBoundingClientRect();
+    const d = document.createElement('div');
+    d.className = 'dmgPop ' + (klass||'');
+    d.textContent = text;
+    d.style.left = (x / 960 * r.width) + 'px';
+    d.style.top  = (y / 540 * r.height) + 'px';
+    wrap.appendChild(d);
+    setTimeout(()=>d.remove(), 1100);
+  }
+  function banner(text, klass='', hold=1100){
+    const b = st.hud.banner;
+    b.textContent = text;
+    b.className = 'shown ' + klass;
+    setTimeout(()=>{ b.className=''; }, Math.max(500, scale(hold)));
+  }
+
+  // stakes line + tap
+  function stakes(text){ st.hud.stakes.textContent = text || ''; }
+  function hideTap(){ st.hud.action.classList.remove('shown','gold'); st.tapResolve = null; }
+  function offerTap(label, { mandatory=false, timeout=2200, gold=false } = {}){
+    if (st.skipping || (st.turbo && !mandatory)) return Promise.resolve({tapped:false});
+    const btn = st.hud.action;
+    btn.textContent = label;
+    btn.classList.add('shown');
+    btn.classList.toggle('gold', gold);
+    return new Promise(res => {
+      let done = false;
+      const finish = tapped => { if (done) return; done = true; hideTap(); res({tapped}); };
+      st.tapResolve = () => finish(true);          // click handler fires this: <100ms by construction
+      if (!mandatory) setTimeout(()=>finish(false), scale(timeout));
+      else if (st.turbo) setTimeout(()=>finish(true), 350);
+    });
+  }
+
+  // ------------------------------------------------------------------ HUD
+  function buildLadder(){
+    const l = st.hud.ladder; l.innerHTML = '';
+    for (let r = 10; r >= 1; r--){
+      const d = document.createElement('div');
+      d.className = 'rung g-' + C.boxGradeForRung(r);
+      d.dataset.rung = r;
+      d.innerHTML = `<span class="rn">${r===10?'V':r}</span>`;
+      l.appendChild(d);
+    }
+  }
+  function ladderMark(r, cls){
+    const el = st.hud.ladder.querySelector(`[data-rung="${r}"]`);
+    if (el){ el.classList.remove('current'); el.classList.add(cls); }
+  }
+  function ladderCurrent(r){
+    st.hud.ladder.querySelectorAll('.rung').forEach(e=>e.classList.remove('current'));
+    const el = st.hud.ladder.querySelector(`[data-rung="${r}"]`);
+    if (el) el.classList.add('current');
+  }
+  function buildTeam(pack){
+    const t = st.hud.team; t.innerHTML = '';
+    pack.members.forEach((m, i) => {
+      const sp = C.species.find(s=>s.id===m.speciesId);
+      const cw = C.colorways.find(c=>c.id===m.colorway) || C.colorways[0];
+      const d = document.createElement('div');
+      d.className = 'chip';
+      d.dataset.idx = i;
+      d.innerHTML = `<span class="dot" style="background:${cw.body};box-shadow:0 0 0 2px ${C.elements[sp.el].color} inset"></span>
+        <span class="cname">${sp.name}${i===pack.charmIndex?' <span class="charm">◈</span>':''}</span>
+        <span class="hpbar"><span class="hpfill" style="width:100%"></span></span>`;
+      t.appendChild(d);
+    });
+  }
+  function teamHp(idx, hp, ko){
+    const chip = st.hud.team.querySelector(`[data-idx="${idx}"]`);
+    if (!chip) return;
+    chip.querySelector('.hpfill').style.width = Math.max(0,hp) + '%';
+    chip.querySelector('.hpfill').classList.toggle('low', hp <= 30);
+    chip.classList.toggle('ko', !!ko);
+  }
+  function rivalBar(show, name, grade, hpPct){
+    const rb = st.hud.rival;
+    rb.classList.toggle('shown', show);
+    if (name != null) rb.querySelector('.rname').textContent = name + (grade ? ` · ${C.rivals[grade].label.toUpperCase()}` : '');
+    if (hpPct != null){
+      const f = rb.querySelector('.rhpfill');
+      f.style.width = Math.max(0, hpPct*100) + '%';
+      f.classList.toggle('deep', hpPct <= 0.2);
+    }
+  }
+  function dim(opacity, ms=600){ return anim(q('#dimmer'), [{opacity: q('#dimmer').getAttribute('opacity')||0},{opacity}], scale(ms)).then(()=>q('#dimmer').setAttribute('opacity', opacity)); }
+
+  // ---------------------------------------------------------------- mount
+  function mount(stageEl, hudRefs){
+    st.stage = stageEl; st.hud = hudRefs;
+    stageEl.innerHTML = A.arena();
+    hudRefs.action.addEventListener('click', () => { if (st.tapResolve) st.tapResolve(); });
+  }
+
+  // --------------------------------------------------------------- scenes
+  async function sceneParade(plan, ms){
+    const grades = plan.parade.grades;
+    let inner = '';
+    grades.forEach((g, i) => { inner += `<g transform="translate(${i*112} 0)">${A.silhouette(g)}</g>`; });
+    const strip = addActor('#farLayer', `<g class="pos"><g class="anim">${inner}</g></g>`, 990, 330);
+    banner('THE OPPOSITION', 'sub', ms);
+    await anim(animEl(strip), [
+      { transform:'translateX(0px)' }, { transform:`translateX(${-(990 + grades.length*112)}px)` }
+    ], scale(ms), { easing:'cubic-bezier(.2,.5,.4,1)' });
+    strip.remove();
+  }
+
+  async function sceneOpener(plan){
+    const t = st.preset.opener;
+    const lossW = plan.openerContinue ? 1 : C.lossDelta;
+    clearLayer('#actorLayer'); clearLayer('#fxLayer');
+    rivalBar(false);
+
+    // the drop
+    const box = addActor('#actorLayer', A.boxArt('cardboard'), PX, GY - 240);
+    st.actors.playerBox = box;
+    await anim(box, [{ transform:`translate(${PX}px, ${GY-240}px)` }, { transform:`translate(${PX}px, ${GY}px)` }],
+      scale(t.drop, lossW), { easing:'cubic-bezier(.5,0,.9,.6)', fill:'forwards' });
+    box.style.transform = `translate(${PX}px, ${GY}px)`;
+    fxAt(A.fx.dustRing(), PX, GY+4);
+    const dr = q('.fxDust'); if (dr) anim(dr, [{transform:'scale(0.4)', opacity:1},{transform:'scale(3.2)', opacity:0}], scale(420));
+    shake(7, 200);
+    anim(animEl(box), [{transform:'scaleY(0.86) translateY(6px)'},{transform:'scaleY(1) translateY(0)'}], scale(200));
+
+    // the parade flashes past while the box settles
+    await sceneParade(plan, t.parade * lossW);
+
+    // the rival coils — the clench, staged to read with the sound off
+    const rival = addActor('#actorLayer', A.creature(plan.openerRival.speciesId, {tint:'#8a97ad'}), RX, GY, true);
+    st.actors.rival = rival;
+    setEx(rival, 'fierce');
+    await anim(animEl(rival), [
+      { transform:'translateX(0) rotate(0deg) scale(1)' },
+      { transform:'translateX(26px) rotate(-7deg) scale(0.94, 1.05)' },
+      { transform:'translateX(30px) rotate(-8deg) scale(0.92, 1.06)' },
+    ], scale(t.windup, lossW), { easing:'cubic-bezier(.6,0,.8,1)' });
+
+    // the strike + hit-stop
+    await anim(animEl(rival), [
+      { transform:'translateX(30px) rotate(-8deg)' },
+      { transform:`translateX(${PX-RX+120}px) rotate(6deg)` },
+    ], scale(t.hitstop * 0.45), { easing:'cubic-bezier(.2,0,.4,1)' });
+    fxAt(A.fx.impact(), PX+44, GY-46, 900);
+    shake(9, 180);
+    await wait(scale(t.hitstop * 0.55));                       // the frozen beat
+    anim(animEl(rival), [{ transform:`translateX(${PX-RX+120}px)` }, { transform:'translateX(0)' }], scale(260));
+
+    // the branch
+    if (plan.openerContinue){
+      await branchContinue(plan, t.branch);
+      stakes('');
+      await wait(scale(t.settle));
+      return true;
+    } else {
+      await playGag(plan.gag, t.branch * C.lossDelta, rival);
+      await wait(scale(t.settle * C.lossDelta));
+      return false;
+    }
+  }
+
+  async function branchContinue(plan, ms){
+    const box = st.actors.playerBox;
+    const frags = addActor('#fxLayer', A.fragments(), PX, GY);
+    box.remove();
+    frags.querySelectorAll('.frag').forEach((f, i) => {
+      const dx = (i%2 ? 1 : -1) * (30 + i*14), dy = -50 - (i*13)%70;
+      anim(f, [
+        { transform:'translate(0,0) rotate(0deg)', opacity:1 },
+        { transform:`translate(${dx}px, ${dy}px) rotate(${dx*3}deg)`, opacity:0.9, offset:0.55 },
+        { transform:`translate(${dx*1.5}px, ${dy*0.2+70}px) rotate(${dx*5}deg)`, opacity:0 },
+      ], scale(ms*0.9), { easing:'cubic-bezier(.2,.6,.5,1)' });
+    });
+    const m = plan.packSnapshot.members[0];
+    const cw = C.colorways.find(c=>c.id===m.colorway) || C.colorways[0];
+    const cre = addActor('#actorLayer', A.creature(m.speciesId, {tint: cw.body, charm: plan.packSnapshot.charmIndex===0}), PX, GY);
+    st.actors.player = cre;
+    setEx(cre, 'fierce');
+    banner('IT SWINGS', 'good', 900);
+    // out through the fragments, swinging
+    await anim(animEl(cre), [
+      { transform:'translateX(0) scale(0.6)', opacity:0 },
+      { transform:`translateX(${RX-PX-140}px) scale(1.06)`, opacity:1, offset:0.6 },
+      { transform:`translateX(${RX-PX-150}px) scale(1)` },
+    ], scale(ms*0.62), { easing:'cubic-bezier(.3,0,.4,1)' });
+    fxAt(A.fx.impact(), RX-84, GY-52, 700);
+    shake(7, 180);
+    const rival = st.actors.rival;
+    if (rival){
+      setEx(rival, 'worried');
+      anim(animEl(rival), [{ transform:'translateX(0)' }, { transform:'translateX(46px) rotate(9deg)' }], scale(240));
+    }
+    await anim(animEl(cre), [
+      { transform:`translateX(${RX-PX-150}px)` }, { transform:'translateX(0)' }
+    ], scale(ms*0.3), { easing:'ease-in-out' });
+    removeActor('rival');
+  }
+
+  // ------------------------------------------------------------- the gags
+  async function playGag(gagId, ms, rival){
+    const box = st.actors.playerBox;
+    banner('BOXED.', 'bad', 1400);
+    const T = f => scale(ms * f);
+
+    if (gagId === 'explosion'){
+      const frags = addActor('#fxLayer', A.fragments(), PX, GY);
+      box.remove();
+      frags.querySelectorAll('.frag').forEach((f,i)=>{
+        const dx=(i%2?1:-1)*(36+i*16), dy=-60-(i*17)%80;
+        anim(f,[{transform:'translate(0,0)',opacity:1},{transform:`translate(${dx}px,${dy}px) rotate(${dx*4}deg)`,opacity:0.9,offset:0.5},{transform:`translate(${dx*1.4}px,80px) rotate(${dx*6}deg)`,opacity:0}], T(0.9));
+      });
+      shake(10, 240);
+      const cre = addActor('#actorLayer', A.creature(curLeadSpecies(), {tint: curLeadTint()}), PX, GY);
+      st.actors.player = cre;
+      setEx(cre, 'dizzy');
+      // flat on its back, limbs up, stars orbiting — the pause, THEN the flop
+      await wait(T(0.22));
+      await anim(animEl(cre), [
+        { transform:'rotate(0deg) translateY(0)' },
+        { transform:'rotate(-80deg) translateY(-6px) translateX(-18px)' },
+      ], T(0.35), { easing:'cubic-bezier(.6,0,1,.4)' });
+      const stars = fxAt(A.fx.stars(), PX-30, GY-58, 3000);
+      anim(animEl(stars), [{transform:'rotate(0deg)'},{transform:'rotate(360deg)'}], scale(1600), {iterations:2, fill:'none'});
+    }
+    else if (gagId === 'punt'){
+      // the whole box sails out of the arena
+      await anim(box, [
+        { transform:`translate(${PX}px, ${GY}px) rotate(0deg)` },
+        { transform:`translate(${PX-260}px, ${GY-220}px) rotate(-200deg)` },
+        { transform:`translate(${PX-430}px, ${GY-90}px) rotate(-380deg)`, opacity:0.9 },
+      ], T(0.55), { easing:'cubic-bezier(.3,.1,.6,1)' });
+      box.remove();
+      const puff = fxAt(A.fx.snowPuff(), 66, 402, 2600);
+      anim(animEl(puff), [{transform:'scale(0.4)',opacity:0},{transform:'scale(1.4)',opacity:1},{transform:'scale(1.7)',opacity:0.65}], T(0.3));
+      await wait(T(0.28));   // the beat
+      const paw = fxAt(`<g><rect x="-5" y="-16" width="10" height="18" rx="5" fill="#c9a06b" stroke="#8a6a42" stroke-width="1.6"/><circle cx="0" cy="-18" r="7" fill="#c9a06b" stroke="#8a6a42" stroke-width="1.6"/><circle cx="0" cy="-21" r="2.6" fill="#8a6a42"/></g>`, 66, 398, 2600);
+      anim(paw, [{transform:'translate(66px, 430px)'},{transform:'translate(66px, 398px)'}], T(0.2), {easing:'cubic-bezier(.2,1.6,.5,1)'});
+    }
+    else if (gagId === 'siton'){
+      if (rival){
+        await anim(animEl(rival), [
+          { transform:'translateX(0) translateY(0)' },
+          { transform:`translateX(${PX-RX+10}px) translateY(-90px)` , offset:0.55},
+          { transform:`translateX(${PX-RX}px) translateY(-56px)` },
+        ], T(0.4), { easing:'cubic-bezier(.4,0,.6,1)' });
+        setEx(rival, 'happy');
+      }
+      await anim(animEl(box), [{ transform:'scaleY(1)' }, { transform:'scaleY(0.42) scaleX(1.25)' }], T(0.18), { easing:'cubic-bezier(.7,0,1,.6)' });
+      shake(6, 160);
+      for (let i=0;i<3;i++){
+        const p = fxAt(A.fx.snowPuff(), PX + (i%2? 52:-52), GY-8, 900);
+        anim(animEl(p), [{transform:'scale(0.3)',opacity:0.9},{transform:'scale(1)',opacity:0}], T(0.16));
+        await anim(animEl(box), [{ transform:'scaleY(0.42) scaleX(1.25) translateX(-4px)' },{ transform:'scaleY(0.42) scaleX(1.25) translateX(4px)' },{ transform:'scaleY(0.42) scaleX(1.25) translateX(0)' }], T(0.14), {fill:'none'});
+      }
+    }
+    else if (gagId === 'peek'){
+      const eyes = fxAt(`<g><rect x="-30" y="-6" width="60" height="10" rx="5" fill="#120c07"/><circle cx="-12" cy="-1" r="4.4" fill="#fff"/><circle cx="12" cy="-1" r="4.4" fill="#fff"/><circle cx="-11" cy="-1" r="2" fill="#1c1410"/><circle cx="13" cy="-1" r="2" fill="#1c1410"/></g>`, PX, GY-82, 6000);
+      anim(animEl(box), [{transform:'translateY(0)'},{transform:'translateY(-7px)'}], T(0.12));
+      await wait(T(0.3));                              // the long look
+      eyes.remove();
+      await anim(animEl(box), [{transform:'translateY(-7px)'},{transform:'translateY(0)'}], T(0.08));
+      const tape = fxAt(`<g><rect x="-34" y="-4" width="68" height="12" rx="3" fill="#e9dcae" stroke="#c9b878" stroke-width="1.6" opacity="0.97"/></g>`, PX, GY-80, 6000);
+      await anim(animEl(tape), [{transform:'scaleX(0)',opacity:0},{transform:'scaleX(1)',opacity:1}], T(0.14));
+      // the pat-pat
+      await anim(animEl(tape), [{transform:'translateY(0)'},{transform:'translateY(3px)'},{transform:'translateY(0)'},{transform:'translateY(3px)'},{transform:'translateY(0)'}], T(0.16), {fill:'none'});
+      await wait(T(0.1));
+      await anim(animEl(box), [
+        { transform:'rotate(0deg)' }, { transform:'rotate(4deg)', offset:0.4 }, { transform:'rotate(-86deg) translateY(-8px)' },
+      ], T(0.3), { easing:'cubic-bezier(.6,0,1,.5)' });
+      shake(5, 150);
+      fxAt(A.fx.snowPuff(), PX-46, GY-4, 1200);
+    }
+    else { // fright
+      const frags = addActor('#fxLayer', A.fragments(), PX, GY);
+      box.remove();
+      frags.querySelectorAll('.frag').forEach((f,i)=>{
+        const dx=(i%2?1:-1)*(28+i*12);
+        anim(f,[{transform:'translate(0,0)',opacity:1},{transform:`translate(${dx}px,${-40-(i*11)%50}px) rotate(${dx*3}deg)`,opacity:0}], T(0.5));
+      });
+      const cre = addActor('#actorLayer', A.creature(curLeadSpecies(), {tint: curLeadTint()}), PX, GY);
+      st.actors.player = cre;
+      setEx(cre, 'normal');
+      await wait(T(0.16));
+      setEx(cre, 'worried');
+      // the gulp
+      await anim(animEl(cre), [{transform:'scaleY(1)'},{transform:'scaleY(0.93) scaleX(1.04)'},{transform:'scaleY(1)'}], T(0.18), {fill:'none'});
+      await wait(T(0.2));                              // the held beat — where the laugh lives
+      setEx(cre, 'ko');
+      await anim(animEl(cre), [
+        { transform:'rotate(0deg)' }, { transform:'rotate(84deg) translateY(-4px)' },
+      ], T(0.26), { easing:'cubic-bezier(.7,0,1,.4)' });
+      shake(5, 140);
+      fxAt(A.fx.snowPuff(), PX+40, GY-4, 1200);
+    }
+    teamHp(0, 0, true);
+  }
+
+  function curLeadSpecies(){ return st.plan.packSnapshot.members[0].speciesId; }
+  function curLeadTint(){
+    const m = st.plan.packSnapshot.members[0];
+    return (C.colorways.find(c=>c.id===m.colorway) || C.colorways[0]).body;
+  }
+
+  // -------------------------------------------------------------- omens
+  async function playOmen(id){
+    st.result.omensSeen.push(id);
+    if (id === 'stormFront'){
+      banner('OMEN · STORM FRONT', 'omen', 1600);
+      const sky = q('#sky');
+      await anim(sky, [{ opacity:1 }, { opacity:0 }], scale(500)).then(()=>{
+        sky.setAttribute('fill','url(#stormSky)');
+        return anim(sky, [{ opacity:0 }, { opacity:1 }], scale(500));
+      });
+      await wait(scale(700));
+      await anim(sky, [{ opacity:1 }, { opacity:0.4 }], scale(400)).then(()=>{
+        sky.setAttribute('fill','url(#skyGrad)');
+        return anim(sky, [{ opacity:0.4 }, { opacity:1 }], scale(400));
+      });
+    } else if (id === 'auricTrace'){
+      banner('OMEN · AURIC TRACE', 'omen gold', 1600);
+      const b = st.actors.rivalBox;
+      if (b){
+        const gl = fxAt(`<g filter="url(#bigGlow)"><path d="M -18 -30 q 4 12 -2 26" stroke="#ffd700" stroke-width="4" fill="none"/><circle cx="-20" cy="-2" r="4" fill="#ffd700"/></g>`, parseFloat(b.style.transform.match(/translate\(([\d.]+)px/)[1]), GY-10, 2400);
+        await anim(animEl(b), [
+          { transform:'rotate(0deg)' }, { transform:'rotate(-3deg)' }, { transform:'rotate(3deg)' },
+          { transform:'rotate(-2deg)' }, { transform:'rotate(0deg)' },
+        ], scale(700), { fill:'none' });
+        anim(animEl(gl), [{opacity:0},{opacity:1},{opacity:0}], scale(1600));
+        await wait(scale(500));
+      } else await wait(scale(800));
+    }
+  }
+
+  // ------------------------------------------------------------- battles
+  async function sceneDoor(battle, rung){
+    const doors = st.hud.doors;
+    const opts = battle.door.options;
+    doors.innerHTML = opts.map((o, i) => `
+      <button class="doorCard" data-i="${i}">
+        <span class="doorGrade">${C.rivals[battle.grade].label.toUpperCase()} HANDLER</span>
+        <span class="doorName">${o.name}</span>
+        <span class="doorShape">${o.shape === 'champion' ? '☗ One champion' : '☗☗☗ Three lesser'}</span>
+      </button>`).join('');
+    doors.classList.add('shown');
+    stakes('Two doors. Same class of matchup behind each — shape is the real choice.');
+    const picked = await new Promise(res => {
+      let done = false;
+      const finish = i => { if (done) return; done = true; doors.classList.remove('shown'); res(i); };
+      doors.querySelectorAll('.doorCard').forEach(b => b.addEventListener('click', () => finish(+b.dataset.i)));
+      offerTap('PICK YOUR ROAD', { timeout: st.turbo ? 300 : 3800 }).then(r => {
+        finish(battle.door.autopick);
+      });
+    });
+    const shape = opts[picked].shape;
+    if (shape === 'champion') st.result.championPicks++; else st.result.trioPicks++;
+    battle.chosen = opts[picked];
+    stakes('');
+  }
+
+  async function sceneBattle(plan, battle){
+    const widen = C.rungWiden(battle.rung);
+    ladderCurrent(battle.rung);
+
+    for (const o of plan.omens) if (o.beforeRung === battle.rung) await playOmen(o.id);
+    if (battle.rung >= 2) await sceneDoor(battle, battle.rung);
+
+    // the rival's box drops — this loop's setup, the last loop's reward
+    clearLayer('#fxLayer');
+    removeActor('rivalBox'); removeActor('rival');
+    const rbox = addActor('#actorLayer', A.boxArt(battle.boxGrade), RX, GY-240);
+    st.actors.rivalBox = rbox;
+    await anim(rbox, [{ transform:`translate(${RX}px, ${GY-240}px)` }, { transform:`translate(${RX}px, ${GY}px)` }],
+      scale(340, widen), { easing:'cubic-bezier(.5,0,.9,.6)' });
+    rbox.style.transform = `translate(${RX}px, ${GY}px)`;
+    shake(6 + Math.min(4, battle.rung), 200);
+    fxAt(A.fx.dustRing(), RX, GY+4, 800);
+
+    const chosen = battle.chosen || battle.door.options[0];
+    banner(`${chosen.name}`, 'rival', 1200);
+    await wait(scale(420, widen));
+
+    // emerge
+    rbox.remove(); delete st.actors.rivalBox;
+    const shape = chosen.shape || 'champion';
+    const rTint = battle.grade === 'apex' ? '#6b5b8c' : battle.grade === 'pro' ? '#7d8ca0' : '#98a5b5';
+    const rC = addActor('#actorLayer', A.creature(battle.rival.speciesId, { tint: rTint }), RX, GY, true);
+    st.actors.rival = rC;
+    if (battle.grade === 'apex') rC.style.transform += ' scale(1.22)';
+    if (shape === 'trio'){
+      st.actors.rt1 = addActor('#actorLayer', A.creature(chosen.speciesId, {tint:rTint}), RX+74, GY-8, true);
+      st.actors.rt2 = addActor('#actorLayer', A.creature(chosen.speciesId, {tint:rTint}), RX+40, GY+16, true);
+      [st.actors.rt1, st.actors.rt2].forEach(n => n.style.transform += ' scale(0.62)');
+    }
+    setEx(rC, 'fierce');
+    rivalBar(true, chosen.name, battle.grade, 1);
+
+    // make sure the right player creature is on the floor
+    await ensureLead(plan, battle.leadIndex);
+
+    let rivalHpMax = battle.rival.hp, rivalLeft = rivalHpMax;
+    let effAnnounced = false;
+
+    for (const ev of battle.events){
+      if (ev.t === 'pHit'){
+        const atkName = C.species.find(s=>s.id===plan.packSnapshot.members[ev.who].speciesId).name;
+        stakes(`${atkName} · ${ev.move} — should land ${ev.range[0]}–${ev.range[1]}${ev.eff===2?' (double)':ev.eff===0.5?' (half)':''} · Rival ${ev.rivalHpAfter + ev.dmg} HP`);
+        if (ev.finish && battle.rung >= 3) await offerTap('FINISH IT', { timeout: 1900 });
+        const pc = st.actors.player;
+        await anim(animEl(pc), [
+          { transform:'translateX(0)' }, { transform:`translateX(${RX-PX-130}px)` }, { transform:'translateX(0)' },
+        ], scale(430, widen), { easing:'cubic-bezier(.4,0,.5,1)', fill:'none' });
+        fxAt(A.fx.impact(), RX-70, GY-54, 600);
+        if (!effAnnounced){
+          effAnnounced = true;
+          if (ev.eff === 2) banner('DOUBLE DAMAGE', 'good', 800);
+          else if (ev.eff === 0.5) banner('…half damage', 'sub', 800);
+        }
+        if (ev.eff === 2) shake(8, 180);
+        rivalLeft = ev.rivalHpAfter;
+        popupDmg(RX-60, GY-140, '-' + ev.dmg, 'gold');
+        rivalBar(true, null, null, rivalLeft / rivalHpMax);
+        const rv = st.actors.rival;
+        if (rv) anim(animEl(rv), [{ transform:'translateX(0)' }, { transform:'translateX(26px) rotate(6deg)' }, { transform:'translateX(0)' }], scale(280), {fill:'none'});
+        await wait(scale(300, widen));
+      }
+      else if (ev.t === 'rHit'){
+        stakes(`${chosen.name} winds up${ev.heavy ? ' — it looks heavy' : ''}…`);
+        if (ev.heavy){
+          // Label derives from VISIBLE state only (the charm is shown on the
+          // collar before the run) — never from whether this hit is the fall.
+          const label = (ev.target === plan.packSnapshot.charmIndex && !st.charmSpent) ? 'BELIEVE' : 'BRACE';
+          const r = await offerTap(label, { timeout: 1700 });
+          if (r.tapped) st.result.braceTaps++;
+        }
+        const rv = st.actors.rival;
+        if (rv) await anim(animEl(rv), [
+          { transform:'translateX(0)' }, { transform:'translateX(26px)', offset:0.4 }, { transform:`translateX(${PX-RX+130}px)` }, { transform:'translateX(0)' },
+        ], scale(460, widen), { easing:'cubic-bezier(.5,0,.6,1)', fill:'none' });
+        fxAt(A.fx.impact(), PX+62, GY-52, 600);
+        popupDmg(PX+66, GY-140, '-' + ev.dmg, 'red');
+        shake(ev.heavy ? 8 : 5, 180);
+        const pc = st.actors.player;
+        if (ev.charm){
+          st.charmSpent = true;
+          fxAt(A.fx.charmFlare(), PX, GY-60, 1500);
+          banner('THE CHARM HOLDS — 1 HP', 'gold', 1400);
+          setEx(pc, 'fierce');
+        } else if (ev.ko){
+          setEx(pc, 'ko');
+          await anim(animEl(pc), [
+            { transform:'rotate(0)' }, { transform:'rotate(-78deg) translateY(-4px)' },
+          ], scale(360), { easing:'cubic-bezier(.6,0,1,.5)' });
+        } else if (pc){
+          anim(animEl(pc), [{ transform:'translateX(0)' }, { transform:'translateX(-24px)' }, { transform:'translateX(0)' }], scale(280), {fill:'none'});
+          if (ev.leadHpAfter <= 34) setEx(pc, 'worried');
+        }
+        teamHp(ev.target, ev.leadHpAfter, ev.ko);
+        await wait(scale(320, widen));
+      }
+      else if (ev.t === 'status'){
+        const target = ev.side === 'rival' ? st.actors.rival : st.actors.player;
+        const x = ev.side === 'rival' ? RX : PX;
+        const f = ev.kind === 'burn' ? A.fx.burn() : ev.kind === 'chill' ? A.fx.chill() : A.fx.stun();
+        fxAt(f, x, GY-100, 1400);
+        banner(ev.kind.toUpperCase() + (ev.side==='rival' ? ' — on the rival' : ' — the countdown starts'), ev.side==='rival'?'sub':'bad', 1000);
+        await wait(scale(360, widen));
+      }
+      else if (ev.t === 'burnTick'){
+        fxAt(A.fx.burn(), PX, GY-96, 900);
+        popupDmg(PX+40, GY-150, 'burn', 'burn');
+        teamHp(ev.target, ev.hpAfter, false);
+        await wait(scale(240, widen));
+      }
+      else if (ev.t === 'swap'){
+        stakes('The next Boxling steps up.');
+        removeActor('player');
+        await ensureLead(plan, ev.toIndex, true);
+        await wait(scale(240, widen));
+      }
+    }
+
+    stakes('');
+    if (battle.win){
+      const rv = st.actors.rival;
+      if (rv){
+        setEx(rv, 'ko');
+        await anim(animEl(rv), [
+          { transform:'rotate(0)', opacity:1 }, { transform:'rotate(74deg) translateY(-4px)', opacity:1, offset:0.6 },
+          { transform:'rotate(74deg) translateY(6px)', opacity:0 },
+        ], scale(520), { easing:'cubic-bezier(.6,0,1,.5)' });
+      }
+      removeActor('rt1'); removeActor('rt2');
+      rivalBar(false);
+      ladderMark(battle.rung, 'won');
+      banner(`RUNG ${battle.rung} — TAKEN`, 'good', 900);
+      await wait(scale(330, widen));
+      return true;
+    } else {
+      // the fall — tone keyed to height
+      rivalBar(true, null, null, Math.max(0.06, (battle.deepRedLeft||10) / rivalHpMax));
+      if (battle.rung >= 6){ await dim(0.45, 900); }
+      else if (battle.rung >= 4){ await dim(0.25, 600); }
+      banner(battle.rung >= 6 ? 'THE CLIMB ENDS HERE' : 'THE RUN ENDS', 'bad', 1600);
+      ladderMark(battle.rung, 'lost');
+      await wait(scale(900, widen));
+      return false;
+    }
+  }
+
+  async function ensureLead(plan, idx, dropIn=false){
+    const cur = st.actors.player;
+    const m = plan.packSnapshot.members[idx];
+    const cw = C.colorways.find(c=>c.id===m.colorway) || C.colorways[0];
+    const want = 'lead-' + idx;
+    if (cur && cur.dataset.lead === want) return;
+    removeActor('player');
+    const cre = addActor('#actorLayer', A.creature(m.speciesId, { tint: cw.body, charm: idx === plan.packSnapshot.charmIndex }), PX, GY);
+    cre.dataset.lead = want;
+    st.actors.player = cre;
+    setEx(cre, 'normal');
+    await anim(animEl(cre), dropIn
+      ? [{ transform:'translateY(-140px) scale(0.8)', opacity:0 }, { transform:'translateY(0) scale(1)', opacity:1 }]
+      : [{ transform:'translateX(-80px)', opacity:0 }, { transform:'translateX(0)', opacity:1 }], scale(300));
+  }
+
+  // ---------------------------------------------------------------- vault
+  async function sceneVault(plan){
+    const v = plan.vault;
+    ladderCurrent(10);
+    clearLayer('#fxLayer');
+    removeActor('rival'); removeActor('rt1'); removeActor('rt2');
+    rivalBar(false);
+    await dim(0.5, 900);
+    banner('THE VAULT', 'gold', 1600);
+    stakes('The arena goes quiet.');
+
+    const vb = addActor('#actorLayer', A.boxArt('vault'), RX-30, GY);
+    st.actors.vaultBox = vb;
+    await anim(vb, [
+      { transform:`translate(${RX-30}px, ${GY}px)` }, { transform:`translate(${RX-30}px, ${GY-110}px)` },
+    ], scale(1600), { easing:'cubic-bezier(.3,0,.3,1)' });
+    vb.style.transform = `translate(${RX-30}px, ${GY-110}px)`;
+    const hover = animEl(vb).animate([
+      { transform:'translateY(0px)' }, { transform:'translateY(-8px)' }, { transform:'translateY(0px)' },
+    ], { duration: 2600, iterations: Infinity, easing:'ease-in-out' });
+
+    if (v.goldMeteor){
+      await wait(scale(500));
+      const mtr = fxAt(A.fx.meteor(), RX+40, GY-420, 2600);
+      await anim(mtr, [
+        { transform:`translate(${RX+120}px, ${GY-460}px)` }, { transform:`translate(${RX-30}px, ${GY-180}px)` },
+      ], scale(700), { easing:'cubic-bezier(.5,0,.8,.6)' });
+      mtr.remove();
+      shake(10, 300);
+      const pre = svgNode(`<g>${A.fx.crack('gold')}</g>`);
+      vb.querySelector('.crackHost')?.appendChild(pre);
+      banner('GOLD METEOR — CONCLUSIVE', 'gold', 2000);
+      st.result.omensSeen.push('goldMeteor');
+      await wait(scale(900));
+    }
+
+    await ensureLead(plan, v.witnessIndex);
+    stakes('One tap. The crack tells the truth.');
+    await offerTap('WITNESS', { mandatory: true, gold: true });
+    stakes('');
+
+    // the strike — after nine rungs of your things being struck, this box is theirs
+    const pc = st.actors.player;
+    setEx(pc, 'fierce');
+    await anim(animEl(pc), [
+      { transform:'translateX(0) rotate(0)' },
+      { transform:'translateX(-26px) rotate(6deg)', offset:0.35 },
+      { transform:`translateX(${RX-30-PX-110}px) translateY(-70px) rotate(-8deg)` },
+    ], scale(560), { easing:'cubic-bezier(.5,0,.7,1)' });
+    fxAt(A.fx.impact(), RX-110, GY-150, 800);
+    shake(12, 300);
+    await wait(scale(260));   // hit-stop, held longer than any other in the game
+    anim(animEl(pc), [{ transform:`translateX(${RX-30-PX-110}px) translateY(-70px)` }, { transform:'translateX(0) translateY(0)' }], scale(420));
+
+    // the crack
+    hover.cancel();
+    const crack = svgNode(`<g>${A.fx.crack(v.crack)}</g>`);
+    vb.querySelector('.crackHost')?.appendChild(crack);
+    const paths = crack.querySelectorAll('path');
+    paths.forEach(p => {
+      const len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+      p.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: scale(700), fill:'forwards', easing:'ease-out' });
+    });
+    const bloom = fxAt(A.fx.bloom(v.crack), RX-30, GY-170, 4000);
+    anim(animEl(bloom), [{ opacity:0 }, { opacity:1 }], scale(800));
+    banner(v.crack === 'gold' ? 'GOLD.' : 'RED.', v.crack === 'gold' ? 'gold big' : 'bad big', 2200);
+    await wait(scale(1400));
+
+    if (v.crack === 'red'){
+      ladderMark(10, 'lost');
+      await wait(scale(800));
+      return false;
+    }
+
+    // ------- gold: the Auric
+    const au = v.auric;
+    vb.remove();
+    const auric = addActor('#actorLayer', A.auric(), RX-10, GY, true);
+    st.actors.auric = auric;
+    rivalBar(true, 'THE AURIC · NINTH ELEMENT', null, 1);
+    await anim(animEl(auric), [
+      { transform:'scale(0.3) translateY(-60px)', opacity:0 }, { transform:'scale(1) translateY(0)', opacity:1 },
+    ], scale(1400), { easing:'cubic-bezier(.2,0,.3,1)' });
+    banner('THE AURIC', 'gold big', 1800);
+    await wait(scale(700));
+
+    // it takes down the creature in front of it
+    await anim(animEl(auric), [
+      { transform:'translateX(0)' }, { transform:`translateX(${PX-RX+150}px)` }, { transform:'translateX(0)' },
+    ], scale(700), { easing:'cubic-bezier(.5,0,.6,1)', fill:'none' });
+    fxAt(A.fx.impact(), PX+60, GY-60, 700);
+    shake(10, 260);
+    setEx(st.actors.player, 'ko');
+    teamHp(au.frontIndex, 0, true);
+    await anim(animEl(st.actors.player), [{ transform:'rotate(0)' }, { transform:'rotate(-80deg)' }], scale(420));
+    await wait(scale(500));
+
+    // the next steps up…
+    removeActor('player');
+    await ensureLead(plan, au.nextIndex, true);
+    stakes('It steps up.');
+    await wait(scale(400));
+    // …and survives
+    await anim(animEl(auric), [
+      { transform:'translateX(0)' }, { transform:`translateX(${PX-RX+150}px)` }, { transform:'translateX(0)' },
+    ], scale(700), { easing:'cubic-bezier(.5,0,.6,1)', fill:'none' });
+    fxAt(A.fx.impact(), PX+60, GY-60, 700);
+    shake(9, 240);
+    if (au.save === 'charm'){
+      fxAt(A.fx.charmFlare(), PX, GY-60, 1600);
+      teamHp(au.nextIndex, 1, false);
+      banner('THE CHARM HOLDS — 1 HP', 'gold', 1600);
+    } else {
+      teamHp(au.nextIndex, 1, false);
+      banner('A POINT SHORT', 'gold', 1600);
+    }
+    setEx(st.actors.player, 'fierce');
+    await wait(scale(700));
+
+    // the answer
+    stakes('Everything left, all at once.');
+    await anim(animEl(st.actors.player), [
+      { transform:'translateX(0)' }, { transform:`translateX(${RX-PX-140}px) translateY(-30px)` }, { transform:'translateX(0)' },
+    ], scale(640), { easing:'cubic-bezier(.4,0,.5,1)', fill:'none' });
+    fxAt(A.fx.impact(), RX-80, GY-80, 900);
+    shake(12, 320);
+
+    // the drain: three to four seconds, one pause in silence, then empty
+    const f = st.hud.rival.querySelector('.rhpfill');
+    stakes('');
+    await animBar(f, 1, 0.07, scale(2600));
+    await wait(scale(900));                    // the silence
+    await animBar(f, 0.07, 0, scale(600));
+    rivalBar(true, null, null, 0);
+    setEx(st.actors.auric, 'ko');
+    await anim(animEl(auric), [
+      { transform:'rotate(0)', opacity:1 }, { transform:'rotate(20deg) translateY(30px)', opacity:0 },
+    ], scale(1100));
+    ladderMark(10, 'won');
+    banner('THE GRAIL', 'gold big', 3000);
+    await wait(scale(1200));
+    return true;
+  }
+  function animBar(el, from, to, ms){
+    return new Promise(res => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; el.style.width = (to * 100) + '%'; res(); };
+      const t0 = performance.now();
+      function step(t){
+        if (done) return;
+        const k = Math.min(1, (t - t0) / ms);
+        el.style.width = ((from + (to - from) * k) * 100) + '%';
+        if (k < 1) requestAnimationFrame(step); else finish();
+      }
+      requestAnimationFrame(step);
+      setTimeout(finish, ms + 300);   // rAF stops in hidden tabs; the bar must still land
+    });
+  }
+
+  // ------------------------------------------------------------- the run
+  async function playRun(plan, opts={}){
+    st.plan = plan;
+    st.turbo = !!opts.turbo;
+    st.skipping = false;
+    st.preset = C.timingPresets.find(p=>p.id === (opts.presetId || '3.0')) || C.timingPresets[1];
+    st.result = { omensSeen:[], championPicks:0, trioPicks:0, braceTaps:0 };
+    st.charmSpent = false;
+    clearLayer('#actorLayer'); clearLayer('#fxLayer'); clearLayer('#farLayer');
+    q('#dimmer').setAttribute('opacity', 0);
+    q('#sky').setAttribute('fill','url(#skyGrad)');
+    buildLadder(); buildTeam(plan.packSnapshot);
+    hideTap(); stakes('');
+    st.hud.skip.classList.add('shown');
+
+    const alive = await sceneOpener(plan);
+    if (alive){
+      ladderMark(1, 'won');
+      for (const battle of plan.battles){
+        const won = await sceneBattle(plan, battle);
+        if (!won) break;
+      }
+      if (plan.terminal === 10) await sceneVault(plan);
+    } else {
+      ladderMark(1, 'lost');
+    }
+    st.hud.skip.classList.remove('shown');
+    rivalBar(false);
+    stakes('');
+    await dim(0, 300);
+    return st.result;
+  }
+
+  function skipNow(){
+    st.skipping = true;
+    if (st.tapResolve) st.tapResolve();
+    document.getAnimations().forEach(a => { try { a.finish(); } catch(e){ try { a.cancel(); } catch(e2){} } });
+  }
+
+  return { mount, playRun, skipNow, state: st };
+})();
+
+</script>
+<script>
+/* ---- js/main.js ---- */
+/* Boxlings Battle — app shell and flow. */
+window.BB = window.BB || {};
+(() => {
+  const C = BB.config, F = BB.fair;
+  const $ = id => document.getElementById(id);
+  const money = v => '$' + v.toFixed(2);
+
+  const session = {
+    serverSeed: F.randomHex(16),
+    openIndex: 0,
+    pack: null,
+    nonce: '',
+    presetId: '3.0',
+    turbo: false,
+    forcedBand: null,
+    running: false,
+  };
+  session.serverSeedHash = F.sha256Hex(session.serverSeed);
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('bb-pack') || 'null');
+    if (saved && saved.members && saved.members.length === 3) session.pack = saved;
+  } catch(e){}
+
+  // ------------------------------------------------------------- setup UI
+  function renderSetup(){
+    const rows = C.box.dropTable.map(it =>
+      `<tr><td>${it.name}</td><td class="num">${money(it.value)}</td><td class="num">${it.weight}%</td></tr>`).join('');
+    const bandRows = C.bands.map(b => {
+      const rungs = b.rungs.map(r => r.vaultWin ? 'takes the Vault' : r.r === 1 ? 'boxed at the opener' : (r.r===10?'the Vault, denied':'rung '+r.r));
+      return `<tr><td>${b.label}</td><td class="num">${b.share}</td><td>${[...new Set(rungs)].join(' / ')}</td></tr>`;
+    }).join('');
+    const om = C.omens;
+    $('setupBody').innerHTML = `
+      <section>
+        <h3>Provably fair</h3>
+        <p class="mono tiny">server seed hash<br>${session.serverSeedHash}</p>
+        <p class="tiny">The prize is drawn the instant your box seals: <span class="mono">HMAC(server&nbsp;seed, your&nbsp;packing&nbsp;+&nbsp;open&nbsp;#)</span>. Nothing in the battle can touch it. The seed is revealed on every receipt so you can recompute your own draw.</p>
+        <details><summary>How the resolve works</summary>
+          <p class="tiny">Your packing choices compose a client seed — a deck cut, real but unaimable. At the seal it meets the pre-committed server seed and the prize exists from that moment. The battle you then watch is authored backward from that fixed ending. Height is the only tell that binds: surviving a rung rules out every band that ends there. Everything cosmetic — which gag, which rival skin, the camera, the dust — is drawn from a separate stream that never sees the prize.</p>
+        </details>
+      </section>
+      <section>
+        <h3>Drop table · ${C.box.name} · ${money(C.box.price)}</h3>
+        <table class="dropT"><tr><th>Item</th><th>Value</th><th>Odds</th></tr>${rows}</table>
+      </section>
+      <section>
+        <h3>How far runs go</h3>
+        <table class="dropT"><tr><th>Prize</th><th>Share</th><th>Height</th></tr>${bandRows}</table>
+      </section>
+      <section>
+        <h3>Published tells</h3>
+        <p class="tiny"><b>Height</b> never misleads. <b>The Parade</b>: apex silhouettes correlate with band (low ${pct(C.paradeApexWeights.low)} · high ${pct(C.paradeApexWeights.high)} chance of 2+). <b>Storm Front</b> fires on ${(om.stormFront.rates.low*100)}% of low runs, ${(om.stormFront.rates.high*100)}% of high. <b>Auric Trace</b>: ${(om.auricTrace.rates.low*100)}% low → ${(om.auricTrace.rates.grail*100)}% grail. <b>Gold Meteor</b>: Vault only, conclusive, never false.</p>
+      </section>
+      <section>
+        <h3>Rig controls</h3>
+        <label>Opener preset
+          <select id="presetSel">${C.timingPresets.map(p=>`<option value="${p.id}" ${p.id===session.presetId?'selected':''}>${p.label}</option>`).join('')}</select>
+        </label>
+        <label>Force outcome (demo)
+          <select id="forceSel">
+            <option value="">— fair draw —</option>
+            ${C.bands.map(b=>`<option value="${b.i}">${b.label}</option>`).join('')}
+          </select>
+        </label>
+        <label class="row"><input type="checkbox" id="turboChk"> Turbo</label>
+        <button id="newSeedBtn" class="ghost">New server seed</button>
+      </section>`;
+    $('presetSel').onchange = e => session.presetId = e.target.value;
+    $('forceSel').onchange = e => session.forcedBand = e.target.value === '' ? null : +e.target.value;
+    $('turboChk').onchange = e => session.turbo = e.target.checked;
+    $('newSeedBtn').onclick = () => {
+      session.serverSeed = F.randomHex(16);
+      session.serverSeedHash = F.sha256Hex(session.serverSeed);
+      session.openIndex = 0;
+      renderSetup();
+    };
+  }
+  function pct(w){ const tot=w.reduce((a,b)=>a+b,0); return Math.round((w[2]+w[3])/tot*100) + '%'; }
+
+  // ----------------------------------------------------------- packing UI
+  const packState = { chosen: [], colorways: {}, };
+  function renderPacking(){
+    const grid = $('packGrid');
+    grid.innerHTML = C.species.map(sp => {
+      const sel = packState.chosen.indexOf(sp.id);
+      const el = C.elements[sp.el];
+      return `<button class="packCard ${sel>=0?'sel':''}" data-id="${sp.id}">
+        <span class="slotNo">${sel>=0 ? (sel+1) : ''}</span>
+        <svg viewBox="-70 -120 140 140" class="cardArt">${BB.art.creature(sp.id, {tint:(C.colorways.find(c=>c.id===(packState.colorways[sp.id]||'kraft'))).body, charm: sel===0})}</svg>
+        <span class="pcName">${sp.name}</span>
+        <span class="pcEl" style="color:${el.color}">${el.name}</span>
+        <span class="pcBlurb">${sp.blurb}</span>
+        <span class="cwRow">${C.colorways.map(cw=>`<i class="sw ${((packState.colorways[sp.id]||'kraft')===cw.id)?'on':''}" data-sp="${sp.id}" data-cw="${cw.id}" style="background:${cw.body}"></i>`).join('')}</span>
+      </button>`;
+    }).join('');
+    grid.querySelectorAll('.packCard').forEach(b => b.addEventListener('click', e => {
+      if (e.target.classList.contains('sw')) return;
+      const id = b.dataset.id;
+      const i = packState.chosen.indexOf(id);
+      if (i >= 0) packState.chosen.splice(i, 1);
+      else if (packState.chosen.length < 3) packState.chosen.push(id);
+      renderPacking();
+    }));
+    grid.querySelectorAll('.sw').forEach(s => s.addEventListener('click', e => {
+      e.stopPropagation();
+      packState.colorways[s.dataset.sp] = s.dataset.cw;
+      renderPacking();
+    }));
+    $('sealBtn').disabled = packState.chosen.length !== 3;
+    $('packHint').textContent = packState.chosen.length === 3
+      ? 'Order is part of your signature. The first slot wears the Charm ◈.'
+      : `Choose ${3-packState.chosen.length} more — order matters.`;
+  }
+  function openPacking(){
+    $('packOverlay').classList.add('shown');
+    if (session.pack){
+      packState.chosen = session.pack.members.map(m=>m.speciesId);
+      session.pack.members.forEach(m => packState.colorways[m.speciesId] = m.colorway);
+    }
+    renderPacking();
+  }
+
+  async function sealAndRun(){
+    const members = packState.chosen.map(id => ({ speciesId:id, colorway: packState.colorways[id] || 'kraft' }));
+    session.pack = { members, charmIndex: 0 };
+    localStorage.setItem('bb-pack', JSON.stringify(session.pack));
+    session.nonce = $('nonceInput').value || '';
+    // the seal beat
+    const btn = $('sealBtn');
+    btn.textContent = 'SEALED';
+    $('packOverlay').classList.add('sealing');
+    await new Promise(r => setTimeout(r, 500));
+    $('packOverlay').classList.remove('shown','sealing');
+    btn.textContent = 'SEAL IT';
+    startRun();
+  }
+
+  function clientSeedOf(){
+    return session.pack.members.map(m=>`${m.speciesId}.${m.colorway}`).join('-') + (session.nonce ? '~'+session.nonce : '');
+  }
+
+  // ---------------------------------------------------------------- a run
+  async function startRun(existingPlan, bank=true){
+    if (session.running) return;
+    session.running = true;
+    document.body.classList.add('running');
+    let plan = existingPlan;
+    if (!plan){
+      plan = BB.planner.planRun({
+        serverSeed: session.serverSeed,
+        clientSeed: clientSeedOf(),
+        openIndex: session.openIndex,
+        pack: session.pack,
+        forcedBand: session.forcedBand,
+        recentGags: BB.registry.recentGags(),
+      });
+      session.openIndex++;
+    }
+    const result = await BB.present.playRun(plan, { turbo: session.turbo, presetId: session.presetId });
+    let regLines = [];
+    if (bank && !plan.demo) regLines = BB.registry.bank(plan, result);
+    else if (bank && plan.demo) regLines = ['Demo draw — nothing banked.'];
+    showReceipt(plan, regLines, bank);
+    session.running = false;
+    document.body.classList.remove('running');
+  }
+
+  // --------------------------------------------------------------- receipt
+  function showReceipt(plan, regLines, banked){
+    const price = C.box.price, v = plan.item.value;
+    const win = v >= price;
+    const ended = plan.vaultWin ? 'took the Vault' : plan.vaultLoss ? 'fell at the Vault'
+                : plan.terminal === 1 ? 'boxed at the opener' : `fell at rung ${plan.terminal}`;
+    const verify = `
+      <details class="verify"><summary>Verify this run</summary>
+        <p class="mono tiny">server seed&nbsp;&nbsp;${plan.serverSeed}<br>
+        client seed&nbsp;&nbsp;${plan.clientSeed}<br>
+        open #&nbsp;&nbsp;${plan.openIndex}<br>
+        seal = HMAC(server, client|open)<br>&nbsp;&nbsp;${plan.seal.slice(0,48)}…</p>
+        <p class="tiny">${(() => {
+          const re = BB.planner.planRun({serverSeed:plan.serverSeed, clientSeed:plan.clientSeed, openIndex:plan.openIndex, pack:plan.packSnapshot, forcedBand: plan.demo? plan.band : null});
+          return re.item.id === plan.item.id ? '✓ Recomputed from the seal just now — same prize. It was decided before the first frame.' : '✗ recompute mismatch (bug!)';
+        })()}</p>
+      </details>`;
+    $('receiptBody').innerHTML = `
+      ${plan.demo ? '<div class="demoTag">DEMO DRAW — forced outcome, not banked</div>' : ''}
+      <h2 class="${win?'winH':''}">${win ? 'WINNINGS' : 'salvage recovered'}</h2>
+      <p class="endLine">${C.species.find(s=>s.id===plan.packSnapshot.members[0].speciesId).name} ${ended}.</p>
+      <div class="rrow"><span>Spend</span><span class="num">${money(price)}</span></div>
+      <div class="rrow item"><span>${plan.item.name}</span><span class="num">${money(v)}</span></div>
+      ${win ? `<div class="rrow winRow"><span>Winnings</span><span class="num">+${money(v-price)}</span></div>`
+            : `<div class="rrow"><span>Salvage value</span><span class="num">${money(v)}</span></div>`}
+      <div class="regLines">${(regLines||[]).map(l=>`<div class="regLine">◈ ${l}</div>`).join('')}</div>
+      ${banked ? verify : '<p class="tiny">Replay — already banked.</p>'}`;
+    $('receiptOverlay').classList.add('shown');
+  }
+  $('againBtn').onclick = () => { $('receiptOverlay').classList.remove('shown'); startRun(); };
+  $('repackBtn').onclick = () => { $('receiptOverlay').classList.remove('shown'); openPacking(); };
+  $('recStableBtn').onclick = () => { $('receiptOverlay').classList.remove('shown'); openStable(); };
+
+  // ---------------------------------------------------------------- stable
+  async function openStable(){
+    if (!session.pack){ openPacking(); return; }
+    const N = 10;
+    const plans = [];
+    for (let i = 0; i < N; i++){
+      plans.push(BB.planner.planRun({
+        serverSeed: session.serverSeed, clientSeed: clientSeedOf(),
+        openIndex: session.openIndex + i, pack: session.pack,
+        forcedBand: session.forcedBand, recentGags: [],
+      }));
+    }
+    session.openIndex += N;
+    $('stableBody').innerHTML = `
+      <p class="tiny">One seed settles the whole wave — the ledger exists before the first row turns. Spend ${money(C.box.price*N)}.</p>
+      <div class="ledger">${plans.map((p,i)=>`
+        <div class="lrow" data-i="${i}">
+          <span class="lno">#${p.openIndex}</span>
+          <span class="lstate">SEALED</span>
+          <span class="lend"></span>
+          <span class="lval num"></span>
+          <button class="ghost lreplay" style="visibility:hidden">replay</button>
+        </div>`).join('')}</div>
+      <div class="lbest" id="lbest"></div>`;
+    $('stableOverlay').classList.add('shown');
+    let best = null;
+    for (let i = 0; i < N; i++){
+      const p = plans[i];
+      await new Promise(r => setTimeout(r, 240));
+      const row = $('stableBody').querySelector(`.lrow[data-i="${i}"]`);
+      const ended = p.vaultWin ? 'THE VAULT' : p.vaultLoss ? 'Vault, denied' : p.terminal === 1 ? 'boxed' : 'rung ' + p.terminal;
+      row.querySelector('.lstate').textContent = p.terminal === 1 ? '✕' : '▲';
+      row.querySelector('.lstate').className = 'lstate ' + (p.item.value >= C.box.price ? 'good' : 'meh');
+      row.querySelector('.lend').textContent = ended + ' · ' + p.item.name;
+      row.querySelector('.lval').textContent = money(p.item.value);
+      row.querySelector('.lval').className = 'lval num ' + (p.item.value >= C.box.price ? 'good' : '');
+      const rb = row.querySelector('.lreplay');
+      rb.style.visibility = 'visible';
+      rb.onclick = () => { $('stableOverlay').classList.remove('shown'); startRun(p, false); };
+      if (!p.demo) BB.registry.bank(p, { omensSeen: [], championPicks:0, trioPicks:0, braceTaps:0 });
+      if (!best || p.item.value > best.item.value) best = p;
+    }
+    const spend = C.box.price*N, ret = plans.reduce((s,p)=>s+p.item.value,0);
+    $('lbest').innerHTML = `<b>Best pull:</b> ${best.item.name} — ${money(best.item.value)}
+      <span class="tiny">· wave: spend ${money(spend)}, returned ${money(ret)}</span>`;
+  }
+  $('stableClose').onclick = () => $('stableOverlay').classList.remove('shown');
+
+  // -------------------------------------------------------------- registry
+  function openRegistry(){
+    const d = BB.registry.data;
+    const meteor = d.witness.goldMeteor;
+    const stamps = Object.entries(d.stamps);
+    $('registryBody').innerHTML = `
+      <div class="rstats">
+        <div><b>${d.opens}</b><span>opens</span></div>
+        <div><b>${money(d.spend)}</b><span>spend</span></div>
+        <div><b>${money(d.returned)}</b><span>returned</span></div>
+        <div><b>${d.bestPull ? money(d.bestPull.value) : '—'}</b><span>best pull</span></div>
+      </div>
+      <h3>Witness cards</h3>
+      <div class="wcards">
+        <div class="wcard ${d.witness.stormFront?'have':''}">Storm Front <b>${d.witness.stormFront}</b></div>
+        <div class="wcard ${d.witness.auricTrace?'have':''}">Auric Trace <b>${d.witness.auricTrace}</b></div>
+        <div class="wcard ${d.witness.vaultSeen?'have':''}">The Vault <b>${d.witness.vaultSeen}</b></div>
+        <div class="wcard gold ${meteor?'have':''}">Gold Meteor <b>${meteor} / 1</b></div>
+      </div>
+      <h3>Path badges</h3>
+      <div class="wcards">${C.badges.map(b=>`<div class="wcard ${d.badges[b.id]?'have':''}" title="${b.desc}">${b.name}</div>`).join('')}</div>
+      <h3>Odyssey stamps <span class="tiny">(${stamps.length} banked)</span></h3>
+      <div class="stamps">${stamps.length ? stamps.map(([k,n])=>{
+        const [sp, end] = k.split('@');
+        return `<div class="stamp">◈ ${C.species.find(s=>s.id===sp)?.name || sp} — ${end} ${n>1?'×'+n:''}</div>`;
+      }).join('') : '<p class="tiny">Every open banks one. None yet.</p>'}</div>
+      <button id="regReset" class="ghost">reset registry</button>`;
+    $('registryOverlay').classList.add('shown');
+    $('regReset').onclick = () => { BB.registry.reset(); openRegistry(); };
+  }
+  $('registryBtn').onclick = openRegistry;
+  $('registryClose').onclick = () => $('registryOverlay').classList.remove('shown');
+  $('stableBtn').onclick = openStable;
+  $('packBtn').onclick = openPacking;
+  $('sealBtn').onclick = sealAndRun;
+  $('skipBtn').onclick = () => BB.present.skipNow();
+
+  // ------------------------------------------------------------------ boot
+  BB.present.mount($('stage'), {
+    action: $('actionBtn'), stakes: $('stakes'), banner: $('banner'),
+    ladder: $('ladder'), team: $('team'), rival: $('rivalBar'),
+    doors: $('doors'), fxHtml: $('fxHtml'), skip: $('skipBtn'),
+  });
+  renderSetup();
+  openPacking();
+})();
+
+</script>
+</body>
+</html>
