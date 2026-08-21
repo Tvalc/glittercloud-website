@@ -244,6 +244,7 @@
   <span class="brand">THE VAULT JOB</span>
   <div class="hbtns">
     <span id="jobs-header" class="mono" title="Jobs run"></span>
+    <button id="restart-btn" type="button" hidden title="Stop this run and go back to the pick">RESTART</button>
     <button id="sound-toggle" aria-pressed="false" type="button">SOUND OFF</button>
   </div>
 </header>
@@ -644,6 +645,7 @@ function refreshJobCounter() {
 /* ============================== screens ============================== */
 function showScreen(name) {
   for (const id of ['screen-pick', 'screen-run', 'screen-reveal']) $(id).hidden = (id !== 'screen-' + name);
+  $('restart-btn').hidden = name !== 'run';
 }
 
 /* ============================== figures ============================== */
@@ -1150,6 +1152,14 @@ document.querySelectorAll('.swatch').forEach(btn => btn.addEventListener('click'
   startRun(pick, serverSeed + ':' + pick + ':' + nonce, nonce, false);
 }));
 $('btn-again').addEventListener('click', () => { nonce += 1; refreshJobCounter(); showScreen('pick'); });
+// Restart: abandon the run in progress and go back to the pick. Nothing is revealed;
+// the abandoned outcome stays sealed and the next pick uses a fresh nonce.
+$('restart-btn').addEventListener('click', () => {
+  if (engine) engine.done = true;
+  engine = null;
+  nonce += 1;
+  showScreen('pick');
+});
 $('btn-replay').addEventListener('click', () => { if (lastRun) startRun(lastRun.pick, lastRun.seed, lastRun.nonce, true); });
 $('btn-verify').addEventListener('click', async () => {
   const hash = await sha256Hex($('r-seed').value.trim());
