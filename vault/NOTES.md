@@ -1,29 +1,26 @@
-# NOTES — The Vault Job prototype
+# NOTES — The Vault Job prototype (sequential crew model)
 
 ## What was built
-One self-contained `index.html` (~52KB, no network, vanilla JS, system fonts, inline SVG). The outcome is drawn once in `drawOutcome()` and frozen before the first frame; presentation flavour (staggers, keypad digits, gag roll, prize pick) is drawn from the same seeded stream *after* the freeze and cannot touch the outcome. Commit–reveal via SHA-256 (`crypto.subtle` with a sync fallback), mulberry32 PRNG seeded from `serverSeed:pick:nonce`. The vault door is on screen from the first frame — dormant, waiting — so every run ends where it was always pointed. Debug panel on `D`.
+One self-contained `index.html` (~55KB, no network, vanilla JS, system fonts, inline SVG). Three crew members, one encounter each, played **in sequence** top of the building to the bottom: the roof guy vs the laser grid, the lobby guy vs the guard desk, the keypad guy vs the code. Each encounter plays a **different cutscene by result** — clean, close call, or out (he pulls back; nobody gets hurt). A building cross-section stays on screen the whole run showing who has reached the vault. **The prize tier is the number who make it down:** 1 → Floor, 2 → Solid, 3 → Grail. The vault door's colour and the glow behind it say it before the card does.
 
-## Ambiguities, resolved in favour of section 2
-- **Quick open vs exits.** Quick open always shows 3 panels on fixed beats (split 600ms, sync 1500ms, resolve 1950ms, door 2400–3400ms, reveal 4000ms) for every tier; only outcome data (grade colours, case count) differs. Unused panels "stand down" neutrally. Omen stagger and the guaranteed signal do not play in quick open — both correlate with tier and would break identity. Door spectacle is fixed, tier-blind.
-- **Forced signal on a non-grail tier stays false** — the signal is licensed to grail only, so forced runs stay internally consistent.
-- **Replays never re-bank cases**, so the cosmetic counter can't be farmed.
-- **Gag no-repeat** is session state, so a replayed seed can show a different gag (outcome-irrelevant by design).
+Honesty is unchanged: `drawOutcome()` draws the tier, which crew make it, and how, in one seeded pass and freezes the object before the first frame. Commit–reveal receipt, Replay, Verify, quick open and the debug panel all carry over.
 
-## Acceptance tests — all verified in a live browser
-1. `Math.random` appears 0 times in the source (grepped) — **pass**
-2. Replay reproduced a byte-identical run (tier, prize, grades) via the Replay button — **pass**
-3. Verify passed the genuine seed; failed after a 1-character tamper — **pass**
-4. Signal never fired across 20× forced floor + 20× solid (even forced on); fires on grail — **pass**
-5. Door opened on every watched run including one-case runs (single unconditional animator) — **pass**
-6. Run 100 opens: every exit reachable from every tier; 3000-draw check showed 17 grail shorts — **pass**
-7. Watched a short run land GRAIL ("Founders Vault Card", one BONE chip) — resolves warmly, feels fine — **pass**
-8. Wall-clock, pick to reveal, 1x: full **26,006ms**, medium **16,001ms** (engine clock, same for short/quick) — **pass**
-9. Quick open beats are fixed constants, structurally identical across tiers — **pass**
-10. Sound off at 1x: each panel's secure moment states its grade in colour and text; best panel callable at a glance — **pass**
-11. Reduced motion: transforms dropped, cross-fades kept, identical durations and information — **pass**
-12. Watched at 360px (panels stack) and desktop (column caps at 960px, identical at 1440px) — **pass**
-13. Floor reveal: warm copy, no losing marks or sounds — **pass**
-14. All four gags watched; none lands at the player's expense on any tier — **pass**
+## Decisions (direction change from spec v1.0, per Makko)
+- **Sequential, not simultaneous.** The spec's three parallel panels are replaced by one stage plus the building tracker, so the tension reads as "does the next guy make it?" This inverts the spec's "never stage it as a contest the crew could fail" and makes run shape a verdict, not a signal — by design.
+- **Omen and guaranteed signal removed.** Both were bound to simultaneous panels; arrival count is now the single, legible signal.
+- **Exit points removed.** Every run plays all three scenes: 24s at 1x (intro 1.2s, three scenes at 6.3s, vault 3.9s). Quick open is 4s with fixed beats.
+- **At least one always reaches the vault**, so the door always opens. Debug per-guy forces override a conflicting tier.
+- Replays never re-bank the cosmetic job counter.
+
+## Verified in a live browser
+- `Math.random` appears 0 times; outcome frozen; same seed → identical run (Replay) — **pass**
+- 3,000 draws: tier ↔ arrivals locked 1/2/3, never zero arrivals, 62/35/3.6% — **pass**
+- Verify passes the genuine seed; fails a 1-character tamper — **pass**
+- Wall clock pick→reveal at 1x: **24,008ms** against 24s — **pass**
+- Watched a forced run (roof close call, lobby out, keypad clean → Solid) and a Grail quick open: every result is stated in text and colour on the stage header, the caption, and the building tracker; readable with sound off — **pass**
+- Reduced motion: poses step instead of glide, cross-fades kept, identical copy and timings — **pass**
+- 360px stacks stage over the building tracker; desktop column caps at 960px — **pass**
+- Floor copy is warm ("One got through. It still pays."); an out is "pulled back", never a loss mark — **pass**
 
 ## Not finished
-Nothing cut. Sound (optional) is two tones, default off.
+Nothing cut. Sound is optional, default off.

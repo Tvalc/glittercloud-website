@@ -39,7 +39,7 @@
     font-size: 12px; letter-spacing: .14em; color: var(--dim);
   }
   header .brand { color: var(--ink); font-weight: 600; }
-  header .hbtns { display: flex; gap: 8px; }
+  header .hbtns { display: flex; gap: 8px; align-items: center; }
   header button {
     background: none; border: 1px solid var(--line); color: var(--dim);
     font: inherit; padding: 4px 10px; border-radius: 4px; cursor: pointer;
@@ -80,84 +80,68 @@
     background-position: center;
     border: 1px solid var(--line); border-radius: 10px;
     padding: 16px;
-    display: flex; flex-direction: column; gap: 14px;
+    display: flex; flex-direction: column; gap: 12px;
   }
   #run-caption {
     text-align: center; color: var(--dim); font-size: 13px; letter-spacing: .18em;
     text-transform: uppercase; min-height: 20px;
-    transition: opacity .35s ease-out;
   }
-  #panels {
-    display: grid; gap: 12px;
-    grid-template-columns: repeat(var(--n, 3), 1fr);
-    transition: opacity .4s ease-out;
-  }
-  #panels.dimmed { opacity: .22; }
-  @media (max-width: 640px) { #panels { grid-template-columns: 1fr; } }
+  #run-body { display: grid; grid-template-columns: 1fr 150px; gap: 12px; align-items: stretch; }
+  @media (max-width: 640px) { #run-body { grid-template-columns: 1fr; } }
 
-  .panel {
+  /* the stage: one scene at a time */
+  #stage {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px; opacity: 0; transform: translateY(8px);
-    transition: opacity .35s ease-out, transform .35s cubic-bezier(.215,.61,.355,1),
-                background-color .3s ease-out, border-color .3s ease-out;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 240px;
   }
-  .panel.in { opacity: 1; transform: none; }
-  .panel.beat { background: #262c3d; border-color: var(--ink); }
-  .panel.stood { opacity: .45; }
-  .panel-head {
+  #stage-head {
     display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
-    font-size: 11px; letter-spacing: .14em; color: var(--dim); margin-bottom: 8px;
+    font-size: 11px; letter-spacing: .14em; color: var(--dim);
   }
-  .panel-head .where { color: var(--ink); }
-  .panel-head .status { text-transform: uppercase; text-align: right; }
-  .panel svg { width: 100%; height: auto; display: block; }
-  .panel .mover { transition: opacity .35s ease-out; }
-  .panel.secured .mover { opacity: .12; }
-  .panel .case { opacity: 0; transition: opacity .35s ease-out; }
-  .panel.secured .case { opacity: 1; }
-  .grade-bone      { color: var(--bone); }
-  .grade-ember     { color: var(--ember); }
-  .grade-auric     { color: var(--auric); }
-  .grade-prismatic {
-    background: linear-gradient(90deg, var(--pris-a), var(--pris-b), var(--pris-c));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+  #stage-head .where { color: var(--ink); }
+  #stage-head .status { text-transform: uppercase; text-align: right; transition: color .3s ease-out; }
+  .status.in   { color: var(--auric); }
+  .status.out  { color: var(--dim); }
+  #scene-wrap { position: relative; flex: 1; }
+  #scene-wrap svg { width: 100%; height: auto; display: block; }
+  #stage-caption {
+    font-size: 13px; color: var(--ink); min-height: 20px; letter-spacing: .02em;
+    transition: opacity .3s ease-out;
   }
+  #stage-caption.dimmed { opacity: .5; }
+
+  /* the building: crew position, always on screen */
+  #building {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  #building .tally { font-size: 10px; letter-spacing: .18em; color: var(--dim); text-align: center; }
+  #building .tally b { color: var(--ink); font-weight: 600; }
+  #building svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 640px) { #building svg { max-height: 170px; } }
+  .bfig { transition: opacity .4s ease-out; }
+  .bfig.out { opacity: .3; }
 
   #gag-strip {
-    height: 44px; position: relative; overflow: hidden;
+    height: 40px; position: relative; overflow: hidden;
     color: var(--dim); font-size: 12px; letter-spacing: .04em;
   }
   #gag-strip[hidden] { display: none; }
   #gag-strip .gag-caption { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; }
   #gag-strip svg { position: absolute; top: 0; height: 26px; }
 
-  /* the vault is on screen from the first frame — dormant, waiting */
-  #finale { opacity: .35; transition: opacity .4s ease-out; margin-top: 4px; }
-  #finale.in { opacity: 1; }
-  #finale-top { display: flex; justify-content: center; margin-bottom: 6px; }
-  #alarm {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px;
-    font-size: 10px; letter-spacing: .2em; color: var(--dim);
-  }
-  #alarm .alarm-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember);
-    transition: background-color .6s ease-out, opacity .6s ease-out; }
-  #alarm.down .alarm-dot { background: var(--line); opacity: .5; }
-  #alarm[hidden] { display: none; }
-  #vault-svg { display: block; margin: 0 auto; width: min(420px, 100%); height: auto; }
-  .fin-case { opacity: 0; transition: opacity .3s ease-out, transform .3s cubic-bezier(.215,.61,.355,1); transform: translateY(-14px); }
-  .fin-case.landed { opacity: 1; transform: none; }
-  #platform-group { transition: transform .4s cubic-bezier(.215,.61,.355,1); }
+  .fig { transition: opacity .3s ease-out; }
+  .laser { transition: stroke .2s ease-out, stroke-width .2s ease-out, opacity .2s ease-out; }
+  .lamp { transition: fill .25s ease-out; }
+  .slot { transition: fill .2s ease-out, stroke .2s ease-out; }
+  .digit { transition: opacity .2s ease-out; }
 
   /* ============================== reveal screen ============================== */
   #screen-reveal { max-width: 560px; margin: 0 auto; }
-  @keyframes card-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: none; }
-  }
+  @keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes card-in-fade { from { opacity: 0; } to { opacity: 1; } }
   #screen-reveal:not([hidden]) .prize-card { animation: card-in .4s cubic-bezier(.215,.61,.355,1) both; }
   #screen-reveal:not([hidden]) .receipt    { animation: card-in .4s cubic-bezier(.215,.61,.355,1) .15s both; }
-  @keyframes card-in-fade { from { opacity: 0; } to { opacity: 1; } }
   body.reduced #screen-reveal:not([hidden]) .prize-card,
   body.reduced #screen-reveal:not([hidden]) .receipt { animation-name: card-in-fade; }
   .prize-card {
@@ -165,7 +149,7 @@
     text-align: center; padding: 34px 20px 26px; margin-bottom: 20px;
   }
   .tier-label { font-size: 13px; letter-spacing: .34em; margin-bottom: 12px; color: var(--dim); }
-  .tier-label.tier-floor { color: var(--ink); }
+  .tier-label.tier-floor { color: var(--bone); }
   .tier-label.tier-solid { color: var(--ember); }
   .tier-label.tier-grail {
     background: linear-gradient(90deg, var(--pris-a), var(--pris-b), var(--pris-c));
@@ -173,11 +157,12 @@
   }
   .prize-name { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
   .prize-copy { color: var(--dim); font-size: 13px; margin-bottom: 18px; }
-  .haul-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  .haul-chips span {
+  .crew-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .crew-chips span {
     font-size: 10px; letter-spacing: .14em; border: 1px solid var(--line);
-    padding: 4px 10px; border-radius: 999px;
+    padding: 4px 10px; border-radius: 999px; color: var(--dim);
   }
+  .crew-chips span.in { color: var(--auric); }
 
   .receipt {
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
@@ -227,6 +212,7 @@
   #debug input[type="text"] { width: 100%; max-width: none;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; }
   #debug .btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  #debug .note { color: var(--dim); font-size: 11px; line-height: 1.5; margin-bottom: 8px; }
   #debug pre {
     background: var(--ground); border: 1px solid var(--line); border-radius: 5px;
     padding: 10px; font-size: 10px; line-height: 1.6; overflow-x: auto; color: var(--dim);
@@ -239,12 +225,7 @@
   }
 
   /* ============================== reduced motion ============================== */
-  /* Motion becomes cross-fades: transforms are dropped, opacity transitions kept,
-     all timings and information identical. */
-  body.reduced .panel,
-  body.reduced .fin-case,
-  body.reduced .swatch,
-  body.reduced #platform-group { transform: none !important; transition-property: opacity, background-color, border-color; }
+  body.reduced .swatch { transform: none !important; }
 </style>
 </head>
 <body>
@@ -252,7 +233,7 @@
 <header>
   <span class="brand">THE VAULT JOB</span>
   <div class="hbtns">
-    <span id="cases-header" class="mono" title="Cases in your collection"></span>
+    <span id="jobs-header" class="mono" title="Jobs run"></span>
     <button id="sound-toggle" aria-pressed="false" type="button">SOUND OFF</button>
   </div>
 </header>
@@ -271,7 +252,7 @@
       <label><input type="checkbox" id="quick-toggle"> Quick open</label>
     </div>
     <div class="pick-meta">
-      <div>Cases in your collection: <span id="cases-count">0</span></div>
+      <div>Jobs run: <span id="jobs-count">0</span></div>
       <div>commit <code id="commit-display">computing…</code></div>
       <div>SHA-256 of tonight's server seed, shown before you pick.</div>
     </div>
@@ -280,44 +261,30 @@
   <!-- 2 · run -->
   <section id="screen-run" hidden>
     <div id="run-caption"></div>
-    <div id="panels"></div>
-    <div id="gag-strip" hidden></div>
-    <div id="finale">
-      <div id="finale-top">
-        <div id="alarm"><span class="alarm-dot"></span><span class="alarm-label">ALARM · ARMED</span></div>
+    <div id="run-body">
+      <div id="stage">
+        <div id="stage-head"><span class="where"></span><span class="status"></span></div>
+        <div id="scene-wrap"></div>
+        <div id="stage-caption"></div>
       </div>
-      <svg id="vault-svg" viewBox="0 0 320 232" aria-label="The vault door">
-        <defs>
-          <radialGradient id="door-glow-grad">
-            <stop offset="0%"  stop-color="#E3B84E" stop-opacity="0.9"/>
-            <stop offset="70%" stop-color="#E3B84E" stop-opacity="0.25"/>
-            <stop offset="100%" stop-color="#E3B84E" stop-opacity="0"/>
-          </radialGradient>
-          <linearGradient id="grad-fin" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%"  stop-color="#5ED0C0"/>
-            <stop offset="50%" stop-color="#8F7BE8"/>
-            <stop offset="100%" stop-color="#E3B84E"/>
-          </linearGradient>
-        </defs>
-        <circle id="door-glow" cx="160" cy="94" r="76" fill="url(#door-glow-grad)" opacity="0"/>
-        <g id="door">
-          <circle cx="160" cy="94" r="62" fill="#1A1D26" stroke="#2C313E" stroke-width="4"/>
-          <circle cx="160" cy="94" r="24" fill="none" stroke="#3A4152" stroke-width="3"/>
-          <g stroke="#3A4152" stroke-width="3">
-            <line x1="160" y1="46" x2="160" y2="142"/>
-            <line x1="112" y1="94" x2="208" y2="94"/>
-            <line x1="126" y1="60" x2="194" y2="128"/>
-            <line x1="194" y1="60" x2="126" y2="128"/>
-          </g>
-        </g>
-        <g id="platform-group">
-          <rect x="92" y="200" width="136" height="8" rx="2" fill="#2C313E"/>
-          <line x1="108" y1="208" x2="100" y2="224" stroke="#2C313E" stroke-width="4"/>
-          <line x1="212" y1="208" x2="220" y2="224" stroke="#2C313E" stroke-width="4"/>
-          <g id="fin-stack"></g>
-        </g>
-      </svg>
+      <div id="building">
+        <div class="tally">AT THE VAULT <b id="tally">0</b>/3</div>
+        <svg id="building-svg" viewBox="0 0 140 300" aria-label="The building: where the crew is">
+          <rect x="14" y="18" width="112" height="262" rx="4" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>
+          <line x1="14" y1="78"  x2="126" y2="78"  stroke="#2C313E" stroke-width="1.5"/>
+          <line x1="14" y1="148" x2="126" y2="148" stroke="#2C313E" stroke-width="1.5"/>
+          <line x1="14" y1="218" x2="126" y2="218" stroke="#2C313E" stroke-width="1.5"/>
+          <line x1="106" y1="40" x2="106" y2="244" stroke="#2C313E" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <text x="20" y="32"  font-size="7" letter-spacing="1.5" fill="#9AA2B1">ROOF</text>
+          <text x="20" y="102" font-size="7" letter-spacing="1.5" fill="#9AA2B1">LOBBY</text>
+          <text x="20" y="172" font-size="7" letter-spacing="1.5" fill="#9AA2B1">BELOW</text>
+          <text x="70" y="294" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">VAULT</text>
+          <circle id="bvault" cx="70" cy="270" r="9" fill="#1A1D26" stroke="#2C313E" stroke-width="2.5"/>
+          <g id="bfigs"></g>
+        </svg>
+      </div>
     </div>
+    <div id="gag-strip" hidden></div>
   </section>
 
   <!-- 3 + 4 · reveal & receipt -->
@@ -326,7 +293,7 @@
       <div class="tier-label" id="tier-label"></div>
       <div class="prize-name" id="prize-name"></div>
       <div class="prize-copy" id="prize-copy"></div>
-      <div class="haul-chips" id="haul-chips"></div>
+      <div class="crew-chips" id="crew-chips"></div>
     </div>
     <div class="receipt">
       <blockquote>
@@ -359,18 +326,13 @@
   <h2>DEBUG · forces apply at draw time</h2>
   <div class="row"><label for="dbg-tier">Force tier</label>
     <select id="dbg-tier"><option>random</option><option>floor</option><option>solid</option><option>grail</option></select></div>
-  <div class="row"><label for="dbg-exit">Force exit</label>
-    <select id="dbg-exit"><option>random</option><option>short</option><option>medium</option><option>full</option></select></div>
-  <div class="row"><label for="dbg-omen">Force omen</label>
-    <select id="dbg-omen"><option>random</option><option>on</option><option>off</option></select></div>
-  <div class="row"><label for="dbg-signal">Force guaranteed signal</label>
-    <select id="dbg-signal"><option>random</option><option>on</option><option>off</option></select></div>
-  <div class="row"><label for="dbg-g1">Event 1 grade</label>
-    <select id="dbg-g1" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
-  <div class="row"><label for="dbg-g2">Event 2 grade</label>
-    <select id="dbg-g2" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
-  <div class="row"><label for="dbg-g3">Event 3 grade</label>
-    <select id="dbg-g3" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+  <div class="row"><label for="dbg-r1">Roof guy</label>
+    <select id="dbg-r1" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
+  <div class="row"><label for="dbg-r2">Lobby guy</label>
+    <select id="dbg-r2" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
+  <div class="row"><label for="dbg-r3">Keypad guy</label>
+    <select id="dbg-r3" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
+  <div class="note">Tier = how many reach the vault (1 floor · 2 solid · 3 grail). Per-guy forces override the tier when they conflict; at least one always reaches the vault.</div>
   <div class="row"><label for="dbg-speed">Speed</label>
     <select id="dbg-speed"><option>0.5x</option><option selected>1x</option><option>2x</option><option>instant</option></select></div>
   <hr>
@@ -391,34 +353,28 @@ force settings (random = unforced).</pre>
 <script>
 'use strict';
 /* =====================================================================
-   THE VAULT JOB · prototype
+   THE VAULT JOB · prototype (sequential crew model)
    The one thing that must be true: the outcome is drawn once, frozen,
    before any animation begins. drawOutcome() is the only place a run's
    outcome is decided. The built-in unseeded random number generator is
    never called anywhere in this file; all randomness comes from the
    seeded PRNG below or from crypto.getRandomValues (seed generation only).
+
+   Model: three crew members each face one encounter, in sequence, top of
+   the building to the bottom. Each result is clean / close / out. The
+   prize tier IS the number who reach the vault: 1 floor, 2 solid, 3 grail.
    ===================================================================== */
 
 /* ============================== CONFIG ==============================
    Every tunable lives here and nowhere else. */
 const CONFIG = {
-  tierWeights:          { floor: 0.60, solid: 0.36, grail: 0.04 },        // PLACEHOLDER
-  exitWeights: {                                                          // PLACEHOLDER
-    floor: { short: 0.70, medium: 0.25, full: 0.05 },
-    solid: { short: 0.25, medium: 0.45, full: 0.30 },
-    grail: { short: 0.10, medium: 0.25, full: 0.65 },
-  },
-  gradeWeights: {                                                         // PLACEHOLDER
-    floor: { bone: 0.70, ember: 0.22, auric: 0.07, prismatic: 0.01 },
-    solid: { bone: 0.35, ember: 0.38, auric: 0.24, prismatic: 0.03 },
-    grail: { bone: 0.10, ember: 0.25, auric: 0.45, prismatic: 0.20 },
-  },
-  omenWeights:          { floor: 0.03, solid: 0.15, grail: 0.45 },        // PLACEHOLDER
-  guaranteedSignalRate: 0.14,                                             // PLACEHOLDER, grail only
-  durations:            { short: 8000, medium: 16000, full: 26000, quick: 4000 },
-  crewColours:          ['crimson', 'azure', 'bone'],
-  gagVariants:          ['trip', 'cat', 'walkie', 'car'],
-  prizePool: {                                                            // PLACEHOLDER names
+  tierWeights:    { floor: 0.60, solid: 0.36, grail: 0.04 },   // PLACEHOLDER
+  arrivalsByTier: { floor: 1, solid: 2, grail: 3 },            // how many reach the vault
+  closeCallRate:  0.40,                                         // PLACEHOLDER: of those who make it, share that are close calls
+  durations:      { run: 24000, quick: 4000 },
+  crewColours:    ['crimson', 'azure', 'bone'],
+  gagVariants:    ['trip', 'cat', 'walkie', 'car'],
+  prizePool: {                                                  // PLACEHOLDER names
     floor: ['Brass Lockpick Charm', 'Crew Patch', 'Blueprint Print'],
     solid: ['Chrome Case Tag', 'Signed Floorplan', 'Night-Shift Jacket'],
     grail: ['The Auric Case', 'Master Key, One of One', 'Founders Vault Card'],
@@ -426,7 +382,6 @@ const CONFIG = {
 };
 
 /* ============================== rng & hashing ============================== */
-// xmur3 string hash -> 32-bit seeds
 function xmur3(str) {
   let h = 1779033703 ^ str.length;
   for (let i = 0; i < str.length; i++) {
@@ -439,7 +394,6 @@ function xmur3(str) {
     return (h ^= h >>> 16) >>> 0;
   };
 }
-// mulberry32 deterministic PRNG
 function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -456,8 +410,7 @@ function randomHex(nChars) {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// SHA-256: crypto.subtle when available, tiny sync fallback otherwise
-// (fallback keeps the prototype working if a host serves it in a non-secure context).
+// SHA-256: crypto.subtle when available, tiny sync fallback otherwise.
 function sha256HexSync(ascii) {
   function rr(v, c) { return (v >>> c) | (v << (32 - c)); }
   const maxWord = Math.pow(2, 32);
@@ -517,7 +470,7 @@ async function sha256Hex(str) {
     try {
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
       return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
-    } catch (e) { /* fall through to sync implementation */ }
+    } catch (e) { /* fall through */ }
   }
   return sha256HexSync(str);
 }
@@ -535,70 +488,74 @@ function weightedPick(rng, weights) {
   }
   return entries[entries.length - 1][0];
 }
+function tierFromArrivals(n) { return n >= 3 ? 'grail' : n === 2 ? 'solid' : 'floor'; }
 
 function drawOutcome(rng, config, seed, forces) {
   forces = forces || {};
-  const pick = (forced, weights) =>
-    (forced && forced !== 'random') ? forced : weightedPick(rng, weights);
+  const isForced = v => v && v !== 'random';
 
-  const tier = pick(forces.tier, config.tierWeights);
-  const exit = pick(forces.exit, config.exitWeights[tier]);
-  const eventsPlayed = { short: 1, medium: 2, full: 3 }[exit];
+  let tier = isForced(forces.tier) ? forces.tier : weightedPick(rng, config.tierWeights);
 
-  const grades = [];
-  for (let i = 0; i < eventsPlayed; i++) {
-    grades.push(pick(forces.grades && forces.grades[i], config.gradeWeights[tier]));
+  // per-guy forces (debug only); null = to be drawn
+  const results = [0, 1, 2].map(i => (forces.results && isForced(forces.results[i])) ? forces.results[i] : null);
+
+  // how many must reach the vault, reconciled with any per-guy forces
+  let need = config.arrivalsByTier[tier];
+  const forcedIn  = results.filter(r => r && r !== 'out').length;
+  const forcedOut = results.filter(r => r === 'out').length;
+  if (need < forcedIn) need = forcedIn;
+  if (need > 3 - forcedOut) need = 3 - forcedOut;
+  if (need < 1) {                         // at least one always reaches the vault
+    need = 1;
+    results[results.lastIndexOf('out')] = null;
+  }
+  tier = tierFromArrivals(need);
+
+  // draw which of the unforced crew make it (Fisher-Yates on the seeded stream)
+  const open = [];
+  results.forEach((r, i) => { if (r === null) open.push(i); });
+  for (let i = open.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [open[i], open[j]] = [open[j], open[i]];
+  }
+  let toArrive = need - results.filter(r => r && r !== 'out').length;
+  for (const i of open) {
+    if (toArrive > 0) { results[i] = rng() < config.closeCallRate ? 'close' : 'clean'; toArrive--; }
+    else results[i] = 'out';
   }
 
-  let omen;
-  if (forces.omen && forces.omen !== 'random') omen = forces.omen === 'on';
-  else omen = rng() < config.omenWeights[tier];
-  if (exit === 'short') omen = false; // one panel: nothing to sync
-
-  // Licensed certainty: only ever fires on grail. A forced "on" with a
-  // non-grail tier stays false so a forced run remains internally consistent.
-  let guaranteedSignal = false;
-  if (tier === 'grail') {
-    if (forces.signal && forces.signal !== 'random') guaranteedSignal = forces.signal === 'on';
-    else guaranteedSignal = rng() < config.guaranteedSignalRate;
-  }
-
+  const arrivals = results.filter(r => r !== 'out').length;
   return Object.freeze({
-    tier, exit, eventsPlayed,
-    grades: Object.freeze(grades),
-    omen, guaranteedSignal, seed,
+    tier, arrivals,
+    results: Object.freeze(results),   // ['clean'|'close'|'out'] for roof, lobby, keypad
+    seed,
   });
 }
 
 /* Presentation flavour drawn from the same seeded stream, after the outcome
    is frozen. These values dress the run; none of them can touch the outcome. */
 function derivePresentation(rng, outcome) {
-  const staggers = [0, 0, 0];
-  if (!outcome.omen) {
-    let t = 0;
-    for (let i = 1; i < 3; i++) { t += 200 + rng() * 300; staggers[i] = t; }
-  }
   const digits = [];
   for (let i = 0; i < 4; i++) digits.push(Math.floor(rng() * 10));
   const laserPhases = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
   const gagRoll = rng();
   const prizeRoll = rng();
-  return Object.freeze({ staggers, digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), gagRoll, prizeRoll });
+  return Object.freeze({ digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), gagRoll, prizeRoll });
 }
 
 /* ============================== constants & state ============================== */
-const GRADE_LABEL = { bone: 'BONE', ember: 'EMBERGLOW', auric: 'AURIC', prismatic: 'PRISMATIC' };
-const GRADE_FILL  = { bone: '#B9B2A0', ember: '#DE8A52', auric: '#E3B84E' }; // prismatic uses a gradient
-const GRADE_RANK  = { bone: 1, ember: 2, auric: 3, prismatic: 4 };
-const EVENTS = [
-  { id: 'roof',   where: 'ROOF',         working: 'on the grid' },
-  { id: 'lobby',  where: 'LOBBY',        working: 'badge in play' },
-  { id: 'keypad', where: 'BELOW GROUND', working: 'cracking' },
+const CREW_HEX = { crimson: '#A8384A', azure: '#4A7DB8', bone: '#B9B2A0' };
+const TIER_HEX = { floor: '#B9B2A0', solid: '#DE8A52', grail: '#E3B84E' };
+const SCENES = [
+  { id: 'roof',   where: 'ROOF',         title: 'the laser grid', guy: 'the roof guy' },
+  { id: 'lobby',  where: 'LOBBY',        title: 'the guard desk', guy: 'the lobby guy' },
+  { id: 'keypad', where: 'BELOW GROUND', title: 'the keypad',     guy: 'the keypad guy' },
 ];
+const RESULT_STATUS = { clean: 'IN — CLEAN', close: 'IN — CLOSE CALL', out: 'OUT — PULLED BACK' };
 const TIER_COPY = {
-  floor: 'Banked. The collection grows.',
-  solid: 'A good night’s work.',
-  grail: 'The one they’ll talk about.',
+  floor: 'One got through. It still pays.',
+  solid: 'Two at the door. A good night’s work.',
+  grail: 'All three. The one they’ll talk about.',
 };
 const GAG_CAPTIONS = {
   trip:   'the new hire trips, recovers, nails the landing.',
@@ -606,10 +563,8 @@ const GAG_CAPTIONS = {
   walkie: 'the walkie squawks. everyone freezes. it’s fine.',
   car:    'the getaway car is early. keen.',
 };
-const LS = { quick: 'vaultjob.quickOpen', cases: 'vaultjob.cases', sound: 'vaultjob.sound' };
+const LS = { quick: 'vaultjob.quickOpen', jobs: 'vaultjob.jobs', sound: 'vaultjob.sound' };
 
-// localStorage can throw on restrictive origins; the registry is cosmetic,
-// so fall back to in-memory for the session rather than breaking the run.
 const store = {
   get(k)    { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* session-only */ } },
@@ -622,13 +577,29 @@ let serverSeed = '';
 let commitHash = '';
 let nonce = 1;
 let soundOn = false;
-let gagPool = CONFIG.gagVariants.slice(); // session pool, refilled when exhausted
-let lastRun = null;                       // { seed, pick, nonce, outcome }
-let engine = null;                        // the active timeline
+let gagPool = CONFIG.gagVariants.slice();
+let lastRun = null;
+let engine = null;
 let audioCtx = null;
 
 const $ = id => document.getElementById(id);
+const smooth = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
 const easeOutCubic = p => 1 - Math.pow(1 - p, 3);
+
+// keyframe helper: pts = [[t, v], ...] ascending; holds outside, smooth between
+function kf(p, pts) {
+  if (p <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (p <= pts[i][0]) {
+      const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
+      return v0 + (v1 - v0) * smooth((p - t0) / (t1 - t0));
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+const between = (p, a, b) => p >= a && p < b;
+// reduced motion: poses step instead of glide; all cues and copy are unchanged
+const pose = p => REDUCED ? Math.floor(p * 10) / 10 : p;
 
 /* ============================== sound (optional, default off) ============================== */
 function tone(freq, dur, vol) {
@@ -637,199 +608,246 @@ function tone(freq, dur, vol) {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.frequency.value = freq;
-    osc.type = 'sine';
+    osc.frequency.value = freq; osc.type = 'sine';
     gain.gain.setValueAtTime(vol, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
     osc.connect(gain).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + dur);
-  } catch (e) { /* sound is decorative */ }
+    osc.start(); osc.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* decorative */ }
 }
 
 /* ============================== registry (cosmetic only) ============================== */
-let casesCount = parseInt(store.get(LS.cases) || '0', 10) || 0;
-function casesBanked() { return casesCount; }
-function bankCases(n) {
-  casesCount += n;
-  store.set(LS.cases, String(casesCount));
-  refreshCaseCounter();
-}
-function refreshCaseCounter() {
-  $('cases-count').textContent = casesBanked();
-  $('cases-header').textContent = 'CASES ' + casesBanked();
+let jobsCount = parseInt(store.get(LS.jobs) || '0', 10) || 0;
+function bankJob() { jobsCount += 1; store.set(LS.jobs, String(jobsCount)); refreshJobCounter(); }
+function refreshJobCounter() {
+  $('jobs-count').textContent = jobsCount;
+  $('jobs-header').textContent = 'JOBS ' + jobsCount;
 }
 
 /* ============================== screens ============================== */
 function showScreen(name) {
-  for (const id of ['screen-pick', 'screen-run', 'screen-reveal']) {
-    $(id).hidden = (id !== 'screen-' + name);
-  }
+  for (const id of ['screen-pick', 'screen-run', 'screen-reveal']) $(id).hidden = (id !== 'screen-' + name);
 }
 
-/* ============================== panel builders ============================== */
-function gradeFillFor(grade, panelIndex) {
-  return grade === 'prismatic' ? 'url(#grad-p' + panelIndex + ')' : GRADE_FILL[grade];
-}
-function prismaticDefs(panelIndex) {
-  return '<defs><linearGradient id="grad-p' + panelIndex + '" x1="0" y1="0" x2="1" y2="1">'
-    + '<stop offset="0%" stop-color="#5ED0C0"/><stop offset="50%" stop-color="#8F7BE8"/>'
-    + '<stop offset="100%" stop-color="#E3B84E"/></linearGradient></defs>';
-}
-function caseMarkup(grade, panelIndex) {
-  const fill = grade ? gradeFillFor(grade, panelIndex) : 'none';
-  return '<g class="case">'
-    + '<rect x="82" y="50" width="44" height="30" rx="4" fill="' + fill + '"/>'
-    + '<rect x="82" y="62" width="44" height="4" fill="rgba(0,0,0,0.28)"/>'
-    + '<circle cx="104" cy="64" r="3" fill="#12141B"/>'
+/* ============================== figures ============================== */
+function figureMarkup(cls, fill, extra) {
+  return '<g class="fig ' + cls + '" ' + (extra || '') + '>'
+    + '<circle cy="-17" r="5" fill="' + fill + '"/>'
+    + '<rect x="-5" y="-11" width="10" height="16" rx="4" fill="' + fill + '"/>'
     + '</g>';
 }
+function placeFig(el, x, y) { el.setAttribute('transform', 'translate(' + x + ' ' + y + ')'); }
 
-// Each builder returns { el, setStatus, secure, update(workP, tMs) }.
-// workP is 0..1 over the working portion of the events phase.
-function buildPanel(kind, index, grade, pres) {
-  const meta = EVENTS.find(e => e.id === kind);
-  const el = document.createElement('div');
-  el.className = 'panel';
-  el.innerHTML =
-    '<div class="panel-head"><span class="where">' + meta.where + '</span>'
-    + '<span class="status">' + meta.working + '</span></div>';
+/* ============================== scenes ==============================
+   Each builder returns { svg, update(p, tMs), captions: [[frac, text]] }.
+   p runs 0..1 across the scene. The result decides which cutscene plays. */
+function buildScene(kind, result, pres, crewHex) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 400 180');
+  const FLOOR = 150;
+  let captions = [];
+  let update = () => {};
 
-  let svgInner = '';
   if (kind === 'roof') {
-    svgInner =
-      '<g class="mover">'
-      + '<line class="laser" x1="10" y1="40" x2="198" y2="40" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
-      + '<line class="laser" x1="10" y1="70" x2="198" y2="70" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
-      + '<line class="laser" x1="10" y1="100" x2="198" y2="100" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
-      + '<circle class="climber" cx="104" cy="122" r="5" fill="#EAE4D4"/>'
-      + '</g>';
-  } else if (kind === 'lobby') {
-    svgInner =
-      '<g class="mover">'
-      + '<line x1="8" y1="112" x2="200" y2="112" stroke="#2C313E" stroke-width="2"/>'
-      + '<rect x="128" y="80" width="48" height="30" rx="3" fill="#12141B" stroke="#2C313E"/>'
-      + '<circle cx="152" cy="70" r="7" fill="#9AA2B1"/>'
-      + '<circle class="walker" cx="14" cy="104" r="6" fill="#EAE4D4"/>'
-      + '<rect class="badge" x="0" y="86" width="9" height="12" rx="1.5" fill="#E3B84E" opacity="0"/>'
-      + '</g>';
-  } else { // keypad
+    svg.innerHTML =
+        '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
+      + '<rect x="346" y="96" width="34" height="54" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
+      + '<text x="363" y="90" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">HATCH</text>'
+      + '<g id="beams">'
+      + '<line class="laser" x1="130" y1="56" x2="130" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
+      + '<line class="laser" x1="205" y1="56" x2="205" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
+      + '<line class="laser" x1="280" y1="56" x2="280" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
+      + '</g>'
+      + figureMarkup('guy', crewHex);
+    const beams = svg.querySelectorAll('.laser');
+    const guy = svg.querySelector('.guy');
+    const setBeams = (lit) => beams.forEach(b => {
+      b.setAttribute('stroke', lit ? '#EAE4D4' : '#B0455C');
+      b.setAttribute('stroke-width', lit ? '2.5' : '1.5');
+      b.setAttribute('opacity', lit ? '1' : '0.75');
+    });
+    const sweep = (tMs) => beams.forEach((b, i) => {
+      const x = [130, 205, 280][i] + (REDUCED ? 0 : Math.sin(tMs / 900 + pres.laserPhases[i]) * 16);
+      b.setAttribute('x1', x); b.setAttribute('x2', x);
+    });
+    if (result === 'clean') {
+      captions = [[0.02, 'the roof. the grid is live.'], [0.45, 'he reads the sweep and goes.'], [0.86, 'threads it. down the hatch.']];
+      update = (p, t) => {
+        sweep(t);
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.32, 120], [0.4, 120], [0.6, 240], [0.66, 240], [0.84, 362]]), FLOOR);
+        guy.setAttribute('opacity', p > 0.9 ? 0 : 1);
+      };
+    } else if (result === 'close') {
+      captions = [[0.02, 'the roof. the grid is live.'], [0.4, 'a beam brushes his shoulder. he freezes.'], [0.62, 'the sweep passes. he goes.'], [0.9, 'through. barely.']];
+      update = (p, t) => {
+        sweep(t);
+        setBeams(between(p, 0.4, 0.5));
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.38, 190], [0.62, 190], [0.88, 362]]), FLOOR);
+        guy.setAttribute('opacity', p > 0.93 ? 0 : 1);
+      };
+    } else {
+      captions = [[0.02, 'the roof. the grid is live.'], [0.4, 'the grid locks bright. he is seen.'], [0.6, 'he pulls back the way he came.'], [0.9, 'the roof is out. two still moving.']];
+      update = (p, t) => {
+        sweep(t);
+        setBeams(p >= 0.4);
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.38, 190], [0.58, 190], [0.88, 30]]), FLOOR);
+      };
+    }
+  }
+
+  else if (kind === 'lobby') {
+    svg.innerHTML =
+        '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
+      + '<rect x="222" y="124" width="70" height="26" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
+      + figureMarkup('guard', '#5E6677', 'transform="translate(257 136)"')
+      + '<rect x="302" y="92" width="6" height="58" rx="2" fill="#2C313E"/>'
+      + '<circle class="lamp" cx="305" cy="86" r="5" fill="#2C313E"/>'
+      + '<text x="305" y="74" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">SCAN</text>'
+      + '<rect x="352" y="96" width="30" height="54" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
+      + figureMarkup('guy', crewHex);
+    const guy = svg.querySelector('.guy');
+    const guard = svg.querySelector('.guard');
+    const lamp = svg.querySelector('.lamp');
+    const DARK = '#2C313E', WAIT = '#9AA2B1', PASS = '#E3B84E';
+    if (result === 'clean') {
+      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.48, 'badge on the reader.'], [0.58, 'reads clean. he keeps walking.'], [0.88, 'through the gate. heading down.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.44, 200], [0.58, 200], [0.86, 370]]), FLOOR);
+        lamp.setAttribute('fill', p >= 0.56 ? PASS : p >= 0.48 ? WAIT : DARK);
+        guy.setAttribute('opacity', p > 0.9 ? 0 : 1);
+      };
+    } else if (result === 'close') {
+      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.44, 'badge on the reader. it thinks.'], [0.56, 'the guard looks up.'], [0.7, 'reads clean. waved through.'], [0.92, 'heading down.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.42, 200], [0.72, 200], [0.94, 370]]), FLOOR);
+        const blink = between(p, 0.44, 0.68) && Math.floor(p * 40) % 2 === 0;
+        lamp.setAttribute('fill', p >= 0.68 ? PASS : blink ? WAIT : DARK);
+        placeFig(guard, 257, between(p, 0.56, 0.7) ? 132 : 136);
+        guy.setAttribute('opacity', p > 0.96 ? 0 : 1);
+      };
+    } else {
+      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.44, 'badge on the reader. nothing.'], [0.58, 'the guard stands.'], [0.7, 'wrong badge. he walks it back, calm.'], [0.92, 'the lobby is out.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.42, 200], [0.68, 200], [0.94, 30]]), FLOOR);
+        lamp.setAttribute('fill', between(p, 0.44, 0.58) && Math.floor(p * 30) % 2 === 0 ? WAIT : DARK);
+        placeFig(guard, 257, p >= 0.58 ? 126 : 136);
+      };
+    }
+  }
+
+  else { // keypad
     let slots = '';
     for (let i = 0; i < 4; i++) {
-      const x = 34 + i * 38;
-      slots += '<rect class="slot" data-i="' + i + '" x="' + x + '" y="48" width="30" height="40" rx="4" fill="none" stroke="#2C313E" stroke-width="2"/>'
-        + '<text class="digit" data-i="' + i + '" x="' + (x + 15) + '" y="75" text-anchor="middle" '
-        + 'font-size="20" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#EAE4D4" opacity="0"></text>';
+      const x = 292 + (i % 2) * 22, y = 92 + Math.floor(i / 2) * 24;
+      slots += '<rect class="slot" x="' + x + '" y="' + y + '" width="18" height="20" rx="3" fill="none" stroke="#2C313E" stroke-width="1.5"/>'
+        + '<text class="digit" x="' + (x + 9) + '" y="' + (y + 14) + '" text-anchor="middle" font-size="11" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#EAE4D4" opacity="0"></text>';
     }
-    svgInner = '<g class="mover">' + slots + '</g>';
+    svg.innerHTML =
+        '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
+      + '<rect x="284" y="84" width="56" height="56" rx="4" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
+      + slots
+      + '<rect class="vdoor" x="352" y="90" width="32" height="60" rx="2" fill="#1A1D26" stroke="#2C313E" stroke-width="2"/>'
+      + '<text x="368" y="82" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">DOOR</text>'
+      + figureMarkup('guy', crewHex);
+    const guy = svg.querySelector('.guy');
+    const slotEls = svg.querySelectorAll('.slot');
+    const digitEls = svg.querySelectorAll('.digit');
+    const door = svg.querySelector('.vdoor');
+    const lock = (i, on) => {
+      slotEls[i].setAttribute('fill', on ? '#2C313E' : 'none');
+      slotEls[i].setAttribute('stroke', on ? '#9AA2B1' : '#2C313E');
+      digitEls[i].textContent = pres.digits[i];
+      digitEls[i].setAttribute('opacity', on ? '1' : '0');
+    };
+    const doorOpen = (amt) => { door.setAttribute('height', 60 * (1 - amt)); };
+    if (result === 'clean') {
+      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit.'], [0.66, 'fourth.'], [0.78, 'four for four. the door slides.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.76, 262], [0.92, 368]]), FLOOR);
+        [0.4, 0.49, 0.58, 0.66].forEach((t, i) => lock(i, p >= t));
+        doorOpen(kf(p, [[0.74, 0], [0.82, 1]]));
+        guy.setAttribute('opacity', p > 0.93 ? 0 : 1);
+      };
+    } else if (result === 'close') {
+      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit. second.'], [0.56, 'third digit fights him.'], [0.7, 'then it doesn’t.'], [0.84, 'the door slides.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.84, 262], [0.97, 368]]), FLOOR);
+        lock(0, p >= 0.4); lock(1, p >= 0.48);
+        const fight = between(p, 0.56, 0.7) && Math.floor(p * 30) % 2 === 0;
+        if (p >= 0.7) lock(2, true); else { slotEls[2].setAttribute('stroke', fight ? '#9AA2B1' : '#2C313E'); digitEls[2].setAttribute('opacity', '0'); }
+        lock(3, p >= 0.78);
+        doorOpen(kf(p, [[0.84, 0], [0.92, 1]]));
+        guy.setAttribute('opacity', p > 0.98 ? 0 : 1);
+      };
+    } else {
+      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit. second.'], [0.58, 'the keypad locks him out.'], [0.72, 'he steps back. not tonight.'], [0.92, 'below ground is out.']];
+      update = (p) => {
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.68, 262], [0.76, 210], [0.8, 210], [0.96, 30]]), FLOOR);
+        lock(0, p >= 0.4 && p < 0.58); lock(1, p >= 0.48 && p < 0.58);
+        if (p >= 0.58) slotEls.forEach((s, i) => { s.setAttribute('stroke', '#1F2330'); digitEls[i].setAttribute('opacity', '0'); });
+      };
+    }
   }
+  return { svg, update, captions };
+}
 
-  el.innerHTML += '<svg viewBox="0 0 208 140">' + prismaticDefs(index) + svgInner + caseMarkup(grade, index) + '</svg>';
-
-  const statusEl = el.querySelector('.status');
-  const api = {
-    el,
-    setStatus(text, gradeClass) {
-      statusEl.textContent = text;
-      statusEl.className = 'status' + (gradeClass ? ' grade-' + gradeClass : '');
-    },
-    secure() {
-      el.classList.add('secured');
-      api.setStatus('SECURED — ' + GRADE_LABEL[grade], grade);
-    },
-    standDown() {
-      el.classList.add('stood');
-      api.setStatus('stood down');
-    },
-    update(workP, tMs) {},
+/* the vault scene: the finale. Colour = how many made it. */
+function buildVaultScene(outcome, crewHex) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 400 200');
+  const col = TIER_HEX[outcome.tier];
+  const standing = outcome.results.map((r, i) => r !== 'out' ? i : -1).filter(i => i >= 0);
+  const xs = [[200], [176, 224], [160, 200, 240]][standing.length - 1] || [200];
+  let figs = '';
+  standing.forEach((_, k) => figs += figureMarkup('guy', crewHex, 'transform="translate(' + xs[k] + ' 186)"'));
+  svg.innerHTML =
+      '<defs><radialGradient id="vglow"><stop offset="0%" stop-color="' + col + '" stop-opacity="0.95"/>'
+    + '<stop offset="65%" stop-color="' + col + '" stop-opacity="0.3"/><stop offset="100%" stop-color="' + col + '" stop-opacity="0"/></radialGradient>'
+    + (outcome.tier === 'grail' ? '<linearGradient id="vring" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5ED0C0"/><stop offset="50%" stop-color="#8F7BE8"/><stop offset="100%" stop-color="#E3B84E"/></linearGradient>' : '')
+    + '</defs>'
+    + '<circle class="glow" cx="200" cy="92" r="84" fill="url(#vglow)" opacity="0"/>'
+    + '<g class="door">'
+    + '<circle cx="200" cy="92" r="64" fill="#1A1D26" stroke="' + (outcome.tier === 'grail' ? 'url(#vring)' : col) + '" stroke-width="5"/>'
+    + '<circle cx="200" cy="92" r="24" fill="none" stroke="' + col + '" stroke-width="3" opacity="0.8"/>'
+    + '<g stroke="' + col + '" stroke-width="3" opacity="0.8">'
+    + '<line x1="200" y1="44" x2="200" y2="140"/><line x1="152" y1="92" x2="248" y2="92"/>'
+    + '<line x1="166" y1="58" x2="234" y2="126"/><line x1="234" y1="58" x2="166" y2="126"/></g>'
+    + '</g>'
+    + '<line x1="10" y1="190" x2="390" y2="190" stroke="#2C313E" stroke-width="2"/>'
+    + figs;
+  const door = svg.querySelector('.door');
+  const glow = svg.querySelector('.glow');
+  const rich = (outcome.arrivals - 1) / 2; // 0 modest .. 1 rich: changes the flourish, never the result
+  const update = (p) => {
+    const eased = easeOutCubic(p);
+    const curve = rich * eased + (1 - rich) * p;
+    const slide = curve * (70 + rich * 30);
+    const spin = curve * (140 + rich * 120);
+    door.setAttribute('transform', REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' 200 92)');
+    if (REDUCED) door.setAttribute('opacity', String(1 - curve));
+    glow.setAttribute('opacity', (curve * (0.5 + rich * 0.5)).toFixed(3));
   };
-
-  if (kind === 'roof') {
-    const lasers = el.querySelectorAll('.laser');
-    const climber = el.querySelector('.climber');
-    api.update = (workP, tMs) => {
-      const p = REDUCED ? Math.floor(workP * 4) / 4 : workP;
-      if (!REDUCED) {
-        lasers.forEach((ln, i) => {
-          const y = 40 + i * 30 + Math.sin(tMs / 700 + pres.laserPhases[i]) * 12;
-          ln.setAttribute('y1', y); ln.setAttribute('y2', y);
-        });
-      }
-      climber.setAttribute('cy', 122 - p * 100);
-      climber.setAttribute('cx', 104 + Math.sin(p * Math.PI * 3 + pres.laserPhases[0]) * (REDUCED ? 0 : 34));
-    };
-  } else if (kind === 'lobby') {
-    const walker = el.querySelector('.walker');
-    const badge = el.querySelector('.badge');
-    api.update = (workP) => {
-      const p = REDUCED ? Math.floor(workP * 4) / 4 : workP;
-      let x;
-      if (p < 0.35)      x = 14 + (98 - 14) * (p / 0.35);
-      else if (p < 0.55) x = 98;
-      else               x = 98 + (192 - 98) * ((p - 0.55) / 0.45);
-      walker.setAttribute('cx', x);
-      const showBadge = p >= 0.35 && p < 0.55;
-      badge.setAttribute('opacity', showBadge ? '1' : '0');
-      badge.setAttribute('x', x - 4.5);
-    };
-  } else {
-    const slots = el.querySelectorAll('.slot');
-    const digits = el.querySelectorAll('.digit');
-    api.update = (workP) => {
-      const locked = Math.min(4, Math.floor(workP * 4.6));
-      for (let i = 0; i < 4; i++) {
-        if (i < locked) {
-          slots[i].setAttribute('fill', '#12141B');
-          slots[i].setAttribute('stroke', '#9AA2B1');
-          digits[i].textContent = pres.digits[i];
-          digits[i].setAttribute('opacity', '1');
-        }
-      }
-    };
-  }
-  return api;
+  return { svg, update };
 }
 
-/* ============================== finale ============================== */
-function resetFinale() {
-  $('finale').classList.remove('in');
-  $('alarm').hidden = false;
-  $('alarm').classList.remove('down');
-  $('alarm').querySelector('.alarm-label').textContent = 'ALARM · ARMED';
-  $('door-glow').setAttribute('opacity', '0');
-  $('door').setAttribute('transform', '');
-  $('door').setAttribute('opacity', '1');
-  $('platform-group').style.transform = '';
-  $('fin-stack').innerHTML = '';
+/* ============================== building cross-section ============================== */
+const BFLOOR_Y = [62, 132, 202];      // roof, lobby, below (figure feet)
+function buildBuilding(crewHex) {
+  const g = $('bfigs');
+  g.innerHTML = '';
+  for (let i = 0; i < 3; i++) g.innerHTML += figureMarkup('bfig b' + i, crewHex, 'transform="translate(60 ' + BFLOOR_Y[i] + ')"');
+  $('bvault').setAttribute('stroke', '#2C313E');
+  $('tally').textContent = '0';
 }
-function landCases(grades) {
-  const stack = $('fin-stack');
-  stack.innerHTML = '';
-  const n = grades.length;
-  const w = 34, gap = 8;
-  const x0 = 160 - (n * w + (n - 1) * gap) / 2;
-  grades.forEach((g, i) => {
-    const fill = g === 'prismatic' ? 'url(#grad-fin)' : GRADE_FILL[g];
-    const gEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    gEl.setAttribute('class', 'fin-case');
-    gEl.innerHTML = '<rect x="' + (x0 + i * (w + gap)) + '" y="176" width="' + w + '" height="22" rx="3" fill="' + fill + '"/>';
-    stack.appendChild(gEl);
-    setTimeout(() => gEl.classList.add('landed'), 40 + i * 150);
-  });
+// move crew member i down the shaft to the vault (p 0..1)
+function descend(i, p, slot) {
+  const fig = document.querySelector('.bfig.b' + i);
+  const targetX = 44 + slot * 26;
+  const x = kf(pose(p), [[0, 60], [0.25, 106], [0.75, 106], [1, targetX]]);
+  const y = kf(pose(p), [[0.25, BFLOOR_Y[i]], [0.75, 246], [1, 246]]);
+  placeFig(fig, x, y);
 }
-function updateDoor(p, weight, fixedSpectacle) {
-  // The door ALWAYS opens fully by p = 1. Weight changes only the flourish:
-  // a modest stack walks it open, a rich stack throws it wide.
-  const rich = fixedSpectacle ? 0.5 : Math.min(1, weight / 12);
-  const eased = easeOutCubic(p);
-  const curve = rich * eased + (1 - rich) * p;   // rich fronts the motion, modest walks it
-  const slide = curve * (58 + rich * 30);
-  const spin  = curve * (140 + rich * 120);
-  $('door').setAttribute('transform',
-    REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' ' + (160 + slide) + ' 94)');
-  if (REDUCED) $('door').setAttribute('opacity', String(1 - curve));
-  $('door-glow').setAttribute('opacity', (curve * (0.35 + rich * 0.55)).toFixed(3));
-}
+function markOut(i) { document.querySelector('.bfig.b' + i).classList.add('out'); }
 
 /* ============================== gags (quick open only) ============================== */
 function pickGag(roll) {
@@ -842,29 +860,25 @@ function playGag(gag) {
   strip.hidden = false;
   let art = '';
   if (gag === 'cat') {
-    art = '<svg viewBox="0 0 60 26" style="left:0; width:60px; animation:none;">'
-      + '<ellipse cx="30" cy="18" rx="14" ry="7" fill="#2C313E"/>'
-      + '<circle cx="44" cy="12" r="5" fill="#2C313E"/>'
+    art = '<svg viewBox="0 0 60 26" style="left:0; width:60px;">'
+      + '<ellipse cx="30" cy="18" rx="14" ry="7" fill="#2C313E"/><circle cx="44" cy="12" r="5" fill="#2C313E"/>'
       + '<path d="M41 8 l2 -4 l2 4 Z M45 8 l2 -4 l2 4 Z" fill="#2C313E"/>'
       + '<path d="M16 16 q-8 -2 -6 -10" stroke="#2C313E" stroke-width="2.5" fill="none"/></svg>';
   } else if (gag === 'car') {
     art = '<svg viewBox="0 0 70 26" style="left:0; width:70px;">'
       + '<rect x="8" y="8" width="44" height="10" rx="3" fill="#2C313E"/>'
-      + '<circle cx="18" cy="20" r="4" fill="#12141B" stroke="#2C313E"/>'
-      + '<circle cx="42" cy="20" r="4" fill="#12141B" stroke="#2C313E"/>'
+      + '<circle cx="18" cy="20" r="4" fill="#12141B" stroke="#2C313E"/><circle cx="42" cy="20" r="4" fill="#12141B" stroke="#2C313E"/>'
       + '<path d="M52 10 l14 3 l-14 3 Z" fill="#E3B84E" opacity="0.35"/></svg>';
   } else if (gag === 'trip') {
-    art = '<svg viewBox="0 0 40 26" style="left:0; width:40px;">'
-      + '<circle cx="20" cy="10" r="6" fill="#9AA2B1"/></svg>';
-  } else { // walkie
+    art = '<svg viewBox="0 0 40 26" style="left:0; width:40px;"><circle cx="20" cy="10" r="6" fill="#9AA2B1"/></svg>';
+  } else {
     art = '<svg viewBox="0 0 60 26" style="left:0; width:60px;">'
-      + '<rect x="6" y="6" width="10" height="16" rx="2" fill="#2C313E"/>'
-      + '<line x1="8" y1="6" x2="8" y2="1" stroke="#2C313E" stroke-width="2"/>'
+      + '<rect x="6" y="6" width="10" height="16" rx="2" fill="#2C313E"/><line x1="8" y1="6" x2="8" y2="1" stroke="#2C313E" stroke-width="2"/>'
       + '<text x="22" y="17" font-size="9" fill="#9AA2B1" font-family="ui-monospace,Consolas,monospace">—kzzht. copy.</text></svg>';
   }
   strip.innerHTML = art + '<div class="gag-caption">' + GAG_CAPTIONS[gag] + '</div>';
   const svg = strip.querySelector('svg');
-  if (!REDUCED && (gag === 'cat' || gag === 'car' || gag === 'trip')) {
+  if (!REDUCED && gag !== 'walkie') {
     svg.style.transition = 'left 1.4s linear';
     svg.style.left = '-80px';
     requestAnimationFrame(() => requestAnimationFrame(() => { svg.style.left = 'calc(100% + 10px)'; }));
@@ -882,111 +896,117 @@ function speedFactor() {
   return 1;
 }
 
+function setStage(where, status, statusCls) {
+  $('stage-head').querySelector('.where').textContent = where;
+  const s = $('stage-head').querySelector('.status');
+  s.textContent = status; s.className = 'status ' + (statusCls || '');
+}
+function setCaption(text) { $('stage-caption').textContent = text; }
+function mountScene(svg) {
+  const wrap = $('scene-wrap');
+  wrap.innerHTML = '';
+  wrap.appendChild(svg);
+}
+
 function beginRun(run) {
   // run: { seed, pick, nonce, outcome, pres, quick, replay }
   lastRun = run;
   const o = run.outcome;
-  const total = run.quick ? CONFIG.durations.quick : CONFIG.durations[o.exit];
+  const crewHex = CREW_HEX[run.pick] || '#EAE4D4';
+  const total = run.quick ? CONFIG.durations.quick : CONFIG.durations.run;
 
   // reset stage
-  const panelsEl = $('panels');
-  panelsEl.innerHTML = '';
-  panelsEl.classList.remove('dimmed');
   $('run-caption').textContent = '';
-  $('gag-strip').hidden = true;
-  $('gag-strip').innerHTML = '';
-  resetFinale();
+  $('gag-strip').hidden = true; $('gag-strip').innerHTML = '';
+  $('scene-wrap').innerHTML = '';
+  $('stage-caption').className = '';
+  setStage('', '', '');
+  setCaption('');
+  buildBuilding(crewHex);
   showScreen('run');
 
-  const cues = [];
-  const animators = [];
+  const cues = [], animators = [];
   const cue = (t, fn) => cues.push({ t, fn });
   const anim = (t0, t1, update) => animators.push({ t0, t1, update });
-  const weight = o.grades.reduce((s, g) => s + GRADE_RANK[g], 0);
+
+  const scenes = SCENES.map((s, i) => buildScene(s.id, o.results[i], run.pres, crewHex));
+  const vault = buildVaultScene(o, crewHex);
+  let arrivedSoFar = 0;
+  const slotOf = [];   // standing slot at the vault for each arriving crew member
+  let nextSlot = 0;
+  o.results.forEach((r, i) => { slotOf[i] = r !== 'out' ? nextSlot++ : undefined; });
 
   if (run.quick) {
-    /* ---- quick open: byte-identical structure across tiers ----
-       Fixed beats: split 0-600, resolve window 600-2400, door 2400-3400,
-       hold to 4000. Only grade colouring (and the outcome data itself)
-       differs. Omen stagger and the guaranteed signal do not play here. */
-    const panels = EVENTS.map((e, i) => buildPanel(e.id, i, o.grades[i], run.pres));
-    panelsEl.style.setProperty('--n', 3);
-    panels.forEach(p => panelsEl.appendChild(p.el));
-    $('alarm').hidden = true; // identical across tiers: no signal channel in quick open
+    /* ---- quick open: identical structure every time ----
+       intro 0-300 · three 800ms result beats · vault 2700-4000 */
     cue(0, () => { $('run-caption').textContent = 'quick open'; });
-    panels.forEach((p, i) => cue(120 + i * 120, () => p.el.classList.add('in')));
-    anim(600, 1950, (p, t) => panels.forEach((pan, i) => { if (i < o.eventsPlayed) pan.update(p, t); }));
-    cue(900, () => playGag(pickGag(run.pres.gagRoll)));
-    cue(1500, () => {
-      panels.forEach(p => p.el.classList.add('beat'));
-      setTimeout(() => panels.forEach(p => p.el.classList.remove('beat')), 300);
-    });
-    cue(1950, () => panels.forEach((p, i) => { if (i < o.eventsPlayed) p.secure(); else p.standDown(); }));
-    cue(2400, () => {
-      panelsEl.classList.add('dimmed');
-      $('finale').classList.add('in');
-      landCases(o.grades);
-    });
-    anim(2500, 3400, p => updateDoor(p, weight, true)); // fixed spectacle, tier-blind
-    cue(3400, () => { if (soundOn) tone(58, 0.5, 0.12); });
-  } else {
-    /* ---- full run: intro / events / approach / door ---- */
-    const ph = {
-      intro:    total * 0.10,
-      events:   total * 0.55,
-      approach: total * 0.175,
-      door:     total * 0.175,
-    };
-    const eventsStart = ph.intro;
-    const approachStart = eventsStart + ph.events;
-    const doorStart = approachStart + ph.approach;
-
-    const panels = [];
-    for (let i = 0; i < o.eventsPlayed; i++) panels.push(buildPanel(EVENTS[i].id, i, o.grades[i], run.pres));
-    panelsEl.style.setProperty('--n', o.eventsPlayed);
-    panels.forEach(p => panelsEl.appendChild(p.el));
-
-    cue(0, () => { $('run-caption').textContent = 'the crew splits'; });
-    panels.forEach((p, i) => cue(ph.intro * 0.3 + i * 160, () => p.el.classList.add('in')));
-    cue(eventsStart, () => { $('run-caption').textContent = o.eventsPlayed === 1 ? 'one job tonight' : o.eventsPlayed + ' jobs, one night'; });
-
-    // working portion = first 75% of the events phase
-    anim(eventsStart, eventsStart + ph.events * 0.75, (p, t) => panels.forEach(pan => pan.update(p, t)));
-
-    // the brightening beat: synced on the same frame when the omen is true,
-    // deliberately staggered 200-500ms otherwise
-    const beatBase = eventsStart + ph.events * 0.55;
-    panels.forEach((p, i) => cue(beatBase + run.pres.staggers[i], () => {
-      p.el.classList.add('beat');
-      setTimeout(() => p.el.classList.remove('beat'), 320);
-      if (o.omen && i === 0) tone(110, 0.6, 0.1); // the low sync tone
-    }));
-
-    // secure moments: fixed small offsets so three results stay readable
-    panels.forEach((p, i) => cue(eventsStart + ph.events * 0.8 + i * 260, () => p.secure()));
-
-    cue(approachStart, () => {
-      panelsEl.classList.add('dimmed');
-      $('run-caption').textContent = 'the crew regroups below';
-      $('finale').classList.add('in');
-      landCases(o.grades);
-      if (!REDUCED) $('platform-group').style.transform = 'translateY(' + (weight * 0.8) + 'px)';
-    });
-    if (o.guaranteedSignal) {
-      cue(approachStart + ph.approach * 0.6, () => {
-        const alarm = $('alarm');
-        alarm.classList.add('down');
-        alarm.querySelector('.alarm-label').textContent = 'ALARM · POWERED DOWN';
-        $('run-caption').textContent = 'the alarm goes quiet';
+    SCENES.forEach((s, i) => {
+      const t0 = 300 + i * 800;
+      cue(t0, () => {
+        mountScene(scenes[i].svg);
+        scenes[i].update(1, t0);
+        setStage(s.where + ' · ' + s.title, RESULT_STATUS[o.results[i]], o.results[i] === 'out' ? 'out' : 'in');
+        setCaption(scenes[i].captions[scenes[i].captions.length - 1][1]);
       });
-    }
-    cue(doorStart, () => { $('run-caption').textContent = ''; if (soundOn) tone(58, 0.5, 0.12); });
-    anim(doorStart, total, p => updateDoor(p, weight, false));
+      if (o.results[i] !== 'out') {
+        anim(t0 + 250, t0 + 750, p => descend(i, p, slotOf[i]));
+        cue(t0 + 750, () => { arrivedSoFar++; $('tally').textContent = arrivedSoFar; });
+      } else {
+        cue(t0 + 400, () => markOut(i));
+      }
+    });
+    cue(700, () => playGag(pickGag(run.pres.gagRoll)));
+    cue(2700, () => {
+      mountScene(vault.svg);
+      setStage('THE VAULT', o.arrivals + ' OF 3 AT THE DOOR', 'in');
+      setCaption('');
+      $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
+      if (soundOn) tone(58, 0.5, 0.12);
+    });
+    anim(2800, 3900, p => vault.update(p));
+  } else {
+    /* ---- full run: intro 1200 · three scenes (5500 play + 800 descent) · vault 3900 ---- */
+    const INTRO = 1200, PLAY = 5500, DESCENT = 800, SCENE = PLAY + DESCENT;
+    cue(0, () => { $('run-caption').textContent = 'three in. how many make it down?'; });
+    cue(200, () => { setStage('THE BUILDING', 'CREW IN POSITION'); setCaption('roof, lobby, below ground. one guy each.'); });
+
+    SCENES.forEach((s, i) => {
+      const t0 = INTRO + i * SCENE;
+      const sc = scenes[i];
+      cue(t0, () => {
+        mountScene(sc.svg);
+        setStage(s.where + ' · ' + s.title, s.guy, '');
+        $('stage-caption').className = '';
+        $('run-caption').textContent = (i + 1) + ' of 3';
+      });
+      sc.captions.forEach(([f, text]) => cue(t0 + f * PLAY, () => setCaption(text)));
+      anim(t0, t0 + PLAY, (p, t) => sc.update(p, t));
+      const r = o.results[i];
+      cue(t0 + PLAY * 0.97, () => setStage(s.where + ' · ' + s.title, RESULT_STATUS[r], r === 'out' ? 'out' : 'in'));
+      // the descent beat: the building shows who is heading down
+      if (r !== 'out') {
+        cue(t0 + PLAY, () => { $('stage-caption').className = 'dimmed'; if (soundOn) tone(220, 0.25, 0.06); });
+        anim(t0 + PLAY, t0 + PLAY + DESCENT, p => descend(i, p, slotOf[i]));
+        cue(t0 + PLAY + DESCENT - 20, () => { arrivedSoFar++; $('tally').textContent = arrivedSoFar; });
+      } else {
+        cue(t0 + PLAY, () => { markOut(i); $('stage-caption').className = 'dimmed'; });
+      }
+    });
+
+    const vaultStart = INTRO + 3 * SCENE;   // 20100
+    cue(vaultStart, () => {
+      mountScene(vault.svg);
+      setStage('THE VAULT', o.arrivals + ' OF 3 AT THE DOOR', 'in');
+      setCaption(o.arrivals === 3 ? 'all three. the door knows it.' : o.arrivals === 2 ? 'two at the door. it opens for them.' : 'one at the door. it still opens.');
+      $('run-caption').textContent = '';
+      $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
+      if (soundOn) tone(58, 0.6, 0.12);
+    });
+    anim(vaultStart + 600, total, p => vault.update(p));
   }
 
   cues.sort((a, b) => a.t - b.t);
   engine = { run, cues, animators, total, elapsed: 0, last: null, cueIndex: 0, done: false };
-
   if (speedFactor() === Infinity) { instantFinish(); return; }
   requestAnimationFrame(tick);
 }
@@ -998,21 +1018,13 @@ function tick(ts) {
   const dt = Math.min(100, ts - e.last);
   e.last = ts;
   e.elapsed += dt * speedFactor();
-
-  while (e.cueIndex < e.cues.length && e.cues[e.cueIndex].t <= e.elapsed) {
-    e.cues[e.cueIndex].fn();
-    e.cueIndex++;
-  }
+  while (e.cueIndex < e.cues.length && e.cues[e.cueIndex].t <= e.elapsed) { e.cues[e.cueIndex].fn(); e.cueIndex++; }
   for (const a of e.animators) {
-    if (e.elapsed >= a.t0) {
-      const p = Math.min(1, (e.elapsed - a.t0) / (a.t1 - a.t0));
-      a.update(p, e.elapsed);
-    }
+    if (e.elapsed >= a.t0) a.update(Math.min(1, (e.elapsed - a.t0) / (a.t1 - a.t0)), e.elapsed);
   }
   if (e.elapsed >= e.total) { e.done = true; finishRun(); return; }
   requestAnimationFrame(tick);
 }
-
 function instantFinish() {
   const e = engine;
   while (e.cueIndex < e.cues.length) { e.cues[e.cueIndex].fn(); e.cueIndex++; }
@@ -1025,19 +1037,19 @@ function instantFinish() {
 function finishRun() {
   const run = engine.run;
   const o = run.outcome;
-  if (!run.replay) bankCases(o.eventsPlayed);
+  if (!run.replay) bankJob();
 
   $('tier-label').textContent = { floor: 'FLOOR', solid: 'SOLID', grail: 'GRAIL' }[o.tier];
   $('tier-label').className = 'tier-label tier-' + o.tier;
   const pool = CONFIG.prizePool[o.tier];
   $('prize-name').textContent = pool[Math.floor(run.pres.prizeRoll * pool.length)];
   $('prize-copy').textContent = TIER_COPY[o.tier];
-  const chips = $('haul-chips');
+  const chips = $('crew-chips');
   chips.innerHTML = '';
-  o.grades.forEach(g => {
+  o.results.forEach((r, i) => {
     const s = document.createElement('span');
-    s.className = 'grade-' + g;
-    s.textContent = GRADE_LABEL[g];
+    s.className = r === 'out' ? 'out' : 'in';
+    s.textContent = SCENES[i].where + ' · ' + (r === 'out' ? 'OUT' : r === 'close' ? 'IN, CLOSE' : 'IN');
     chips.appendChild(s);
   });
 
@@ -1046,58 +1058,35 @@ function finishRun() {
   $('r-pick').textContent = run.pick;
   $('r-nonce').textContent = run.nonce;
   $('r-runseed').textContent = o.seed;
-  $('verify-result').textContent = '';
-  $('verify-result').className = '';
+  $('verify-result').textContent = ''; $('verify-result').className = '';
   $('dbg-seed').value = o.seed;
   showScreen('reveal');
 }
 
 /* ============================== flow wiring ============================== */
 function currentForces() {
-  return {
-    tier: $('dbg-tier').value,
-    exit: $('dbg-exit').value,
-    omen: $('dbg-omen').value,
-    signal: $('dbg-signal').value,
-    grades: [$('dbg-g1').value, $('dbg-g2').value, $('dbg-g3').value],
-  };
+  return { tier: $('dbg-tier').value, results: [$('dbg-r1').value, $('dbg-r2').value, $('dbg-r3').value] };
 }
-
 function startRun(pick, seedStr, runNonce, replay) {
   const rng = makeRng(seedStr);
   const outcome = drawOutcome(rng, CONFIG, seedStr, currentForces());
   const pres = derivePresentation(rng, outcome);
   beginRun({ seed: seedStr, pick, nonce: runNonce, outcome, pres, quick: $('quick-toggle').checked, replay: !!replay });
 }
-
-document.querySelectorAll('.swatch').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const pick = btn.dataset.colour;
-    startRun(pick, serverSeed + ':' + pick + ':' + nonce, nonce, false);
-  });
-});
-
-$('btn-again').addEventListener('click', () => {
-  nonce += 1;
-  refreshCaseCounter();
-  showScreen('pick');
-});
-
-$('btn-replay').addEventListener('click', () => {
-  if (lastRun) startRun(lastRun.pick, lastRun.seed, lastRun.nonce, true);
-});
-
+document.querySelectorAll('.swatch').forEach(btn => btn.addEventListener('click', () => {
+  const pick = btn.dataset.colour;
+  startRun(pick, serverSeed + ':' + pick + ':' + nonce, nonce, false);
+}));
+$('btn-again').addEventListener('click', () => { nonce += 1; refreshJobCounter(); showScreen('pick'); });
+$('btn-replay').addEventListener('click', () => { if (lastRun) startRun(lastRun.pick, lastRun.seed, lastRun.nonce, true); });
 $('btn-verify').addEventListener('click', async () => {
   const hash = await sha256Hex($('r-seed').value.trim());
   const pass = hash === commitHash;
   const el = $('verify-result');
-  el.textContent = pass ? 'PASS — hash matches the commit shown before your pick'
-                        : 'FAIL — this seed does not match the commit';
+  el.textContent = pass ? 'PASS — hash matches the commit shown before your pick' : 'FAIL — this seed does not match the commit';
   el.className = pass ? 'pass' : 'fail';
 });
-
 $('quick-toggle').addEventListener('change', e => store.set(LS.quick, e.target.checked ? '1' : '0'));
-
 $('sound-toggle').addEventListener('click', () => {
   soundOn = !soundOn;
   const b = $('sound-toggle');
@@ -1112,13 +1101,11 @@ $('debug-toggle').addEventListener('click', toggleDebug);
 document.addEventListener('keydown', e => {
   if ((e.key === 'd' || e.key === 'D') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggleDebug();
 });
-
 $('dbg-copy').addEventListener('click', () => {
   const seed = lastRun ? lastRun.seed : serverSeed + ':crimson:' + nonce;
   $('dbg-seed').value = seed;
   if (navigator.clipboard) navigator.clipboard.writeText(seed).catch(() => {});
 });
-
 $('dbg-replay').addEventListener('click', () => {
   const seedStr = $('dbg-seed').value.trim();
   if (!seedStr) return;
@@ -1127,30 +1114,26 @@ $('dbg-replay').addEventListener('click', () => {
   const n = parts.length === 3 ? parseInt(parts[2], 10) || 0 : 0;
   startRun(pick, seedStr, n, true);
 });
-
 $('dbg-run100').addEventListener('click', () => {
   const forces = currentForces();
   const tierCount = { floor: 0, solid: 0, grail: 0 };
-  const exitCount = { short: 0, medium: 0, full: 0 };
-  const shortByTier = { floor: [0, 0], solid: [0, 0], grail: [0, 0] }; // [short, total]
+  const arrivals = { 1: 0, 2: 0, 3: 0 };
+  const perGuy = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; // [clean, close, out] per crew member
   const simBase = randomHex(8);
   for (let i = 0; i < 100; i++) {
     const s = serverSeed + ':sim' + simBase + ':' + i;
     const o = drawOutcome(makeRng(s), CONFIG, s, forces);
     tierCount[o.tier]++;
-    exitCount[o.exit]++;
-    shortByTier[o.tier][1]++;
-    if (o.exit === 'short') shortByTier[o.tier][0]++;
+    arrivals[o.arrivals]++;
+    o.results.forEach((r, g) => perGuy[g][{ clean: 0, close: 1, out: 2 }[r]]++);
   }
-  const pct = (a, b) => b === 0 ? '—' : Math.round(100 * a / b) + '%';
+  const row = (name, a) => '  ' + name.padEnd(7) + 'clean ' + String(a[0]).padStart(2) + '  close ' + String(a[1]).padStart(2) + '  out ' + String(a[2]).padStart(2);
   $('dbg-out').textContent =
       '100 draws (draw only, no animation)\n'
-    + 'tier   floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '\n'
-    + 'exit   short ' + exitCount.short + '  medium ' + exitCount.medium + '  full ' + exitCount.full + '\n'
-    + 'short-exit rate per tier\n'
-    + '  floor ' + shortByTier.floor[0] + '/' + shortByTier.floor[1] + ' (' + pct(shortByTier.floor[0], shortByTier.floor[1]) + ')\n'
-    + '  solid ' + shortByTier.solid[0] + '/' + shortByTier.solid[1] + ' (' + pct(shortByTier.solid[0], shortByTier.solid[1]) + ')\n'
-    + '  grail ' + shortByTier.grail[0] + '/' + shortByTier.grail[1] + ' (' + pct(shortByTier.grail[0], shortByTier.grail[1]) + ')';
+    + 'tier      floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '\n'
+    + 'at vault  1: ' + arrivals[1] + '  2: ' + arrivals[2] + '  3: ' + arrivals[3] + '\n'
+    + 'per crew member\n'
+    + row('roof', perGuy[0]) + '\n' + row('lobby', perGuy[1]) + '\n' + row('keypad', perGuy[2]);
 });
 
 /* ============================== init ============================== */
@@ -1161,13 +1144,12 @@ $('dbg-run100').addEventListener('click', () => {
   $('commit-display').textContent = commitHash;
   $('quick-toggle').checked = store.get(LS.quick) === '1';
   if (store.get(LS.sound) === '1') $('sound-toggle').click();
-  refreshCaseCounter();
+  refreshJobCounter();
   $('dbg-config').textContent = 'CONFIG (placeholders)\n' + JSON.stringify({
     tierWeights: CONFIG.tierWeights,
-    exitWeights: CONFIG.exitWeights,
-    gradeWeights: CONFIG.gradeWeights,
-    omenWeights: CONFIG.omenWeights,
-    guaranteedSignalRate: CONFIG.guaranteedSignalRate,
+    arrivalsByTier: CONFIG.arrivalsByTier,
+    closeCallRate: CONFIG.closeCallRate,
+    durations: CONFIG.durations,
   }, null, 1);
   showScreen('pick');
 })();
