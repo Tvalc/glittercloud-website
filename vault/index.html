@@ -639,13 +639,8 @@ const CREW_HEX = { crimson: '#A8384A', azure: '#4A7DB8', bone: '#B9B2A0' };
 const TIERS = ['getaway', 'floor', 'solid', 'grail', 'lockbox'];
 const TIER_HEX = { getaway: '#5E6677', floor: '#B9B2A0', solid: '#DE8A52', grail: '#E3B84E', lockbox: '#E3B84E' };
 const TIER_LABEL = { getaway: 'GETAWAY', floor: 'FLOOR', solid: 'SOLID', grail: 'GRAIL', lockbox: 'LOCKBOX' };
-// loot in the open vault: more crew at the door, more of it leaves with them
-const LOOT = [
-  ['gem', 200, 118], ['bar', 176, 124], ['bar', 224, 124], ['gem', 160, 112], ['gem', 240, 112],
-  ['coins', 190, 136], ['coins', 210, 136], ['bar', 150, 130], ['bar', 250, 130], ['gem', 168, 140], ['gem', 232, 140],
-];
-const LOOT_COUNT = { 0: 0, 1: 3, 2: 6, 3: 11 };   // pieces shown by how many reached the vault
-const LOOT_COPY = { 1: 'one bag. gems and whatever fits.', 2: 'two of them. two bags.', 3: 'all three. they strip the place.' };
+// loot in the open vault: one gem per crew member at the door
+const LOOT_COPY = { 1: 'one gem. he takes it.', 2: 'a gem each.', 3: 'a gem each.' };
 const SCENES = [
   { id: 'roof',   where: 'ROOF',         title: 'the laser grid', guy: 'the roof guy',   outLabel: 'OUT — STUNNED' },
   { id: 'lobby',  where: 'LOBBY',        title: 'the guard desk', guy: 'the lobby guy',  outLabel: 'OUT — ARRESTED' },
@@ -654,10 +649,10 @@ const SCENES = [
 const statusFor = (i, r) => r === 'out' ? SCENES[i].outLabel : r === 'close' ? 'IN — CLOSE CALL' : 'IN — CLEAN';
 const TIER_COPY = {
   getaway: 'Nobody reached the vault. They took what they could on the way out.',
-  floor:   'One got through. One bag of gems, and it still pays.',
-  solid:   'Two at the door. Two bags.',
-  grail:   'All three at the door. They strip the vault; the lockbox stays shut.',
-  lockbox: 'All three, clean. The lockbox opens on top of everything else.',
+  floor:   'One got through, one gem. It still pays.',
+  solid:   'Two at the door. A gem each.',
+  grail:   'All three at the door, a gem each. The lockbox stays shut.',
+  lockbox: 'All three, clean. The lockbox opens — the case goes out with them.',
 };
 const GAG_CAPTIONS = {
   trip:   'the new hire trips, recovers, nails the landing.',
@@ -976,39 +971,55 @@ function buildVaultScene(outcome, crewHex) {
     + slots
     + '<rect class="lid" x="168" y="58" width="64" height="12" rx="3" fill="#1A1D26" stroke="#9AA2B1" stroke-width="2"/>'
     + '</g>'
-    + LOOT.map(([kind, x, y], k) => {
-        let shape;
-        if (kind === 'gem') shape = '<polygon points="0,-7 6,-2 4,6 -4,6 -6,-2" fill="' + (k % 2 ? '#8F7BE8' : '#5ED0C0') + '"/><line x1="-3" y1="-3" x2="1" y2="-5" stroke="#EAE4D4" stroke-width="1" opacity="0.7"/>';
-        else if (kind === 'bar') shape = '<rect x="-8" y="-4" width="16" height="8" rx="1.5" fill="#E3B84E"/><rect x="-8" y="-4" width="16" height="3" rx="1.5" fill="#F0CC6E"/>';
-        else shape = '<ellipse cy="2" rx="6" ry="2.2" fill="#B9B2A0"/><ellipse cy="-1" rx="6" ry="2.2" fill="#CFC8B4"/><ellipse cy="-4" rx="6" ry="2.2" fill="#B9B2A0"/>';
-        return '<g class="loot l' + k + '" opacity="0" transform="translate(' + x + ' ' + y + ')">' + shape + '</g>';
-      }).join('');
+    // one gem per crew member at the door, waiting in the opening
+    + xs.map((x, k) => '<g class="loot l' + k + '" opacity="0" transform="translate(' + x + ' 124)">'
+        + '<polygon points="0,-9 8,-3 5,8 -5,8 -8,-3" fill="' + ['#5ED0C0', '#8F7BE8', '#E3B84E'][k] + '"/>'
+        + '<line x1="-4" y1="-4" x2="1" y2="-7" stroke="#EAE4D4" stroke-width="1.2" opacity="0.7"/></g>').join('')
+    // the case inside the lockbox: only ever seen if the lockbox opens
+    + '<g class="case" opacity="0" transform="translate(200 84)">'
+    + '<rect x="-17" y="-10" width="34" height="20" rx="3" fill="#1A1D26" stroke="#E3B84E" stroke-width="2"/>'
+    + '<rect x="-6" y="-14" width="12" height="5" rx="2" fill="none" stroke="#E3B84E" stroke-width="2"/>'
+    + '<line x1="-17" y1="-2" x2="17" y2="-2" stroke="#E3B84E" stroke-width="1.2" opacity="0.7"/></g>';
   const door = svg.querySelector('.door');
   const glow = svg.querySelector('.glow');
   const rich = Math.max(0, (outcome.arrivals - 1) / 2); // 0 modest .. 1 rich: changes the flourish, never the result
-  const lootN = LOOT_COUNT[standing.length] || 0;
+  let boxOpen = false;
   return {
     svg,
     showFigure(slot) { const f = svg.querySelector('.vfig.s' + slot); if (f) f.setAttribute('opacity', '1'); },
-    revealLoot(k) { if (k < lootN) svg.querySelector('.loot.l' + k).setAttribute('opacity', '1'); },
-    // the haul: loot drifts to the crew, then they walk out with it
+    revealLoot(k) { if (k < xs.length) svg.querySelector('.loot.l' + k).setAttribute('opacity', '1'); },
+    // the haul: a gem each and out — or, with the lockbox open, the gems go into
+    // the case and one man carries it out
     haul(p) {
       const q = pose(p);
-      const n = Math.max(1, standing.length);
-      const walk = q < 0.55 ? 0 : smooth((q - 0.55) / 0.45) * 190;
-      const fade = q > 0.85 ? Math.max(0, 1 - (q - 0.85) / 0.15) : 1;
+      const walkStart = boxOpen ? 0.62 : 0.5;
+      const walk = q < walkStart ? 0 : smooth((q - walkStart) / (1 - walkStart)) * 200;
+      const fade = q > 0.88 ? Math.max(0, 1 - (q - 0.88) / 0.12) : 1;
       xs.forEach((x, k) => {
         const f = svg.querySelector('.vfig.s' + k);
         f.setAttribute('transform', 'translate(' + (x + walk) + ' 168)');
         f.setAttribute('opacity', String(fade));
       });
-      const u = smooth(Math.min(1, q / 0.55));
-      for (let k = 0; k < lootN; k++) {
-        const it = svg.querySelector('.loot.l' + k);
-        const ox = LOOT[k][1], oy = LOOT[k][2];
-        const tx = xs[k % n] + ((k % 3) - 1) * 5, ty = 158;
-        it.setAttribute('transform', 'translate(' + (ox + (tx - ox) * u + walk) + ' ' + (oy + (ty - oy) * u) + ') scale(' + (1 - 0.4 * u) + ')');
-        it.setAttribute('opacity', String(fade));
+      if (!boxOpen) {
+        const u = smooth(Math.min(1, q / 0.45));                 // each man picks up his gem
+        xs.forEach((x, k) => {
+          const g = svg.querySelector('.loot.l' + k);
+          g.setAttribute('transform', 'translate(' + (x + walk) + ' ' + (124 + 32 * u) + ') scale(' + (1 - 0.35 * u) + ')');
+          g.setAttribute('opacity', String(fade));
+        });
+      } else {
+        const a = smooth(Math.min(1, q / 0.26));                             // the case comes out of the lockbox
+        const b = smooth(Math.min(1, Math.max(0, (q - 0.26) / 0.3)));       // the gems go in
+        const c = smooth(Math.min(1, Math.max(0, (q - 0.56) / 0.1)));       // one man picks it up
+        const carrier = xs[Math.floor((xs.length - 1) / 2)];
+        const cs = svg.querySelector('.case');
+        cs.setAttribute('transform', 'translate(' + (200 + (carrier - 200) * c + walk) + ' ' + (84 + 34 * a + 36 * c) + ')');
+        cs.setAttribute('opacity', String(Math.min(a, fade)));
+        xs.forEach((x, k) => {
+          const g = svg.querySelector('.loot.l' + k);
+          g.setAttribute('transform', 'translate(' + (x + (200 - x) * b) + ' ' + (124 - 6 * b) + ') scale(' + (1 - b) + ')');
+          g.setAttribute('opacity', String((1 - b) * fade));
+        });
       }
     },
     // nobody made it: the door stays exactly as it is, just dimmer
@@ -1019,6 +1030,7 @@ function buildVaultScene(outcome, crewHex) {
     colour() {
       svg.querySelector('.rim').setAttribute('stroke', outcome.tier === 'lockbox' ? 'url(#vring)' : col);
       svg.querySelector('.spokes').setAttribute('stroke', col);
+      glow.setAttribute('opacity', '0.45');   // the glow leaks out around the door before it moves
     },
     showLockbox() { svg.querySelector('.lockbox').setAttribute('opacity', '1'); },
     fillSlot(k, num) {
@@ -1027,6 +1039,7 @@ function buildVaultScene(outcome, crewHex) {
       const t = svg.querySelector('.lnum.k' + k); t.textContent = num; t.setAttribute('opacity', '1');
     },
     openLockbox() {
+      boxOpen = true;
       svg.querySelector('.lid').setAttribute('transform', REDUCED ? '' : 'rotate(-75 168 64)');
       if (REDUCED) svg.querySelector('.lid').setAttribute('opacity', '0.2');
       glow.setAttribute('fill', 'url(#vglow-box)');
@@ -1039,7 +1052,7 @@ function buildVaultScene(outcome, crewHex) {
       const spin = curve * (140 + rich * 120);
       door.setAttribute('transform', REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' 200 84)');
       if (REDUCED) door.setAttribute('opacity', String(1 - curve));
-      glow.setAttribute('opacity', (curve * (0.5 + rich * 0.5)).toFixed(3));
+      glow.setAttribute('opacity', (0.45 + curve * (0.05 + rich * 0.5)).toFixed(3));
     },
   };
 }
@@ -1206,13 +1219,13 @@ function beginRun(run) {
     if (o.arrivals > 0) {
       anim(2100, 2700, p => vault.update(p));
       cue(2750, () => { vault.showLockbox(); vaultPanel.setCaption(LOOT_COPY[o.arrivals], false); });
-      for (let k = 0; k < LOOT_COUNT[o.arrivals]; k++) cue(2750 + k * 40, () => vault.revealLoot(k));
+      for (let k = 0; k < o.arrivals; k++) cue(2750 + k * 80, () => vault.revealLoot(k));
       let haulAt = 3100;
       if (o.arrivals === 3) {   // the lockbox is only tried with all three at the door
         cleanIdx.forEach((i, k) => cue(3000 + k * 120, () => vault.fillSlot(k, run.pres.lockNumbers[i])));
         cue(3400, () => {
-          if (o.tier === 'lockbox') { vault.openLockbox(); vaultPanel.setStatus('LOCKBOX OPEN', 'in'); }
-          else vaultPanel.setCaption(cleanIdx.length + ' of three numbers. shut. they take the rest.', false);
+          if (o.tier === 'lockbox') { vault.openLockbox(); vaultPanel.setStatus('LOCKBOX OPEN', 'in'); vaultPanel.setCaption('a case inside. the gems go in.', false); }
+          else vaultPanel.setCaption(cleanIdx.length + ' of three numbers. shut. a gem each and out.', false);
         });
         haulAt = 3450;
       }
@@ -1269,9 +1282,9 @@ function beginRun(run) {
       cue(vaultStart + 2600, () => vaultPanel.setCaption('they grab what they can on the way out.', false));
     } else {
       anim(vaultStart + 400, vaultStart + 2200, p => vault.update(p));
-      // the door is open: the loot is what they came for
+      // the door is open: a gem each, waiting in the opening
       cue(vaultStart + 2300, () => { vault.showLockbox(); vaultPanel.setCaption(LOOT_COPY[o.arrivals], false); });
-      for (let k = 0; k < LOOT_COUNT[o.arrivals]; k++) cue(vaultStart + 2350 + k * 80, () => vault.revealLoot(k));
+      for (let k = 0; k < o.arrivals; k++) cue(vaultStart + 2350 + k * 200, () => vault.revealLoot(k));
       let haulAt;
       if (o.arrivals === 3) {
         // the lockbox is only tried with all three at the door
@@ -1281,15 +1294,15 @@ function beginRun(run) {
           if (o.tier === 'lockbox') {
             vault.openLockbox();
             vaultPanel.setStatus('LOCKBOX OPEN', 'in');
-            vaultPanel.setCaption('three numbers. it opens. they take all of it.', false);
+            vaultPanel.setCaption('three numbers. it opens. a case inside — the gems go in, one of them carries it out.', false);
             if (soundOn) tone(440, 0.6, 0.08);
           } else {
-            vaultPanel.setCaption(cleanIdx.length + ' of three numbers. it stays shut. they take the rest.', false);
+            vaultPanel.setCaption(cleanIdx.length + ' of three numbers. it stays shut. a gem each and out.', false);
           }
         });
         haulAt = vaultStart + 4700;
       } else {
-        cue(vaultStart + 3300, () => vaultPanel.setCaption('the lockbox needs three. not tonight. ' + (o.arrivals === 1 ? 'he takes what he can carry.' : 'they take what they can carry.'), false));
+        cue(vaultStart + 3300, () => vaultPanel.setCaption('the lockbox needs three. not tonight. ' + (o.arrivals === 1 ? 'one gem and out.' : 'a gem each and out.'), false));
         haulAt = vaultStart + 3800;
       }
       anim(haulAt, haulAt + 1300, p => vault.haul(p));
@@ -1450,10 +1463,10 @@ const VALUE_BAND = {
 };
 const HOW_COPY = {
   getaway: 'nobody reaches the vault — it stays shut',
-  floor:   '1 of 3 reaches the vault · one bag of loot',
-  solid:   '2 of 3 reach the vault · two bags',
-  grail:   'all 3 reach the vault · they strip it',
-  lockbox: 'all 3, clean · they strip it and the lockbox opens too',
+  floor:   '1 of 3 reaches the vault · one gem',
+  solid:   '2 of 3 reach the vault · a gem each',
+  grail:   'all 3 reach the vault · a gem each',
+  lockbox: 'all 3, clean · the lockbox opens: a case for the gems',
 };
 function miniVaultMarkup(tier, n) {
   const col = TIER_HEX[tier];
