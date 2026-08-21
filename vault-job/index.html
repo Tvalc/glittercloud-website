@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Boxlings: The Vault Job</title>
+  <style>
+    :root{--ground:#12141B;--panel:#1A1D26;--ink:#EAE4D4;--dim:#9AA2B1;--line:#2C313E;--bone:#B9B2A0;--ember:#DE8A52;--auric:#E3B84E;--teal:#5ED0C0;--violet:#8F7BE8;--crew:#A9233D;--grade:#B9B2A0;--ease:cubic-bezier(.22,1,.36,1)}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--ground);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{min-height:100vh;min-height:100svh;overflow-x:hidden;background:radial-gradient(circle at 50% -30%,#252a38 0,transparent 48%),var(--ground)}
+    button,input,select{font:inherit}
+    button{color:inherit}
+    .app{width:min(1180px,100%);min-height:100vh;min-height:100svh;margin:auto;padding:clamp(18px,3vw,38px);display:flex;flex-direction:column}
+    .mast{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:14px}
+    .brand{display:flex;align-items:center;gap:11px;letter-spacing:.16em;text-transform:uppercase;font-size:12px;font-weight:750}
+    .brand-mark{width:25px;height:25px;border:1px solid var(--ink);display:grid;place-items:center;transform:rotate(45deg)}
+    .brand-mark i{width:7px;height:7px;background:var(--ink);display:block}
+    .eyebrow{color:var(--dim);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+    .corner-btn,.ghost,.primary,.swatch,.toggle,.verify{border:1px solid var(--line);background:#171a22;cursor:pointer;border-radius:2px}
+    .corner-btn{width:34px;height:32px;color:var(--dim)}
+    .corner-btn:hover,.ghost:hover,.verify:hover{border-color:#626b7d;color:var(--ink)}
+    main{flex:1;display:grid}
+    .view{display:none;min-height:0}
+    .view.active{display:grid}
+    #pickView{place-items:center;padding:36px 0}
+    .pick-card{width:min(760px,100%)}
+    h1,h2,p{margin-top:0}
+    h1{font-size:clamp(40px,7vw,82px);font-weight:560;letter-spacing:-.055em;line-height:.98;margin-bottom:20px}
+    .lede{max-width:610px;color:var(--dim);line-height:1.65;font-size:15px;margin-bottom:30px}
+    .job-primer{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin:0 0 26px;border:1px solid var(--line);background:var(--line)}
+    .primer-step{position:relative;min-height:84px;padding:15px 15px 14px 48px;background:#171a22;color:var(--dim);font-size:11px;line-height:1.45}
+    .primer-step b{display:block;color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+    .primer-step i{position:absolute;left:15px;top:15px;width:23px;height:23px;border:1px solid #4a5262;border-radius:50%;display:grid;place-items:center;color:#aab1be;font:10px ui-monospace;font-style:normal}
+    .swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0 28px}
+    .swatch{position:relative;min-height:112px;padding:18px;text-align:left;overflow:hidden;transition:transform .3s var(--ease),border-color .3s}
+    .swatch:hover{transform:translateY(-3px);border-color:#667083}
+    .swatch:disabled{cursor:wait;opacity:.45;transform:none}
+    .swatch::after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-24px;bottom:-36px;background:var(--swatch);filter:saturate(.8);opacity:.78}
+    .swatch strong{display:block;text-transform:uppercase;letter-spacing:.13em;font-size:12px}
+    .swatch span{display:block;color:var(--dim);font-size:11px;margin-top:8px}
+    .pick-meta{display:grid;grid-template-columns:1fr auto;gap:12px 24px;padding-top:18px;border-top:1px solid var(--line);align-items:center}
+    .commit-box{min-width:0}
+    .hash{display:block;color:var(--dim);font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
+    .toggle{display:flex;align-items:center;gap:9px;padding:10px 12px;color:var(--dim);font-size:12px}
+    .toggle-track{width:29px;height:16px;border-radius:9px;background:#343947;padding:2px;transition:.2s}
+    .toggle-dot{width:12px;height:12px;border-radius:50%;background:#8991a1;transition:transform .2s}
+    .toggle[aria-pressed="true"] .toggle-track{background:#6a5db2}
+    .toggle[aria-pressed="true"] .toggle-dot{background:#fff;transform:translateX(13px)}
+    .collection{grid-column:1/-1;color:var(--dim);font-size:12px}
+    #runView{grid-template-rows:1fr;padding:14px 0 0}
+    .cabinet{position:relative;display:flex;flex-direction:column;gap:11px;padding:13px 16px 16px;border:1px solid var(--line);background:#151820;overflow:hidden}
+    .marquee{display:flex;justify-content:center;gap:10px}
+    .marquee i{width:6px;height:6px;border-radius:50%;background:#3b4351;transition:background-color .2s,box-shadow .2s}
+    .machine-live .marquee i{animation:chaseLight .7s linear infinite}
+    .marquee i:nth-child(2){animation-delay:-.09s!important}.marquee i:nth-child(3){animation-delay:-.18s!important}.marquee i:nth-child(4){animation-delay:-.27s!important}.marquee i:nth-child(5){animation-delay:-.36s!important}.marquee i:nth-child(6){animation-delay:-.45s!important}.marquee i:nth-child(7){animation-delay:-.54s!important}.marquee i:nth-child(8){animation-delay:-.63s!important}.marquee i:nth-child(9){animation-delay:-.72s!important}
+    @keyframes chaseLight{0%,45%{background:#3b4351;box-shadow:none}50%,90%{background:var(--crew);box-shadow:0 0 12px var(--crew)}}
+    .hot .marquee i{animation-duration:.28s!important}
+    @keyframes hotLight{0%,45%{background:#4a4330;box-shadow:none}50%,90%{background:#E3B84E;box-shadow:0 0 14px #E3B84E}}
+    .hot .marquee i{animation-name:hotLight!important}
+    .run-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+    .phase{font-size:clamp(19px,2.6vw,27px);font-weight:680;letter-spacing:-.035em;color:var(--ink)}
+    .clock{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:#737c8e;flex:none}
+
+    .paytable{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #262c38;background:#11141b}
+    .paytable-label{color:#6b7484;font:8px ui-monospace;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;flex:none}
+    .pay-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1;min-width:0}
+    .pay{position:relative;padding:6px 4px;border:1px solid color-mix(in srgb,var(--pg) 30%,#262c38);color:color-mix(in srgb,var(--pg) 62%,#6b7484);background:#151920;text-align:center;font-size:10px;font-weight:750;letter-spacing:.06em;transition:color .2s,background-color .2s,border-color .2s,transform .3s var(--ease);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pay.hit{color:#12141b;background:var(--pg);border-color:var(--pg);transform:translateY(-2px)}
+    .pay.hit::after{content:"×"attr(data-count);margin-left:5px;font-size:9px;opacity:.75}
+
+    .reels{display:grid;grid-template-columns:repeat(var(--count,3),minmax(0,1fr));gap:12px;flex:1;min-height:0}
+    .reel{position:relative;display:flex;flex-direction:column;min-width:0;border:1px solid #333a48;background:#1a1d26;transition:border-color .3s,box-shadow .3s,transform .3s var(--ease)}
+    .reel-name{padding:8px 10px 7px;border-bottom:1px solid #262c38;color:#98a1b1;font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .reel-window{position:relative;flex:1;min-height:150px;overflow:hidden;background:#0e1016}
+    .reel-window::before,.reel-window::after{content:"";position:absolute;left:0;right:0;height:34px;z-index:3;pointer-events:none}
+    .reel-window::before{top:0;background:linear-gradient(#0e1016,transparent)}
+    .reel-window::after{bottom:0;background:linear-gradient(transparent,#0e1016)}
+    .reel-strip{position:absolute;inset:0 0 auto;display:flex;flex-direction:column;transform:translateY(0)}
+    .reel-strip.blur{filter:blur(3px)}
+    .reel-strip.spin{animation:stripRoll .4s linear infinite}
+    @keyframes stripRoll{from{transform:translateY(0)}to{transform:translateY(calc(-4 * var(--cellH,150px)))}}
+    .cell{height:var(--cellH);flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;border-bottom:1px solid #191d25}
+    .cell i{width:44px;height:44px;background:var(--cg);transform:rotate(45deg);display:block}
+    .cell b{color:var(--cg);font-size:12px;font-weight:800;letter-spacing:.1em}
+    .cell[data-g="prismatic"] i{background:conic-gradient(from 0deg,#5ED0C0,#8F7BE8,#E3B84E,#5ED0C0)}
+    .reel.landed{border-color:color-mix(in srgb,var(--rg) 75%,#333a48);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rg) 22%,transparent),0 0 26px color-mix(in srgb,var(--rg) 14%,transparent)}
+    .reel.thunk{animation:reelThunk .34s var(--ease)}
+    @keyframes reelThunk{0%{transform:translateY(-7px)}45%{transform:translateY(5px)}72%{transform:translateY(-2px)}100%{transform:none}}
+    .reel-flash{position:absolute;inset:0;z-index:4;background:var(--rg);opacity:0;pointer-events:none}
+    .reel.thunk .reel-flash{animation:reelFlash .42s var(--ease)}
+    @keyframes reelFlash{0%{opacity:.5}100%{opacity:0}}
+    .reel-foot{padding:8px 6px;border-top:1px solid #262c38;text-align:center;color:#6b7484;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:color .25s}
+    .reel.landed .reel-foot{color:var(--rg)}
+    .reel.live{border-color:#8a7a45;box-shadow:0 0 0 1px #8a7a4577,0 0 26px #e3b84e1f}
+    .reel.live .reel-foot{color:#c9ab5e}
+    .reel.anticipate{border-color:#E3B84E;box-shadow:0 0 0 1px #E3B84E,0 0 40px #e3b84e3d;animation:antiShake .5s ease-in-out infinite}
+    @keyframes antiShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+    .reel.anticipate .reel-foot{color:#E3B84E}
+    .anti-badge{position:absolute;z-index:6;left:50%;top:-1px;transform:translateX(-50%);padding:5px 12px;background:#E3B84E;color:#12141b;font-size:10px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;opacity:0;transition:opacity .2s}
+    .reel.anticipate .anti-badge{opacity:1;animation:antiPulse .5s ease-in-out infinite alternate}
+    @keyframes antiPulse{from{opacity:.65}to{opacity:1}}
+
+    .haul{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid #262c38;background:#11141b}
+    .haul-label{color:#6b7484;font:9px ui-monospace;letter-spacing:.14em;text-transform:uppercase;flex:none}
+    .haul-track{position:relative;flex:1;height:12px;background:#1a1e27;border:1px solid #2b313d;overflow:hidden}
+    .haul-fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--hg,#5c6478);transition:width .5s var(--ease),background-color .4s}
+    .haul-power{color:var(--ink);font:18px/1 ui-monospace;font-weight:800;letter-spacing:.02em;flex:none;min-width:74px;text-align:right}
+    .haul-power small{color:#6b7484;font-size:11px;font-weight:600}
+
+    .vaultstage{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:150px;padding-top:8px;border-top:1px solid #262c38}
+    .vault-cap{position:absolute;left:50%;top:10px;transform:translateX(-50%);color:#7d8698;font:9px ui-monospace;font-weight:700;letter-spacing:.16em;text-transform:uppercase;transition:color .3s;white-space:nowrap}
+    .charging .vault-cap,.blown .vault-cap{color:var(--hg,#E3B84E)}
+    .vault-mount{position:relative;grid-column:2;width:124px;height:124px;perspective:600px}
+    .vault-core{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,color-mix(in srgb,var(--hg,#E3B84E) 65%,#0e1016),#0e1016 74%);border:1px solid color-mix(in srgb,var(--hg,#E3B84E) 40%,#2b313d);opacity:.18;transition:opacity .45s}
+    .vault-core::after{content:"?";color:#12141b;font:34px/1 ui-monospace;font-weight:800;opacity:0;transition:opacity .35s}
+    .charging .vault-core{opacity:.5}
+    .blown .vault-core{opacity:1}
+    .blown .vault-core::after{opacity:.85}
+    .vault{position:absolute;inset:0;border:6px double #9aa3b4;border-radius:50%;background:#252a34;display:grid;place-items:center;transform-origin:4% 50%;transition:transform .55s var(--ease),filter .4s,box-shadow .4s}
+    .vault::before{content:"";width:46px;height:46px;border:4px solid #8b93a3;border-radius:50%;background:repeating-conic-gradient(from 0deg,#353b48 0 12deg,#242934 12deg 24deg);transition:transform .8s var(--ease)}
+    .charging .vault{box-shadow:0 0 0 2px color-mix(in srgb,var(--hg,#E3B84E) 55%,transparent),0 0 48px color-mix(in srgb,var(--hg,#E3B84E) 32%,transparent)}
+    .charging .vault::before{transform:rotate(620deg)}
+    .vault.open{transform:rotateY(-62deg) translateX(-9%);filter:brightness(1.25)}
+    .power-rich .vault.open{transform:rotateY(-70deg) translateX(-13%);filter:brightness(1.4)}
+    .power-spectacular .vault.open{transform:rotateY(-78deg) translateX(-17%);filter:brightness(1.6)}
+    .vault-burst{position:absolute;left:50%;top:50%;width:124px;height:124px;transform:translate(-50%,-50%);border-radius:50%;opacity:0;pointer-events:none;background:radial-gradient(circle,color-mix(in srgb,var(--hg,#eae4d4) 60%,transparent),transparent 68%)}
+    .blown .vault-burst{animation:vaultBurst .6s var(--ease)}
+    @keyframes vaultBurst{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}40%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(3.6)}}
+    .alarm{grid-column:1;justify-self:start;border:1px solid #5c3440;color:#ba6675;background:#251a20;padding:8px 10px;font:10px ui-monospace;font-weight:700;text-transform:uppercase;letter-spacing:.08em;transition:.35s}
+    .alarm.clean{border-color:#4e8b80;color:#9ce6da;background:#172521;box-shadow:0 0 22px #5ed0c026}
+    .bank{grid-column:3;justify-self:end;text-align:right;color:#6b7484;font:9px ui-monospace;letter-spacing:.12em;text-transform:uppercase;line-height:1.7}
+    .bank b{display:block;color:var(--ink);font-size:19px;font-weight:800;letter-spacing:0}
+
+    .sync-callout{position:absolute;z-index:9;left:50%;top:44%;transform:translate(-50%,-8px) scale(.94);padding:14px 22px;border:2px solid #E3B84E;background:#2a2618;color:#f5e6ab;font-size:clamp(15px,2.2vw,21px);font-weight:850;letter-spacing:.1em;text-transform:uppercase;opacity:0;transition:opacity .2s,transform .3s var(--ease);pointer-events:none;text-align:center}
+    .sync-callout.show{opacity:1;transform:translate(-50%,0) scale(1)}
+    .gag{position:absolute;z-index:7;left:0;right:0;bottom:8px;text-align:center;color:#98a1b1;font-size:12px;letter-spacing:.04em;opacity:0;transition:opacity .3s;pointer-events:none}
+    .gag.show{opacity:1}
+    #revealView{place-items:center;padding:35px 0}
+    .reveal-wrap{width:min(820px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.78fr);border:1px solid var(--line);background:var(--panel)}
+    .prize{min-height:480px;padding:clamp(28px,5vw,55px);display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+    #revealView.active .prize{animation:revealIn .4s var(--ease)}
+    #revealView.active .receipt{animation:receiptIn .4s var(--ease)}
+    @keyframes revealIn{from{opacity:.25;transform:scale(.985)}to{opacity:1;transform:none}}
+    @keyframes receiptIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+    .prize::before{content:"";position:absolute;inset:-20%;background:radial-gradient(circle,color-mix(in srgb,var(--prize) 15%,transparent),transparent 55%);pointer-events:none}
+    .prize::after{content:"";position:absolute;inset:-80%;background:repeating-conic-gradient(from 0deg,transparent 0 8deg,color-mix(in srgb,var(--prize) 5%,transparent) 8deg 9deg);animation:foilTurn 18s linear infinite;pointer-events:none}
+    @keyframes foilTurn{to{transform:rotate(360deg)}}
+    .payout-kicker{position:relative;z-index:1;display:flex;align-items:center;gap:8px;color:var(--prize);font-size:12px;font-weight:750;letter-spacing:.2em;text-transform:uppercase;margin-bottom:13px}
+    .payout-kicker::before,.payout-kicker::after{content:"";height:1px;width:24px;background:var(--prize)}
+    .tier-solid .payout-kicker{font-size:15px;letter-spacing:.22em}
+    .tier-grail .payout-kicker{font-size:19px;letter-spacing:.26em;animation:kickerPulse .9s ease-in-out infinite alternate}
+    .tier-grail .payout-kicker::before,.tier-grail .payout-kicker::after{width:40px;height:2px}
+    @keyframes kickerPulse{from{opacity:.72}to{opacity:1;text-shadow:0 0 22px var(--prize)}}
+    #revealView.active .tier-grail{animation:revealIn .4s var(--ease),grailShake .5s var(--ease)}
+    @keyframes grailShake{0%,100%{transform:translateX(0)}18%{transform:translateX(-7px)}38%{transform:translateX(6px)}58%{transform:translateX(-4px)}78%{transform:translateX(2px)}}
+    .tier{font-size:18px;letter-spacing:.22em;text-transform:uppercase;color:var(--prize);margin-bottom:18px;font-weight:750}
+    .prize h2{font-size:clamp(44px,7vw,78px);line-height:.95;letter-spacing:-.045em;font-weight:560;margin-bottom:18px;position:relative}
+    .warm{color:var(--dim);line-height:1.6;position:relative}
+    .reveal-haul{position:relative;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+    .reveal-haul-title{color:#747d8e;font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px}
+    .reveal-grades{display:flex;flex-wrap:wrap;gap:6px}
+    .reveal-grade{padding:6px 8px;border:1px solid var(--chip);color:var(--chip);background:color-mix(in srgb,var(--chip) 7%,transparent);font-size:9px;font-weight:700;letter-spacing:.08em}
+    .tier-grail{box-shadow:inset 0 0 90px #e3b84e10}.tier-grail h2{text-shadow:0 0 34px #e3b84e30}
+    .receipt{border-left:1px solid var(--line);padding:28px;display:flex;flex-direction:column;justify-content:center}
+    .receipt h3{font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 18px}
+    .receipt-copy{font-size:12px;color:var(--dim);line-height:1.65;margin-bottom:18px}
+    .receipt-copy strong{color:var(--ink)}
+    .receipt dl{margin:0 0 18px}
+    .receipt-row{border-top:1px solid var(--line);padding:8px 0}
+    .receipt dt{color:#747d8e;text-transform:uppercase;letter-spacing:.1em;font-size:9px;margin-bottom:4px}
+    .receipt dd{margin:0;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;color:#b3bac7;overflow-wrap:anywhere}
+    .seed-edit{width:100%;border:0;background:#11131a;color:#b3bac7;padding:7px;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .ghost,.primary,.verify{padding:10px 11px;font-size:11px;letter-spacing:.04em}
+    .primary{background:var(--ink);color:#14161c;border-color:var(--ink);font-weight:700}
+    .wide{grid-column:1/-1}
+    .verify-state{min-height:17px;margin:8px 0 0;color:var(--dim);font-size:10px}
+    details{margin:10px 0 16px;color:var(--dim);font-size:10px}
+    details summary{cursor:pointer}
+    details p{margin:8px 0 0;line-height:1.5}
+    .debug{position:fixed;right:14px;top:14px;z-index:20;width:min(370px,calc(100% - 28px));max-height:calc(100vh - 28px);overflow:auto;background:#11131af5;border:1px solid #485062;box-shadow:0 18px 60px #0009;padding:17px;display:none}
+    .debug.open{display:block}
+    .debug-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .debug h2{font-size:13px;letter-spacing:.15em;text-transform:uppercase;margin:0}
+    .debug-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .field{display:flex;flex-direction:column;gap:4px}
+    .field label{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+    .field select,.field input{width:100%;border:1px solid var(--line);background:#191c25;color:var(--ink);padding:7px;font-size:11px}
+    .debug-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}
+    .simulation{margin-top:12px;max-height:210px;overflow:auto;color:var(--dim);font:10px/1.45 ui-monospace,monospace}
+    .simulation table{width:100%;border-collapse:collapse}.simulation th,.simulation td{text-align:right;border-bottom:1px solid #292e39;padding:4px}.simulation th:first-child,.simulation td:first-child{text-align:left}
+    .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:720px){
+      .app{padding:16px}.job-primer{grid-template-columns:1fr}.primer-step{min-height:0}.swatches{grid-template-columns:1fr}.swatch{min-height:72px}.pick-meta{grid-template-columns:1fr}.toggle{justify-self:start}
+      .cabinet{padding:10px 10px 12px;gap:8px}.paytable{flex-direction:column;align-items:stretch;gap:6px;padding:6px}.paytable-label{text-align:center}.pay{font-size:8px;letter-spacing:.02em;padding:5px 2px}.reels{gap:6px}.reel-name{font-size:9px;letter-spacing:.06em;padding:6px 4px}.reel-window{min-height:120px}.cell i{width:34px;height:34px}.cell b{font-size:10px}.reel-foot{font-size:8px;padding:6px 3px}.haul{gap:8px;padding:7px 8px}.haul-power{font-size:15px;min-width:58px}.vaultstage{min-height:112px}.vault{width:88px;height:88px}.alarm{font-size:8px;padding:6px 7px;max-width:96px}
+      .reveal-wrap{grid-template-columns:1fr}.prize{min-height:330px}.receipt{border-left:0;border-top:1px solid var(--line)}
+    }
+    @media(max-width:430px){
+      .reels{gap:4px}.reel-name{font-size:8px}.cell i{width:26px;height:26px}.cell b{font-size:8px}.reel-window{min-height:104px}.alarm{top:4px;max-width:82px}.vault{width:76px;height:76px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.18s!important;transition-property:opacity,background-color,color,border-color!important}
+      .vault{transform:none!important}
+      .vault.open{opacity:.18!important}
+      .reel-strip{transition:none!important}.reel-strip.blur{filter:none!important}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="mast">
+      <div class="brand"><span class="brand-mark"><i></i></span><span>Boxlings / The Vault Job</span></div>
+      <button class="corner-btn" id="debugButton" aria-label="Open debug panel" title="Debug panel (D)">D</button>
+    </header>
+    <main>
+      <section class="view active" id="pickView">
+        <div class="pick-card">
+          <div class="eyebrow">Vault access / Crew selection</div>
+          <h1>Pick your crew.</h1>
+          <p class="lede">The reels roll, the vault opens, you get a prize. Every time. Your colour only picks the run you watch — the prize is already locked in.</p>
+          <div class="job-primer" aria-label="How the vault job works">
+            <div class="primer-step"><i>1</i><b>Reels roll</b>Each one stops on a case grade.</div>
+            <div class="primer-step"><i>2</i><b>Grades stack</b>Better grades, heavier haul.</div>
+            <div class="primer-step"><i>3</i><b>Vault blows</b>Heavier haul, bigger prize.</div>
+          </div>
+          <div class="swatches" id="swatches">
+            <button class="swatch" data-pick="crimson" style="--swatch:#A9233D" disabled><strong>Crimson</strong><span>Roof unit</span></button>
+            <button class="swatch" data-pick="azure" style="--swatch:#3677A8" disabled><strong>Azure</strong><span>Entry unit</span></button>
+            <button class="swatch" data-pick="bone" style="--swatch:#B9B2A0" disabled><strong>Bone</strong><span>Systems unit</span></button>
+          </div>
+          <div class="pick-meta">
+            <div class="commit-box"><span class="eyebrow">Seed commitment — locked before your pick</span><code class="hash" id="preCommit">Preparing commitment…</code></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="toggle" id="quickToggle" aria-pressed="false"><span class="toggle-track"><span class="toggle-dot"></span></span>Quick open</button>
+              <button class="toggle" id="soundToggle" aria-pressed="true"><span class="toggle-track"><span class="toggle-dot"></span></span>Sound</button>
+            </div>
+            <div class="collection" id="collection">Cases in your collection: 0</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="runView" aria-live="polite">
+        <div class="cabinet" id="blueprint">
+          <div class="marquee" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="run-head"><div class="phase" id="phase">Ready</div><div class="clock" id="runClock">00.0</div></div>
+
+          <div class="paytable" aria-label="Case grades, worst to best">
+            <span class="paytable-label">Worst → best</span>
+            <div class="pay-row">
+              <span class="pay" id="payBone" data-count="0" style="--pg:#B9B2A0">BONE</span>
+              <span class="pay" id="payEmber" data-count="0" style="--pg:#DE8A52">EMBERGLOW</span>
+              <span class="pay" id="payAuric" data-count="0" style="--pg:#E3B84E">AURIC</span>
+              <span class="pay" id="payPrismatic" data-count="0" style="--pg:#5ED0C0">PRISMATIC</span>
+            </div>
+          </div>
+
+          <div class="reels" id="reels"></div>
+
+          <div class="haul">
+            <span class="haul-label">Haul</span>
+            <div class="haul-track"><div class="haul-fill" id="haulFill"></div></div>
+            <span class="haul-power" id="haulPower">0<small>/9</small></span>
+          </div>
+
+          <div class="vaultstage" id="vaultStage">
+            <div class="alarm" id="alarm">Alarm / armed</div>
+            <div class="vault-cap" id="vaultCap">Prize vault — locked</div>
+            <div class="vault-mount">
+              <div class="vault-core" aria-hidden="true"></div>
+              <div class="vault-burst" aria-hidden="true"></div>
+              <div class="vault" id="vaultDoor" aria-label="Vault door"></div>
+            </div>
+            <div class="bank">Cases banked<b id="bankCount">0</b></div>
+          </div>
+
+          <div class="sync-callout" id="syncCallout">All of them hit at once</div>
+          <div class="gag" id="gag"><span id="gagCopy"></span></div>
+        </div>
+      </section>
+
+      <section class="view" id="revealView">
+        <div class="reveal-wrap">
+          <div class="prize" id="prizeCard">
+            <div class="payout-kicker" id="payoutKicker">You opened the vault</div>
+            <div class="tier" id="tierLabel">Tier</div>
+            <h2 id="prizeName">Prize</h2>
+      <p class="warm">The door opened. This is what was inside.</p>
+            <div class="reveal-haul"><div class="reveal-haul-title">Cases recovered in this job</div><div class="reveal-grades" id="revealGrades"></div></div>
+          </div>
+          <aside class="receipt">
+            <h3>Fairness receipt</h3>
+            <p class="receipt-copy">The prize was drawn and locked when you picked your crew, before the first frame played. Nothing in the run changed it.<br><br><strong>Your choice picks the run you watch, not the prize you get.</strong></p>
+            <dl>
+              <div class="receipt-row"><dt>Commit shown before pick</dt><dd id="receiptCommit"></dd></div>
+              <div class="receipt-row"><dt>Revealed server seed</dt><dd><input class="seed-edit" id="receiptSeed" aria-label="Revealed server seed"></dd></div>
+              <div class="receipt-row"><dt>Client pick</dt><dd id="receiptPick"></dd></div>
+              <div class="receipt-row"><dt>Nonce</dt><dd id="receiptNonce"></dd></div>
+            </dl>
+            <button class="verify" id="verifyButton">Verify commitment</button>
+            <div class="verify-state" id="verifyState"></div>
+            <details><summary>Published odds</summary><p>Floor 60% · Solid 36% · Grail 4%. Exit and grade odds are conditional; use the debug panel to inspect the full configured values.</p></details>
+            <div class="actions">
+              <button class="ghost" id="replayButton">Replay this seed</button>
+              <button class="primary" id="anotherButton">Open another</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside class="debug" id="debugPanel" aria-label="Debug controls">
+    <div class="debug-head"><h2>Review controls</h2><button class="corner-btn" id="debugClose" aria-label="Close debug panel">×</button></div>
+    <div class="debug-grid">
+      <div class="field"><label for="forceTier">Force tier</label><select id="forceTier"><option>random</option><option>floor</option><option>solid</option><option>grail</option></select></div>
+      <div class="field"><label for="forceExit">Force exit</label><select id="forceExit"><option>random</option><option>short</option><option>medium</option><option>full</option></select></div>
+      <div class="field"><label for="forceOmen">Force omen</label><select id="forceOmen"><option>random</option><option>on</option><option>off</option></select></div>
+      <div class="field"><label for="forceSignal">Force clean getaway</label><select id="forceSignal"><option>random</option><option>on</option><option>off</option></select></div>
+      <div class="field"><label for="grade0">Roof grade</label><select id="grade0"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+      <div class="field"><label for="grade1">Lobby grade</label><select id="grade1"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+      <div class="field"><label for="grade2">Keypad grade</label><select id="grade2"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+      <div class="field"><label for="speed">Speed</label><select id="speed"><option value=".5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="instant">instant</option></select></div>
+    </div>
+    <div class="field" style="margin-top:9px"><label for="debugSeed">Seed input</label><input id="debugSeed" maxlength="64" spellcheck="false"></div>
+    <details><summary>Configured odds</summary><pre id="debugOdds" style="white-space:pre-wrap;font:9px/1.45 ui-monospace,monospace"></pre></details>
+    <div class="debug-actions">
+      <button class="ghost" id="debugReplay">Replay seed</button><button class="ghost" id="copySeed">Copy seed</button>
+      <button class="primary wide" id="simulate">Run 100 opens</button>
+    </div>
+    <div class="simulation" id="simulation"></div>
+  </aside>
+
+  <script>
+    const CONFIG = {
+      tierWeights: { floor: 0.60, solid: 0.36, grail: 0.04 },
+      exitWeights: {
+        floor: { short: 0.70, medium: 0.25, full: 0.05 },
+        solid: { short: 0.25, medium: 0.45, full: 0.30 },
+        grail: { short: 0.10, medium: 0.25, full: 0.65 },
+      },
+      gradeWeights: {
+        floor: { bone: 0.70, ember: 0.22, auric: 0.07, prismatic: 0.01 },
+        solid: { bone: 0.35, ember: 0.38, auric: 0.24, prismatic: 0.03 },
+        grail: { bone: 0.10, ember: 0.25, auric: 0.45, prismatic: 0.20 },
+      },
+      omenWeights: { floor: 0.03, solid: 0.15, grail: 0.45 },
+      guaranteedSignalRate: 0.14,
+      durations: { short: 8000, medium: 16000, full: 26000, quick: 4000 },
+      timeline: { spin: 0.04, gagIn: 0.16, gagOut: 0.30, signal: 0.42, tally: 0.74, charge: 0.85, door: 0.955 },
+      reelStops: { 1: [0.42], 2: [0.16, 0.44], 3: [0.09, 0.30, 0.56] },
+      reelSettle: 0.07, reelSettleCap: 850, anticipateLead: 0.02, anticipateStretch: 1.7,
+      reelCells: 12, anticipateThreshold: 2,
+      syncCalloutHold: 1200,
+      instant: { cap: 80, scale: 50 },
+      sound: {
+        start: 120, door: 74, sync: 92,
+        stop: { bone: 220, ember: 294, auric: 370, prismatic: 494 },
+        reveal: { floor: [220, 330], solid: [262, 393, 524], grail: [330, 495, 660, 990] },
+      },
+      crewColours: ['crimson', 'azure', 'bone'],
+      gagVariants: ['trip', 'cat', 'walkie', 'car'],
+      prizePool: {
+        floor: ['Archive Patch', 'Field Kit', 'Foundry Token'],
+        solid: ['Night Courier', 'Silver Relay', 'Signal Cache'],
+        grail: ['The Crown Key', 'Prism Masterwork', 'Vault Zero'],
+      },
+      crewHex: { crimson: '#A9233D', azure: '#3677A8', bone: '#B9B2A0' },
+      gradeHex: { bone: '#B9B2A0', ember: '#DE8A52', auric: '#E3B84E', prismatic: '#5ED0C0' },
+      gradePower: { bone: 0, ember: 1, auric: 2, prismatic: 3 },
+      gradeLabels: { bone: 'BONE', ember: 'EMBERGLOW', auric: 'AURIC', prismatic: 'PRISMATIC' },
+      tierLabels: { floor: 'Floor', solid: 'Solid', grail: 'Grail' },
+      eventNames: ['Roof', 'Lobby', 'Below'],
+      tierBanner: { floor: 'Vault cleared', solid: 'Big haul', grail: 'Grail pull' },
+      gagCopy: {
+        trip: 'A crew member catches a cable, recovers, keeps moving.',
+        cat: 'A cat crosses the blueprint. Nobody breaks stride.',
+        walkie: 'A walkie squawks once. The channel goes quiet.',
+        car: 'The getaway car arrives early and waits with the lights off.',
+      },
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
+    const state = {
+      serverSeed: '', commit: '', nonce: 0, current: null, quick: false,
+      sound: true, audio: null, timers: [], frame: 0, sessionGags: [], lastGag: null,
+    };
+
+    function stringHash(value) {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < value.length; i++) {
+        h ^= value.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function rng() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function weighted(rng, weights) {
+      const roll = rng();
+      let total = 0;
+      for (const [key, weight] of Object.entries(weights)) {
+        total += weight;
+        if (roll < total) return key;
+      }
+      return Object.keys(weights).at(-1);
+    }
+
+    function forced(id) {
+      const value = $(id).value;
+      return value === 'random' ? null : value;
+    }
+
+    function getForces() {
+      return {
+        tier: forced('#forceTier'),
+        exit: forced('#forceExit'),
+        omen: forced('#forceOmen'),
+        signal: forced('#forceSignal'),
+        grades: [forced('#grade0'), forced('#grade1'), forced('#grade2')],
+      };
+    }
+
+    function drawOutcome(rng, config, seed, forces = getForces()) {
+      const tier = forces.tier || weighted(rng, config.tierWeights);
+      const exit = forces.exit || weighted(rng, config.exitWeights[tier]);
+      const eventsPlayed = { short: 1, medium: 2, full: 3 }[exit];
+      const grades = Array.from({ length: eventsPlayed }, (_, index) =>
+        forces.grades[index] || weighted(rng, config.gradeWeights[tier])
+      );
+      const randomOmen = rng() < config.omenWeights[tier];
+      const omen = exit === 'short' ? false : (forces.omen ? forces.omen === 'on' : randomOmen);
+      const randomSignal = tier === 'grail' && rng() < config.guaranteedSignalRate;
+      const guaranteedSignal = tier === 'grail' && (forces.signal ? forces.signal === 'on' : randomSignal);
+      return Object.freeze({
+        tier,
+        exit,
+        eventsPlayed,
+        grades: Object.freeze(grades),
+        omen,
+        guaranteedSignal,
+        seed,
+      });
+    }
+
+    async function sha256(value) {
+      const bytes = new TextEncoder().encode(value);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    function ensureAudio() {
+      if (!state.sound) return null;
+      if (!state.audio) state.audio = new (window.AudioContext || window.webkitAudioContext)();
+      if (state.audio.state === 'suspended') state.audio.resume();
+      return state.audio;
+    }
+
+    function playTone(frequency, duration = .12, type = 'sine', volume = .035, delay = 0) {
+      const audio = ensureAudio();
+      if (!audio) return;
+      const start = audio.currentTime + delay;
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + .018);
+      gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+      oscillator.connect(gain).connect(audio.destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration + .02);
+    }
+
+    function playChord(frequencies) {
+      frequencies.forEach((frequency, index) => playTone(frequency, .42, index ? 'sine' : 'triangle', .026, index * .045));
+    }
+
+    function newServerSeed() {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function preparePick() {
+      clearRun();
+      showView('#pickView');
+      $$('#swatches button').forEach(button => button.disabled = true);
+      state.serverSeed = newServerSeed();
+      state.commit = await sha256(state.serverSeed);
+      $('#preCommit').textContent = state.commit;
+      $('#debugSeed').value = state.serverSeed;
+      $('#collection').textContent = `Cases in your collection: ${Number(localStorage.getItem('vaultCases') || 0)}`;
+      $$('#swatches button').forEach(button => button.disabled = false);
+    }
+
+    function showView(id) {
+      $$('.view').forEach(view => view.classList.toggle('active', `#${view.id}` === id));
+    }
+
+    function schedule(time, fn) {
+      const speed = $('#speed').value;
+      const delay = speed === 'instant' ? Math.min(CONFIG.instant.cap, time / CONFIG.instant.scale) : time / Number(speed);
+      const timer = setTimeout(fn, delay);
+      state.timers.push(timer);
+    }
+
+    function clearRun() {
+      state.timers.forEach(clearTimeout);
+      state.timers = [];
+      cancelAnimationFrame(state.frame);
+      $('#blueprint').className = 'cabinet';
+      $('#vaultStage').className = 'vaultstage';
+      $('#vaultDoor').className = 'vault';
+      $('#vaultCap').textContent = 'Prize vault — locked';
+      $('#alarm').className = 'alarm';
+      $('#alarm').textContent = 'Alarm / armed';
+      $('#gag').className = 'gag';
+      $('#syncCallout').className = 'sync-callout';
+      $('#reels').innerHTML = '';
+      $('#haulFill').style.width = '0';
+      $('#haulPower').innerHTML = '0<small>/9</small>';
+      $('#bankCount').textContent = String(Number(localStorage.getItem('vaultCases') || 0));
+      $$('.pay').forEach(pay => { pay.classList.remove('hit'); pay.dataset.count = '0'; });
+    }
+
+    function chooseGag(seed, replayGag) {
+      if (replayGag) return replayGag;
+      if (!state.sessionGags.length) state.sessionGags = [...CONFIG.gagVariants];
+      const rng = mulberry32(stringHash(`${seed}:gag`));
+      const index = Math.floor(rng() * state.sessionGags.length);
+      return state.sessionGags.splice(index, 1)[0];
+    }
+
+    // Filler symbols are decoration only, drawn from a separate stream so they can never
+    // perturb the outcome rng. The landing cell is always the already-decided grade.
+    function stripCells(runKey, index, finalGrade) {
+      const rng = mulberry32(stringHash(`${runKey}:strip:${index}`));
+      const pool = ['bone', 'ember', 'auric', 'prismatic'];
+      const cells = [];
+      for (let cell = 0; cell < CONFIG.reelCells - 1; cell++) cells.push(pool[Math.floor(rng() * pool.length)]);
+      cells.push(finalGrade);
+      return cells;
+    }
+
+    function renderReels(outcome, quick, runKey) {
+      const count = quick ? 3 : outcome.eventsPlayed;
+      const names = quick ? ['Route A', 'Route B', 'Route C'] : CONFIG.eventNames.slice(0, count);
+      $('#reels').style.setProperty('--count', count);
+      $('#reels').innerHTML = names.map((name, index) => {
+        const grade = outcome.grades[index % outcome.grades.length];
+        const cells = stripCells(runKey, index, grade).map(cellGrade =>
+          `<div class="cell" data-g="${cellGrade}" style="--cg:${CONFIG.gradeHex[cellGrade]}"><i></i><b>${CONFIG.gradeLabels[cellGrade]}</b></div>`
+        ).join('');
+        return `<div class="reel" data-index="${index}" style="--rg:${CONFIG.gradeHex[grade]}">
+          <div class="anti-badge">Last one decides it</div>
+          <div class="reel-name">${name}</div>
+          <div class="reel-window"><div class="reel-strip">${cells}</div><div class="reel-flash"></div></div>
+          <div class="reel-foot">Waiting</div>
+        </div>`;
+      }).join('');
+      $('#haulPower').innerHTML = `0<small>/${count * 3}</small>`;
+      return count;
+    }
+
+    function startSpin() {
+      $$('.reel').forEach(reel => {
+        const strip = reel.querySelector('.reel-strip');
+        const height = reel.querySelector('.reel-window').clientHeight || 150;
+        reel.style.setProperty('--cellH', `${height}px`);
+        strip.style.transition = 'none';
+        strip.style.transform = 'translateY(0)';
+        strip.classList.add('spin', 'blur');
+        reel.querySelector('.reel-foot').textContent = 'Spinning';
+      });
+    }
+
+    // Freeze the looping roll at its current offset, then ease to the landing cell.
+    // The target is always further down the strip than the loop range, so it never runs backwards.
+    function landReel(index, ms) {
+      const reel = $(`.reel[data-index="${index}"]`);
+      if (!reel) return;
+      const strip = reel.querySelector('.reel-strip');
+      const height = parseFloat(reel.style.getPropertyValue('--cellH')) || 150;
+      const current = getComputedStyle(strip).transform;
+      strip.style.animation = 'none';
+      strip.style.transform = current && current !== 'none' ? current : 'translateY(0)';
+      void strip.offsetWidth;
+      strip.classList.remove('spin');
+      strip.style.transition = `transform ${ms}ms cubic-bezier(.07,.66,.15,1)`;
+      strip.style.transform = `translateY(-${(CONFIG.reelCells - 1) * height}px)`;
+      setTimeout(() => strip.classList.remove('blur'), Math.max(60, ms * 0.55));
+    }
+
+    function countTo(node, from, to, max, ms) {
+      const start = performance.now();
+      const step = now => {
+        const progress = Math.min(1, (now - start) / ms);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        node.innerHTML = `${Math.round(from + (to - from) * eased)}<small>/${max}</small>`;
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+
+    function haulPower(grades) {
+      const average = grades.reduce((sum, grade) => sum + CONFIG.gradePower[grade], 0) / grades.length;
+      return average < 1 ? 'modest' : average < 2 ? 'rich' : 'spectacular';
+    }
+
+    function updateClock(start, total, speed) {
+      const tick = now => {
+        if (!$('#runView').classList.contains('active')) return;
+        const elapsed = Math.min(total, (now - start) * speed);
+        $('#runClock').textContent = `${(elapsed / 1000).toFixed(1).padStart(4, '0')}`;
+        if (elapsed < total) state.frame = requestAnimationFrame(tick);
+      };
+      state.frame = requestAnimationFrame(tick);
+    }
+
+    function startRun(pick, options = {}) {
+      clearRun();
+      const seed = options.seed || state.serverSeed;
+      const nonce = options.nonce ?? state.nonce;
+      const runKey = `${seed}:${pick}:${nonce}`;
+      const rng = mulberry32(stringHash(runKey));
+      const outcome = drawOutcome(rng, CONFIG, runKey);
+      const quick = options.quick ?? state.quick;
+      const gag = chooseGag(runKey, options.replayGag);
+      const creditCases = options.creditCases ?? true;
+      state.current = Object.freeze({ outcome, pick, nonce, serverSeed: seed, commit: state.commit, quick, gag, creditCases });
+      state.lastGag = gag;
+      playTone(CONFIG.sound.start, .16, 'square', .025);
+      renderRun(outcome, pick, quick, gag, runKey);
+    }
+
+    function renderRun(outcome, pick, quick, gag, runKey) {
+      showView('#runView');
+      document.documentElement.style.setProperty('--crew', CONFIG.crewHex[pick]);
+      const duration = quick ? CONFIG.durations.quick : CONFIG.durations[outcome.exit];
+      const speedValue = $('#speed').value;
+      const clockSpeed = speedValue === 'instant' ? CONFIG.instant.scale : Number(speedValue);
+      const timeline = CONFIG.timeline;
+      const cabinet = $('#blueprint');
+      updateClock(performance.now(), duration, clockSpeed);
+
+      const count = renderReels(outcome, quick, runKey);
+      const grades = Array.from({ length: count }, (_, index) => outcome.grades[index % outcome.grades.length]);
+      const maxPower = count * 3;
+      cabinet.classList.add(`power-${quick ? 'rich' : haulPower(outcome.grades)}`);
+      $('#phase').textContent = count === 1 ? 'One reel. One vault.' : `${count === 2 ? 'Two' : 'Three'} reels. One vault.`;
+      $('#gagCopy').textContent = CONFIG.gagCopy[gag];
+      const bankStart = Number(localStorage.getItem('vaultCases') || 0);
+      $('#bankCount').textContent = String(bankStart);
+
+      // Stop timing scales with the run, so every reel gets its own beat instead of
+      // three cases resolving on top of each other.
+      const settle = Math.min(CONFIG.reelSettleCap, duration * CONFIG.reelSettle);
+      const synced = outcome.omen && !quick && count > 1;
+      const stops = synced ? grades.map(() => CONFIG.reelStops[count][count - 1]) : CONFIG.reelStops[count];
+      const canAnticipate = count > 1 && !synced;
+      const stretchFor = index => (canAnticipate && index === stops.length - 1) ? CONFIG.anticipateStretch : 1;
+      const lastLandAt = duration * stops[stops.length - 1] + settle * stretchFor(stops.length - 1) * 2.1;
+      let power = 0;
+      let landed = 0;
+
+      schedule(duration * timeline.spin, () => {
+        cabinet.classList.add('machine-live');
+        startSpin();
+        $('#phase').textContent = 'Rolling.';
+      });
+      schedule(duration * timeline.gagIn, () => $('#gag').classList.add('show'));
+      schedule(duration * timeline.gagOut, () => $('#gag').classList.remove('show'));
+
+      stops.forEach((stopAt, index) => {
+        const isLast = index === stops.length - 1;
+        const stretch = stretchFor(index);
+
+        // Honest anticipation: only stretch the final reel when the reels already
+        // showing are running hot, which is exactly when the last one still swings the haul.
+        if (isLast && canAnticipate) {
+          schedule(duration * (stopAt - CONFIG.anticipateLead), () => {
+            const soFar = grades.slice(0, index).reduce((sum, grade) => sum + CONFIG.gradePower[grade], 0) / index;
+            if (soFar < CONFIG.anticipateThreshold) return;
+            const reel = $(`.reel[data-index="${index}"]`);
+            if (!reel) return;
+            reel.classList.add('anticipate');
+            cabinet.classList.add('hot');
+            $('#phase').textContent = 'Last reel is live.';
+            const riserMs = duration * CONFIG.anticipateLead + settle * stretch * 2.1;
+            const steps = Math.max(6, Math.round(riserMs / 190));
+            for (let step = 0; step < steps; step++) {
+              playTone(300 + step * (420 / steps), .11, 'square', .022, step * (riserMs / 1000 / steps));
+            }
+          });
+        }
+
+        schedule(duration * stopAt, () => landReel(index, settle * stretch * 2.1));
+        schedule(duration * stopAt + settle * stretch * 2.1, () => {
+          const reel = $(`.reel[data-index="${index}"]`);
+          if (!reel) return;
+          const grade = grades[index];
+          reel.classList.remove('anticipate', 'live');
+          cabinet.classList.remove('hot');
+          reel.classList.add('landed', 'thunk');
+          reel.querySelector('.reel-foot').textContent = CONFIG.gradeLabels[grade];
+
+          const pay = $(`#pay${grade[0].toUpperCase()}${grade.slice(1)}`);
+          if (pay) { pay.dataset.count = String(Number(pay.dataset.count) + 1); pay.classList.add('hit'); }
+
+          const before = power;
+          power += CONFIG.gradePower[grade];
+          landed += 1;
+          countTo($('#haulPower'), before, power, maxPower, 420);
+          $('#haulFill').style.width = `${(power / maxPower) * 100}%`;
+          $('#haulFill').style.setProperty('--hg', CONFIG.gradeHex[grade]);
+          $('#vaultStage').style.setProperty('--hg', CONFIG.gradeHex[grade]);
+
+          $('#bankCount').textContent = String(bankStart + landed);
+          playTone(CONFIG.sound.stop[grade], .18, 'triangle', .04);
+          if (landed < count) $('#phase').textContent = `${CONFIG.gradeLabels[grade]} banked. ${count - landed} to go.`;
+          else $('#phase').textContent = 'Reels done.';
+        });
+      });
+
+      // On a synced run the reels blow through their usual stops. Calling that out as it
+      // happens turns the long wait into the escalation it actually is.
+      if (synced) {
+        CONFIG.reelStops[count].slice(0, -1).forEach((frac, index) => {
+          schedule(duration * frac + settle * 2.1, () => {
+            const reel = $(`.reel[data-index="${index}"]`);
+            if (reel) reel.classList.add('live');
+            $('#phase').textContent = `${CONFIG.eventNames[index]} reel will not stop.`;
+            playTone(300 + index * 60, .22, 'square', .028);
+          });
+        });
+        const groupLead = Math.min(3200, duration * 0.13);
+        schedule(lastLandAt - groupLead, () => {
+          $$('.reel').forEach(reel => { reel.classList.remove('live'); reel.classList.add('anticipate'); });
+          $$('.anti-badge').forEach(badge => { badge.textContent = 'All still live'; });
+          cabinet.classList.add('hot');
+          $('#phase').textContent = 'They are all going to land together.';
+          const steps = Math.max(6, Math.round(groupLead / 190));
+          for (let step = 0; step < steps; step++) playTone(300 + step * (460 / steps), .11, 'square', .024, step * (groupLead / 1000 / steps));
+        });
+        schedule(lastLandAt, () => {
+          $('#syncCallout').classList.add('show');
+          playTone(CONFIG.sound.sync, .36, 'sine', .055);
+          schedule(CONFIG.syncCalloutHold, () => $('#syncCallout').classList.remove('show'));
+        });
+      }
+
+      // Payout beats never overlap a still-moving reel, and never push past the run
+      // length, so the 4/8/16/26s reveal timings stay exact even when compressed.
+      const cap = duration * 0.97;
+      const gap = duration * 0.02;
+      const after = (nominal, previous) => Math.min(cap, Math.max(duration * nominal, previous + gap));
+      const tallyAt = after(timeline.tally, lastLandAt);
+      const chargeAt = after(timeline.charge, tallyAt);
+      const doorAt = after(timeline.door, chargeAt);
+
+      schedule(tallyAt, () => {
+        $('#phase').textContent = power >= maxPower * .66 ? 'That is a heavy haul.' : 'Haul is locked in.';
+        $('#vaultCap').textContent = `Prize vault — reading haul ${power}/${maxPower}`;
+        $('#haulFill').animate(
+          [{ filter: 'brightness(1)' }, { filter: 'brightness(2.1)' }, { filter: 'brightness(1)' }],
+          { duration: 520, iterations: 2 }
+        );
+      });
+      schedule(duration * timeline.signal, () => {
+        if (!outcome.guaranteedSignal || quick) return;
+        $('#alarm').classList.add('clean');
+        $('#alarm').textContent = 'Alarm / powered down';
+        $('#phase').textContent = 'Alarm just died. Free run.';
+        playTone(CONFIG.sound.sync, .3, 'sine', .03);
+      });
+      schedule(chargeAt, () => {
+        $('#vaultStage').classList.add('charging');
+        $('#vaultCap').textContent = 'Prize vault — charging';
+        $('#phase').textContent = 'The haul goes on the door.';
+        for (let step = 0; step < 6; step++) playTone(180 + step * 40, .13, 'sawtooth', .02, step * .1);
+      });
+      schedule(doorAt, () => {
+        $('#vaultStage').classList.add('blown');
+        $('#vaultDoor').classList.add('open');
+        $('#vaultCap').textContent = 'Prize vault — open';
+        playTone(CONFIG.sound.door, .28, 'square', .045);
+        $('#phase').textContent = 'It is open.';
+      });
+      schedule(duration, reveal);
+    }
+
+    function prizeFor(outcome) {
+      const pool = CONFIG.prizePool[outcome.tier];
+      return pool[stringHash(`${outcome.seed}:prize`) % pool.length];
+    }
+
+    function reveal() {
+      const run = state.current;
+      const { outcome } = run;
+      showView('#revealView');
+      const gradeColour = CONFIG.gradeHex[outcome.tier === 'grail' ? 'auric' : outcome.tier === 'solid' ? 'ember' : 'bone'];
+      $('#prizeCard').className = `prize tier-${outcome.tier}`;
+      $('#prizeCard').style.setProperty('--prize', gradeColour);
+      const power = outcome.grades.reduce((sum, grade) => sum + CONFIG.gradePower[grade], 0);
+      $('#tierLabel').textContent = `${CONFIG.tierLabels[outcome.tier]} tier · haul ${power}/${outcome.grades.length * 3}`;
+      $('#payoutKicker').textContent = CONFIG.tierBanner[outcome.tier];
+      $('#prizeName').textContent = prizeFor(outcome);
+      $('#revealGrades').innerHTML = outcome.grades.map(grade =>
+        `<span class="reveal-grade" style="--chip:${CONFIG.gradeHex[grade]}">${CONFIG.gradeLabels[grade]}</span>`
+      ).join('');
+      $('#receiptCommit').textContent = run.commit;
+      $('#receiptSeed').value = run.serverSeed;
+      $('#receiptPick').textContent = run.pick;
+      $('#receiptNonce').textContent = run.nonce;
+      $('#verifyState').textContent = '';
+      playChord(CONFIG.sound.reveal[outcome.tier]);
+      if (run.creditCases) {
+        const cases = Number(localStorage.getItem('vaultCases') || 0) + outcome.eventsPlayed;
+        localStorage.setItem('vaultCases', String(cases));
+      }
+    }
+
+    async function verifyCommitment() {
+      const computed = await sha256($('#receiptSeed').value.trim());
+      const pass = computed === state.current.commit;
+      $('#verifyState').textContent = pass ? 'PASS — revealed seed matches the pre-pick commitment.' : 'FAIL — this seed does not match the commitment.';
+      $('#verifyState').style.color = pass ? '#5ED0C0' : '#DE8A52';
+    }
+
+    async function replayCurrent(useEditedSeed = true) {
+      if (!state.current) return;
+      const prior = state.current;
+      const seed = useEditedSeed ? ($('#receiptSeed').value.trim() || prior.serverSeed) : prior.serverSeed;
+      state.serverSeed = seed;
+      state.commit = await sha256(seed);
+      $('#preCommit').textContent = state.commit;
+      startRun(prior.pick, { seed, nonce: prior.nonce, quick: prior.quick, replayGag: prior.gag, creditCases: false });
+    }
+
+    function openAnother() {
+      state.nonce += 1;
+      preparePick();
+    }
+
+    function simulateHundred() {
+      const counts = {
+        tiers: { floor: 0, solid: 0, grail: 0 },
+        exits: { short: 0, medium: 0, full: 0 },
+        byTier: { floor: { total: 0, short: 0 }, solid: { total: 0, short: 0 }, grail: { total: 0, short: 0 } },
+      };
+      const forces = getForces();
+      for (let index = 0; index < 100; index++) {
+        const seed = `${$('#debugSeed').value || state.serverSeed}:simulation:${index}`;
+        const outcome = drawOutcome(mulberry32(stringHash(seed)), CONFIG, seed, forces);
+        counts.tiers[outcome.tier]++;
+        counts.exits[outcome.exit]++;
+        counts.byTier[outcome.tier].total++;
+        if (outcome.exit === 'short') counts.byTier[outcome.tier].short++;
+      }
+      const rows = ['floor', 'solid', 'grail'].map(tier => {
+        const item = counts.byTier[tier];
+        const rate = item.total ? `${(item.short / item.total * 100).toFixed(1)}%` : 'n/a';
+        return `<tr><td>${tier}</td><td>${counts.tiers[tier]}</td><td>${item.short}</td><td>${rate}</td></tr>`;
+      }).join('');
+      $('#simulation').innerHTML = `<table><thead><tr><th>Tier</th><th>Count</th><th>Short</th><th>Short rate</th></tr></thead><tbody>${rows}</tbody></table>
+        <p>Exit totals — short ${counts.exits.short}, medium ${counts.exits.medium}, full ${counts.exits.full}</p>`;
+    }
+
+    function toggleDebug(force) {
+      const open = force ?? !$('#debugPanel').classList.contains('open');
+      $('#debugPanel').classList.toggle('open', open);
+    }
+
+    $$('.swatch').forEach(button => button.addEventListener('click', () => startRun(button.dataset.pick)));
+    $('#quickToggle').addEventListener('click', () => {
+      state.quick = !state.quick;
+      $('#quickToggle').setAttribute('aria-pressed', String(state.quick));
+      localStorage.setItem('vaultQuick', String(state.quick));
+    });
+    $('#soundToggle').addEventListener('click', () => {
+      state.sound = !state.sound;
+      $('#soundToggle').setAttribute('aria-pressed', String(state.sound));
+      if (state.sound) {
+        ensureAudio();
+        playTone(330, .10, 'sine', .025);
+      }
+    });
+    $('#verifyButton').addEventListener('click', verifyCommitment);
+    $('#replayButton').addEventListener('click', () => replayCurrent(true));
+    $('#anotherButton').addEventListener('click', openAnother);
+    $('#debugButton').addEventListener('click', () => toggleDebug());
+    $('#debugClose').addEventListener('click', () => toggleDebug(false));
+    $('#simulate').addEventListener('click', simulateHundred);
+    $('#copySeed').addEventListener('click', async () => {
+      const value = $('#debugSeed').value || state.serverSeed;
+      try { await navigator.clipboard.writeText(value); }
+      catch { $('#debugSeed').select(); document.execCommand('copy'); }
+      $('#copySeed').textContent = 'Copied';
+      setTimeout(() => $('#copySeed').textContent = 'Copy seed', 900);
+    });
+    $('#debugReplay').addEventListener('click', async () => {
+      const seed = $('#debugSeed').value.trim() || state.serverSeed;
+      state.serverSeed = seed;
+      state.commit = await sha256(seed);
+      $('#preCommit').textContent = state.commit;
+      startRun(state.current?.pick || 'crimson', { seed, nonce: state.current?.nonce ?? state.nonce, quick: state.quick, creditCases: false });
+      toggleDebug(false);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key.toLowerCase() === 'd' && !/input|select|textarea/i.test(event.target.tagName)) toggleDebug();
+    });
+
+    $('#debugOdds').textContent = JSON.stringify({
+      tierWeights: CONFIG.tierWeights,
+      exitWeights: CONFIG.exitWeights,
+      gradeWeights: CONFIG.gradeWeights,
+      omenWeights: CONFIG.omenWeights,
+      guaranteedSignalRate: CONFIG.guaranteedSignalRate,
+    }, null, 2);
+    state.quick = localStorage.getItem('vaultQuick') === 'true';
+    $('#quickToggle').setAttribute('aria-pressed', String(state.quick));
+    preparePick();
+  </script>
+</body>
+</html>
