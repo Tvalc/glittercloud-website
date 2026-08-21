@@ -46,7 +46,7 @@
   }
   header button[aria-pressed="true"] { color: var(--ink); border-color: var(--dim); }
 
-  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
+  main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
   section[hidden] { display: none !important; }
 
   /* ============================== pick screen ============================== */
@@ -86,39 +86,48 @@
     text-align: center; color: var(--dim); font-size: 13px; letter-spacing: .18em;
     text-transform: uppercase; min-height: 20px;
   }
-  #run-body { display: grid; grid-template-columns: 1fr 150px; gap: 12px; align-items: stretch; }
-  @media (max-width: 640px) { #run-body { grid-template-columns: 1fr; } }
-
-  /* the stage: one scene at a time */
-  #stage {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 240px;
+  /* four scenes on screen at once: roof, lobby / keypad, vault — and the building tracker */
+  #run-body {
+    display: grid; gap: 12px;
+    grid-template-columns: 1fr 1fr 132px;
+    grid-template-rows: auto auto;
+    align-items: stretch;
   }
-  #stage-head {
+  #building { grid-column: 3; grid-row: 1 / span 2; }
+  @media (max-width: 700px) {
+    #run-body { grid-template-columns: 1fr; grid-template-rows: none; }
+    #building { grid-column: auto; grid-row: auto; }
+  }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+    transition: border-color .3s ease-out, opacity .4s ease-out;
+  }
+  .panel.active { border-color: #4A5164; }
+  .panel.dimmed { opacity: .35; }
+  .panel.vault.open { border-color: var(--dim); }
+  .panel-head {
     display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
     font-size: 11px; letter-spacing: .14em; color: var(--dim);
   }
-  #stage-head .where { color: var(--ink); }
-  #stage-head .status { text-transform: uppercase; text-align: right; transition: color .3s ease-out; }
-  .status.in   { color: var(--auric); }
-  .status.out  { color: var(--dim); }
-  #scene-wrap { position: relative; flex: 1; }
-  #scene-wrap svg { width: 100%; height: auto; display: block; }
-  #stage-caption {
-    font-size: 13px; color: var(--ink); min-height: 20px; letter-spacing: .02em;
-    transition: opacity .3s ease-out;
-  }
-  #stage-caption.dimmed { opacity: .5; }
+  .panel-head .where { color: var(--ink); white-space: nowrap; }
+  .panel-head .status { text-transform: uppercase; text-align: right; transition: color .3s ease-out; }
+  .status.in  { color: var(--auric); }
+  .status.out { color: var(--laser); }
+  .panel svg { width: 100%; height: auto; display: block; }
+  .panel-caption { font-size: 12px; color: var(--ink); min-height: 17px; letter-spacing: .02em; transition: opacity .3s ease-out; }
+  .panel-caption.idle { color: var(--dim); }
 
   /* the building: crew position, always on screen */
   #building {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center;
   }
   #building .tally { font-size: 10px; letter-spacing: .18em; color: var(--dim); text-align: center; }
   #building .tally b { color: var(--ink); font-weight: 600; }
-  #building svg { width: 100%; height: auto; display: block; }
-  @media (max-width: 640px) { #building svg { max-height: 170px; } }
+  #building svg { width: 100%; max-width: 120px; height: auto; display: block; }
+  @media (max-width: 700px) { #building svg { max-width: 90px; } }
   .bfig { transition: opacity .4s ease-out; }
   .bfig.out { opacity: .3; }
 
@@ -132,9 +141,10 @@
 
   .fig { transition: opacity .3s ease-out; }
   .laser { transition: stroke .2s ease-out, stroke-width .2s ease-out, opacity .2s ease-out; }
-  .lamp { transition: fill .25s ease-out; }
+  .lamp, .alarm { transition: fill .12s ease-out; }
   .slot { transition: fill .2s ease-out, stroke .2s ease-out; }
   .digit { transition: opacity .2s ease-out; }
+  .vfig { transition: opacity .35s ease-out; }
 
   /* ============================== reveal screen ============================== */
   #screen-reveal { max-width: 560px; margin: 0 auto; }
@@ -262,11 +272,7 @@
   <section id="screen-run" hidden>
     <div id="run-caption"></div>
     <div id="run-body">
-      <div id="stage">
-        <div id="stage-head"><span class="where"></span><span class="status"></span></div>
-        <div id="scene-wrap"></div>
-        <div id="stage-caption"></div>
-      </div>
+      <!-- scene panels are inserted here by beginRun(); the tracker is static -->
       <div id="building">
         <div class="tally">AT THE VAULT <b id="tally">0</b>/3</div>
         <svg id="building-svg" viewBox="0 0 140 300" aria-label="The building: where the crew is">
@@ -332,7 +338,7 @@
     <select id="dbg-r2" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
   <div class="row"><label for="dbg-r3">Keypad guy</label>
     <select id="dbg-r3" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
-  <div class="note">Tier = how many reach the vault (1 floor · 2 solid · 3 grail). Per-guy forces override the tier when they conflict; at least one always reaches the vault.</div>
+  <div class="note">Tier = how many reach the vault (1 floor · 2 solid · 3 grail). Per-guy forces override the tier when they conflict; at least one always reaches the vault. Who goes first is drawn per run.</div>
   <div class="row"><label for="dbg-speed">Speed</label>
     <select id="dbg-speed"><option>0.5x</option><option selected>1x</option><option>2x</option><option>instant</option></select></div>
   <hr>
@@ -353,16 +359,19 @@ force settings (random = unforced).</pre>
 <script>
 'use strict';
 /* =====================================================================
-   THE VAULT JOB · prototype (sequential crew model)
+   THE VAULT JOB · prototype (simultaneous crew, drawn sequencing)
    The one thing that must be true: the outcome is drawn once, frozen,
    before any animation begins. drawOutcome() is the only place a run's
    outcome is decided. The built-in unseeded random number generator is
    never called anywhere in this file; all randomness comes from the
    seeded PRNG below or from crypto.getRandomValues (seed generation only).
 
-   Model: three crew members each face one encounter, in sequence, top of
-   the building to the bottom. Each result is clean / close / out. The
-   prize tier IS the number who reach the vault: 1 floor, 2 solid, 3 grail.
+   Model: three crew members, three encounters, all on screen at once.
+   Each gets his go-signal at a different moment (the order is drawn per
+   run), so the three scenes resolve at different times. Each result is
+   clean / close / out, and out has a consequence: the roof turret drops
+   him, the lobby guard arrests him, the keypad alarm drops a cage.
+   The prize tier IS the number who reach the vault: 1 floor, 2 solid, 3 grail.
    ===================================================================== */
 
 /* ============================== CONFIG ==============================
@@ -371,7 +380,7 @@ const CONFIG = {
   tierWeights:    { floor: 0.60, solid: 0.36, grail: 0.04 },   // PLACEHOLDER
   arrivalsByTier: { floor: 1, solid: 2, grail: 3 },            // how many reach the vault
   closeCallRate:  0.40,                                         // PLACEHOLDER: of those who make it, share that are close calls
-  durations:      { run: 24000, quick: 4000 },
+  durations:      { run: 20000, quick: 4000 },
   crewColours:    ['crimson', 'azure', 'bone'],
   gagVariants:    ['trip', 'cat', 'walkie', 'car'],
   prizePool: {                                                  // PLACEHOLDER names
@@ -489,6 +498,14 @@ function weightedPick(rng, weights) {
   return entries[entries.length - 1][0];
 }
 function tierFromArrivals(n) { return n >= 3 ? 'grail' : n === 2 ? 'solid' : 'floor'; }
+function shuffled(rng, arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function drawOutcome(rng, config, seed, forces) {
   forces = forces || {};
@@ -511,23 +528,22 @@ function drawOutcome(rng, config, seed, forces) {
   }
   tier = tierFromArrivals(need);
 
-  // draw which of the unforced crew make it (Fisher-Yates on the seeded stream)
-  const open = [];
-  results.forEach((r, i) => { if (r === null) open.push(i); });
-  for (let i = open.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [open[i], open[j]] = [open[j], open[i]];
-  }
+  // draw which of the unforced crew make it
+  const open = shuffled(rng, results.map((r, i) => r === null ? i : -1).filter(i => i >= 0));
   let toArrive = need - results.filter(r => r && r !== 'out').length;
   for (const i of open) {
     if (toArrive > 0) { results[i] = rng() < config.closeCallRate ? 'close' : 'clean'; toArrive--; }
     else results[i] = 'out';
   }
 
+  // the sequencing: who gets his go-signal first, second, third
+  const order = shuffled(rng, [0, 1, 2]);
+
   const arrivals = results.filter(r => r !== 'out').length;
   return Object.freeze({
     tier, arrivals,
     results: Object.freeze(results),   // ['clean'|'close'|'out'] for roof, lobby, keypad
+    order: Object.freeze(order),       // crew index in go order
     seed,
   });
 }
@@ -547,11 +563,11 @@ function derivePresentation(rng, outcome) {
 const CREW_HEX = { crimson: '#A8384A', azure: '#4A7DB8', bone: '#B9B2A0' };
 const TIER_HEX = { floor: '#B9B2A0', solid: '#DE8A52', grail: '#E3B84E' };
 const SCENES = [
-  { id: 'roof',   where: 'ROOF',         title: 'the laser grid', guy: 'the roof guy' },
-  { id: 'lobby',  where: 'LOBBY',        title: 'the guard desk', guy: 'the lobby guy' },
-  { id: 'keypad', where: 'BELOW GROUND', title: 'the keypad',     guy: 'the keypad guy' },
+  { id: 'roof',   where: 'ROOF',         title: 'the laser grid', guy: 'the roof guy',   outLabel: 'OUT — STUNNED' },
+  { id: 'lobby',  where: 'LOBBY',        title: 'the guard desk', guy: 'the lobby guy',  outLabel: 'OUT — ARRESTED' },
+  { id: 'keypad', where: 'BELOW GROUND', title: 'the keypad',     guy: 'the keypad guy', outLabel: 'OUT — CAGED' },
 ];
-const RESULT_STATUS = { clean: 'IN — CLEAN', close: 'IN — CLOSE CALL', out: 'OUT — PULLED BACK' };
+const statusFor = (i, r) => r === 'out' ? SCENES[i].outLabel : r === 'close' ? 'IN — CLOSE CALL' : 'IN — CLEAN';
 const TIER_COPY = {
   floor: 'One got through. It still pays.',
   solid: 'Two at the door. A good night’s work.',
@@ -598,6 +614,7 @@ function kf(p, pts) {
   return pts[pts.length - 1][1];
 }
 const between = (p, a, b) => p >= a && p < b;
+const strobe = (p, hz) => Math.floor(p * hz) % 2 === 0;
 // reduced motion: poses step instead of glide; all cues and copy are unchanged
 const pose = p => REDUCED ? Math.floor(p * 10) / 10 : p;
 
@@ -636,11 +653,14 @@ function figureMarkup(cls, fill, extra) {
     + '<rect x="-5" y="-11" width="10" height="16" rx="4" fill="' + fill + '"/>'
     + '</g>';
 }
-function placeFig(el, x, y) { el.setAttribute('transform', 'translate(' + x + ' ' + y + ')'); }
+function placeFig(el, x, y, rot) {
+  el.setAttribute('transform', 'translate(' + x + ' ' + y + ')' + (rot ? ' rotate(' + rot + ')' : ''));
+}
 
 /* ============================== scenes ==============================
    Each builder returns { svg, update(p, tMs), captions: [[frac, text]] }.
-   p runs 0..1 across the scene. The result decides which cutscene plays. */
+   p runs 0..1 across the 5.5s action; p = 0 is the idle "in position" pose.
+   The result decides which cutscene plays. */
 function buildScene(kind, result, pres, crewHex) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 400 180');
@@ -652,8 +672,11 @@ function buildScene(kind, result, pres, crewHex) {
     svg.innerHTML =
         '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
       + '<rect x="346" y="96" width="34" height="54" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
-      + '<text x="363" y="90" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">HATCH</text>'
-      + '<g id="beams">'
+      + '<text x="363" y="78" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">HATCH</text>'
+      + '<g class="turret" transform="translate(363 94)"><rect x="-8" y="-6" width="16" height="7" rx="2" fill="#2C313E"/>'
+      + '<line class="barrel" x1="0" y1="-3" x2="-14" y2="-3" stroke="#9AA2B1" stroke-width="2"/></g>'
+      + '<line class="bolt" x1="349" y1="91" x2="190" y2="136" stroke="#EAE4D4" stroke-width="2" opacity="0"/>'
+      + '<g class="beams">'
       + '<line class="laser" x1="130" y1="56" x2="130" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
       + '<line class="laser" x1="205" y1="56" x2="205" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
       + '<line class="laser" x1="280" y1="56" x2="280" y2="' + FLOOR + '" stroke="#B0455C" stroke-width="1.5" opacity="0.75"/>'
@@ -661,6 +684,8 @@ function buildScene(kind, result, pres, crewHex) {
       + figureMarkup('guy', crewHex);
     const beams = svg.querySelectorAll('.laser');
     const guy = svg.querySelector('.guy');
+    const barrel = svg.querySelector('.barrel');
+    const bolt = svg.querySelector('.bolt');
     const setBeams = (lit) => beams.forEach(b => {
       b.setAttribute('stroke', lit ? '#EAE4D4' : '#B0455C');
       b.setAttribute('stroke-width', lit ? '2.5' : '1.5');
@@ -670,27 +695,32 @@ function buildScene(kind, result, pres, crewHex) {
       const x = [130, 205, 280][i] + (REDUCED ? 0 : Math.sin(tMs / 900 + pres.laserPhases[i]) * 16);
       b.setAttribute('x1', x); b.setAttribute('x2', x);
     });
+    const aim = (on) => barrel.setAttribute('transform', on ? 'rotate(14 0 -3)' : '');
     if (result === 'clean') {
-      captions = [[0.02, 'the roof. the grid is live.'], [0.45, 'he reads the sweep and goes.'], [0.86, 'threads it. down the hatch.']];
+      captions = [[0.0, 'go. the grid is live.'], [0.45, 'he reads the sweep and goes.'], [0.86, 'threads it. down the hatch.']];
       update = (p, t) => {
         sweep(t);
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.32, 120], [0.4, 120], [0.6, 240], [0.66, 240], [0.84, 362]]), FLOOR);
         guy.setAttribute('opacity', p > 0.9 ? 0 : 1);
       };
     } else if (result === 'close') {
-      captions = [[0.02, 'the roof. the grid is live.'], [0.4, 'a beam brushes his shoulder. he freezes.'], [0.62, 'the sweep passes. he goes.'], [0.9, 'through. barely.']];
+      captions = [[0.0, 'go. the grid is live.'], [0.4, 'a beam brushes him. he freezes.'], [0.47, 'the turret twitches.'], [0.62, 'the sweep passes. he goes.'], [0.9, 'through. barely.']];
       update = (p, t) => {
         sweep(t);
         setBeams(between(p, 0.4, 0.5));
+        aim(between(p, 0.45, 0.58));
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.38, 190], [0.62, 190], [0.88, 362]]), FLOOR);
         guy.setAttribute('opacity', p > 0.93 ? 0 : 1);
       };
     } else {
-      captions = [[0.02, 'the roof. the grid is live.'], [0.4, 'the grid locks bright. he is seen.'], [0.6, 'he pulls back the way he came.'], [0.9, 'the roof is out. two still moving.']];
+      captions = [[0.0, 'go. the grid is live.'], [0.4, 'beam. the grid locks bright.'], [0.5, 'the turret finds him.'], [0.6, 'down. stunned, not hurt.'], [0.85, 'the roof is out.']];
       update = (p, t) => {
         sweep(t);
         setBeams(p >= 0.4);
-        placeFig(guy, kf(pose(p), [[0.08, 30], [0.38, 190], [0.58, 190], [0.88, 30]]), FLOOR);
+        aim(p >= 0.46);
+        bolt.setAttribute('opacity', between(p, 0.52, 0.6) && strobe(p, 60) ? '1' : '0');
+        const x = kf(pose(p), [[0.08, 30], [0.38, 190]]);
+        placeFig(guy, x, FLOOR, p >= 0.56 ? -78 : 0);
       };
     }
   }
@@ -699,38 +729,43 @@ function buildScene(kind, result, pres, crewHex) {
     svg.innerHTML =
         '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
       + '<rect x="222" y="124" width="70" height="26" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
-      + figureMarkup('guard', '#5E6677', 'transform="translate(257 136)"')
       + '<rect x="302" y="92" width="6" height="58" rx="2" fill="#2C313E"/>'
       + '<circle class="lamp" cx="305" cy="86" r="5" fill="#2C313E"/>'
       + '<text x="305" y="74" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">SCAN</text>'
       + '<rect x="352" y="96" width="30" height="54" rx="3" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
+      + '<rect class="cuffs" x="0" y="0" width="14" height="5" rx="2" fill="#9AA2B1" opacity="0"/>'
+      + figureMarkup('guard', '#5E6677', 'transform="translate(257 136)"')
       + figureMarkup('guy', crewHex);
     const guy = svg.querySelector('.guy');
     const guard = svg.querySelector('.guard');
     const lamp = svg.querySelector('.lamp');
+    const cuffs = svg.querySelector('.cuffs');
     const DARK = '#2C313E', WAIT = '#9AA2B1', PASS = '#E3B84E';
     if (result === 'clean') {
-      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.48, 'badge on the reader.'], [0.58, 'reads clean. he keeps walking.'], [0.88, 'through the gate. heading down.']];
+      captions = [[0.0, 'go. one desk, one guard.'], [0.48, 'badge on the reader.'], [0.58, 'reads clean. he keeps walking.'], [0.88, 'through the gate. heading down.']];
       update = (p) => {
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.44, 200], [0.58, 200], [0.86, 370]]), FLOOR);
         lamp.setAttribute('fill', p >= 0.56 ? PASS : p >= 0.48 ? WAIT : DARK);
         guy.setAttribute('opacity', p > 0.9 ? 0 : 1);
       };
     } else if (result === 'close') {
-      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.44, 'badge on the reader. it thinks.'], [0.56, 'the guard looks up.'], [0.7, 'reads clean. waved through.'], [0.92, 'heading down.']];
+      captions = [[0.0, 'go. one desk, one guard.'], [0.44, 'badge on the reader. it thinks.'], [0.56, 'the guard looks up.'], [0.7, 'reads clean. waved through.'], [0.92, 'heading down.']];
       update = (p) => {
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.42, 200], [0.72, 200], [0.94, 370]]), FLOOR);
-        const blink = between(p, 0.44, 0.68) && Math.floor(p * 40) % 2 === 0;
-        lamp.setAttribute('fill', p >= 0.68 ? PASS : blink ? WAIT : DARK);
+        lamp.setAttribute('fill', p >= 0.68 ? PASS : (between(p, 0.44, 0.68) && strobe(p, 20)) ? WAIT : DARK);
         placeFig(guard, 257, between(p, 0.56, 0.7) ? 132 : 136);
         guy.setAttribute('opacity', p > 0.96 ? 0 : 1);
       };
     } else {
-      captions = [[0.02, 'the lobby. one desk, one guard.'], [0.44, 'badge on the reader. nothing.'], [0.58, 'the guard stands.'], [0.7, 'wrong badge. he walks it back, calm.'], [0.92, 'the lobby is out.']];
+      captions = [[0.0, 'go. one desk, one guard.'], [0.44, 'badge on the reader. nothing.'], [0.56, 'the guard stands.'], [0.7, 'cuffs. no fuss.'], [0.82, 'arrested. the lobby is out.']];
       update = (p) => {
-        placeFig(guy, kf(pose(p), [[0.08, 30], [0.42, 200], [0.68, 200], [0.94, 30]]), FLOOR);
-        lamp.setAttribute('fill', between(p, 0.44, 0.58) && Math.floor(p * 30) % 2 === 0 ? WAIT : DARK);
-        placeFig(guard, 257, p >= 0.58 ? 126 : 136);
+        const gx = kf(pose(p), [[0.08, 30], [0.42, 200], [0.76, 200], [0.98, -30]]);
+        placeFig(guy, gx, FLOOR);
+        lamp.setAttribute('fill', (between(p, 0.44, 0.56) && strobe(p, 15)) ? WAIT : DARK);
+        const guardX = kf(pose(p), [[0.6, 257], [0.7, 216], [0.76, 216], [0.98, -14]]);
+        placeFig(guard, guardX, p >= 0.56 ? FLOOR : 136);
+        cuffs.setAttribute('opacity', p >= 0.7 ? '1' : '0');
+        cuffs.setAttribute('x', gx + 2); cuffs.setAttribute('y', FLOOR - 8);
       };
     }
   }
@@ -746,13 +781,20 @@ function buildScene(kind, result, pres, crewHex) {
         '<line x1="10" y1="' + FLOOR + '" x2="390" y2="' + FLOOR + '" stroke="#2C313E" stroke-width="2"/>'
       + '<rect x="284" y="84" width="56" height="56" rx="4" fill="#12141B" stroke="#2C313E" stroke-width="1.5"/>'
       + slots
+      + '<circle class="alarm" cx="312" cy="72" r="4" fill="#2C313E"/>'
       + '<rect class="vdoor" x="352" y="90" width="32" height="60" rx="2" fill="#1A1D26" stroke="#2C313E" stroke-width="2"/>'
       + '<text x="368" y="82" text-anchor="middle" font-size="7" letter-spacing="1.5" fill="#9AA2B1">DOOR</text>'
-      + figureMarkup('guy', crewHex);
+      + figureMarkup('guy', crewHex)
+      + '<g class="cage" opacity="0"><rect x="240" y="0" width="44" height="60" rx="3" fill="none" stroke="#9AA2B1" stroke-width="2"/>'
+      + '<line x1="251" y1="0" x2="251" y2="60" stroke="#9AA2B1" stroke-width="1.5"/>'
+      + '<line x1="262" y1="0" x2="262" y2="60" stroke="#9AA2B1" stroke-width="1.5"/>'
+      + '<line x1="273" y1="0" x2="273" y2="60" stroke="#9AA2B1" stroke-width="1.5"/></g>';
     const guy = svg.querySelector('.guy');
     const slotEls = svg.querySelectorAll('.slot');
     const digitEls = svg.querySelectorAll('.digit');
     const door = svg.querySelector('.vdoor');
+    const alarm = svg.querySelector('.alarm');
+    const cage = svg.querySelector('.cage');
     const lock = (i, on) => {
       slotEls[i].setAttribute('fill', on ? '#2C313E' : 'none');
       slotEls[i].setAttribute('stroke', on ? '#9AA2B1' : '#2C313E');
@@ -761,7 +803,7 @@ function buildScene(kind, result, pres, crewHex) {
     };
     const doorOpen = (amt) => { door.setAttribute('height', 60 * (1 - amt)); };
     if (result === 'clean') {
-      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit.'], [0.66, 'fourth.'], [0.78, 'four for four. the door slides.']];
+      captions = [[0.0, 'go. the last door has a code.'], [0.4, 'first digit.'], [0.66, 'fourth.'], [0.78, 'four for four. the door slides.']];
       update = (p) => {
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.76, 262], [0.92, 368]]), FLOOR);
         [0.4, 0.49, 0.58, 0.66].forEach((t, i) => lock(i, p >= t));
@@ -769,65 +811,94 @@ function buildScene(kind, result, pres, crewHex) {
         guy.setAttribute('opacity', p > 0.93 ? 0 : 1);
       };
     } else if (result === 'close') {
-      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit. second.'], [0.56, 'third digit fights him.'], [0.7, 'then it doesn’t.'], [0.84, 'the door slides.']];
+      captions = [[0.0, 'go. the last door has a code.'], [0.4, 'first digit. second.'], [0.56, 'third digit fights him.'], [0.7, 'then it doesn’t.'], [0.84, 'the door slides.']];
       update = (p) => {
         placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.84, 262], [0.97, 368]]), FLOOR);
         lock(0, p >= 0.4); lock(1, p >= 0.48);
-        const fight = between(p, 0.56, 0.7) && Math.floor(p * 30) % 2 === 0;
-        if (p >= 0.7) lock(2, true); else { slotEls[2].setAttribute('stroke', fight ? '#9AA2B1' : '#2C313E'); digitEls[2].setAttribute('opacity', '0'); }
+        if (p >= 0.7) lock(2, true); else { slotEls[2].setAttribute('stroke', (between(p, 0.56, 0.7) && strobe(p, 30)) ? '#9AA2B1' : '#2C313E'); digitEls[2].setAttribute('opacity', '0'); }
         lock(3, p >= 0.78);
         doorOpen(kf(p, [[0.84, 0], [0.92, 1]]));
         guy.setAttribute('opacity', p > 0.98 ? 0 : 1);
       };
     } else {
-      captions = [[0.02, 'below ground. the last door has a code.'], [0.4, 'first digit. second.'], [0.58, 'the keypad locks him out.'], [0.72, 'he steps back. not tonight.'], [0.92, 'below ground is out.']];
+      captions = [[0.0, 'go. the last door has a code.'], [0.4, 'first digit. second.'], [0.56, 'third digit. wrong.'], [0.6, 'alarm.'], [0.72, 'the cage drops. he is not going anywhere.'], [0.9, 'below ground is out.']];
       update = (p) => {
-        placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262], [0.68, 262], [0.76, 210], [0.8, 210], [0.96, 30]]), FLOOR);
-        lock(0, p >= 0.4 && p < 0.58); lock(1, p >= 0.48 && p < 0.58);
-        if (p >= 0.58) slotEls.forEach((s, i) => { s.setAttribute('stroke', '#1F2330'); digitEls[i].setAttribute('opacity', '0'); });
+        placeFig(guy, kf(pose(p), [[0.08, 30], [0.34, 262]]), FLOOR);
+        lock(0, p >= 0.4); lock(1, p >= 0.48);
+        slotEls[2].setAttribute('stroke', p >= 0.56 ? '#B0455C' : '#2C313E');
+        slotEls[2].setAttribute('fill', p >= 0.56 ? 'rgba(176,69,92,0.35)' : 'none');
+        alarm.setAttribute('fill', p >= 0.6 && strobe(p, 24) ? '#B0455C' : '#2C313E');
+        cage.setAttribute('opacity', p >= 0.62 ? '1' : '0');
+        cage.setAttribute('transform', 'translate(0 ' + kf(pose(p), [[0.62, -70], [0.72, 90]]) + ')');
       };
     }
   }
   return { svg, update, captions };
 }
 
-/* the vault scene: the finale. Colour = how many made it. */
+/* the vault scene: on screen from the start, neutral until the door opens.
+   Colour = how many made it, applied only at the finale. */
 function buildVaultScene(outcome, crewHex) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 400 200');
+  svg.setAttribute('viewBox', '0 0 400 180');
   const col = TIER_HEX[outcome.tier];
   const standing = outcome.results.map((r, i) => r !== 'out' ? i : -1).filter(i => i >= 0);
   const xs = [[200], [176, 224], [160, 200, 240]][standing.length - 1] || [200];
   let figs = '';
-  standing.forEach((_, k) => figs += figureMarkup('guy', crewHex, 'transform="translate(' + xs[k] + ' 186)"'));
+  xs.forEach((x, k) => figs += figureMarkup('vfig s' + k, crewHex, 'transform="translate(' + x + ' 168)" opacity="0"'));
   svg.innerHTML =
       '<defs><radialGradient id="vglow"><stop offset="0%" stop-color="' + col + '" stop-opacity="0.95"/>'
     + '<stop offset="65%" stop-color="' + col + '" stop-opacity="0.3"/><stop offset="100%" stop-color="' + col + '" stop-opacity="0"/></radialGradient>'
-    + (outcome.tier === 'grail' ? '<linearGradient id="vring" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5ED0C0"/><stop offset="50%" stop-color="#8F7BE8"/><stop offset="100%" stop-color="#E3B84E"/></linearGradient>' : '')
+    + '<linearGradient id="vring" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5ED0C0"/><stop offset="50%" stop-color="#8F7BE8"/><stop offset="100%" stop-color="#E3B84E"/></linearGradient>'
     + '</defs>'
-    + '<circle class="glow" cx="200" cy="92" r="84" fill="url(#vglow)" opacity="0"/>'
+    + '<circle class="glow" cx="200" cy="84" r="78" fill="url(#vglow)" opacity="0"/>'
     + '<g class="door">'
-    + '<circle cx="200" cy="92" r="64" fill="#1A1D26" stroke="' + (outcome.tier === 'grail' ? 'url(#vring)' : col) + '" stroke-width="5"/>'
-    + '<circle cx="200" cy="92" r="24" fill="none" stroke="' + col + '" stroke-width="3" opacity="0.8"/>'
-    + '<g stroke="' + col + '" stroke-width="3" opacity="0.8">'
-    + '<line x1="200" y1="44" x2="200" y2="140"/><line x1="152" y1="92" x2="248" y2="92"/>'
-    + '<line x1="166" y1="58" x2="234" y2="126"/><line x1="234" y1="58" x2="166" y2="126"/></g>'
+    + '<circle class="rim" cx="200" cy="84" r="58" fill="#1A1D26" stroke="#2C313E" stroke-width="5"/>'
+    + '<g class="spokes" stroke="#3A4152" stroke-width="3" opacity="0.9">'
+    + '<circle cx="200" cy="84" r="22" fill="none"/>'
+    + '<line x1="200" y1="40" x2="200" y2="128"/><line x1="156" y1="84" x2="244" y2="84"/>'
+    + '<line x1="169" y1="53" x2="231" y2="115"/><line x1="231" y1="53" x2="169" y2="115"/></g>'
     + '</g>'
-    + '<line x1="10" y1="190" x2="390" y2="190" stroke="#2C313E" stroke-width="2"/>'
+    + '<line x1="10" y1="172" x2="390" y2="172" stroke="#2C313E" stroke-width="2"/>'
     + figs;
   const door = svg.querySelector('.door');
   const glow = svg.querySelector('.glow');
   const rich = (outcome.arrivals - 1) / 2; // 0 modest .. 1 rich: changes the flourish, never the result
-  const update = (p) => {
-    const eased = easeOutCubic(p);
-    const curve = rich * eased + (1 - rich) * p;
-    const slide = curve * (70 + rich * 30);
-    const spin = curve * (140 + rich * 120);
-    door.setAttribute('transform', REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' 200 92)');
-    if (REDUCED) door.setAttribute('opacity', String(1 - curve));
-    glow.setAttribute('opacity', (curve * (0.5 + rich * 0.5)).toFixed(3));
+  return {
+    svg,
+    showFigure(slot) { const f = svg.querySelector('.vfig.s' + slot); if (f) f.setAttribute('opacity', '1'); },
+    colour() {
+      svg.querySelector('.rim').setAttribute('stroke', outcome.tier === 'grail' ? 'url(#vring)' : col);
+      svg.querySelector('.spokes').setAttribute('stroke', col);
+    },
+    update(p) {
+      const eased = easeOutCubic(p);
+      const curve = rich * eased + (1 - rich) * p;
+      const slide = curve * (70 + rich * 30);
+      const spin = curve * (140 + rich * 120);
+      door.setAttribute('transform', REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' 200 84)');
+      if (REDUCED) door.setAttribute('opacity', String(1 - curve));
+      glow.setAttribute('opacity', (curve * (0.5 + rich * 0.5)).toFixed(3));
+    },
   };
-  return { svg, update };
+}
+
+/* ============================== panels ============================== */
+function buildPanel(where, svg, status, caption, extraClass) {
+  const el = document.createElement('div');
+  el.className = 'panel' + (extraClass ? ' ' + extraClass : '');
+  el.innerHTML = '<div class="panel-head"><span class="where">' + where + '</span><span class="status">' + status + '</span></div>';
+  el.appendChild(svg);
+  const cap = document.createElement('div');
+  cap.className = 'panel-caption idle';
+  cap.textContent = caption;
+  el.appendChild(cap);
+  const statusEl = el.querySelector('.status');
+  return {
+    el,
+    setStatus(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); },
+    setCaption(text, idle) { cap.textContent = text; cap.className = 'panel-caption' + (idle ? ' idle' : ''); },
+  };
 }
 
 /* ============================== building cross-section ============================== */
@@ -839,7 +910,6 @@ function buildBuilding(crewHex) {
   $('bvault').setAttribute('stroke', '#2C313E');
   $('tally').textContent = '0';
 }
-// move crew member i down the shaft to the vault (p 0..1)
 function descend(i, p, slot) {
   const fig = document.querySelector('.bfig.b' + i);
   const targetX = 44 + slot * 26;
@@ -896,18 +966,6 @@ function speedFactor() {
   return 1;
 }
 
-function setStage(where, status, statusCls) {
-  $('stage-head').querySelector('.where').textContent = where;
-  const s = $('stage-head').querySelector('.status');
-  s.textContent = status; s.className = 'status ' + (statusCls || '');
-}
-function setCaption(text) { $('stage-caption').textContent = text; }
-function mountScene(svg) {
-  const wrap = $('scene-wrap');
-  wrap.innerHTML = '';
-  wrap.appendChild(svg);
-}
-
 function beginRun(run) {
   // run: { seed, pick, nonce, outcome, pres, quick, replay }
   lastRun = run;
@@ -915,13 +973,11 @@ function beginRun(run) {
   const crewHex = CREW_HEX[run.pick] || '#EAE4D4';
   const total = run.quick ? CONFIG.durations.quick : CONFIG.durations.run;
 
-  // reset stage
+  // reset stage: remove old scene panels, keep the tracker
+  const body = $('run-body');
+  body.querySelectorAll('.panel').forEach(p => p.remove());
   $('run-caption').textContent = '';
   $('gag-strip').hidden = true; $('gag-strip').innerHTML = '';
-  $('scene-wrap').innerHTML = '';
-  $('stage-caption').className = '';
-  setStage('', '', '');
-  setCaption('');
   buildBuilding(crewHex);
   showScreen('run');
 
@@ -929,80 +985,96 @@ function beginRun(run) {
   const cue = (t, fn) => cues.push({ t, fn });
   const anim = (t0, t1, update) => animators.push({ t0, t1, update });
 
+  // build the four scenes and mount them: roof, lobby, keypad, vault (+ tracker, static)
   const scenes = SCENES.map((s, i) => buildScene(s.id, o.results[i], run.pres, crewHex));
   const vault = buildVaultScene(o, crewHex);
+  const panels = SCENES.map((s, i) => buildPanel(s.where + ' · ' + s.title, scenes[i].svg, 'in position', 'waiting on the go.'));
+  const vaultPanel = buildPanel('THE VAULT', vault.svg, 'waiting', 'the door. it opens when they get there.', 'vault');
+  const building = $('building');
+  // grid order: roof, lobby, keypad, vault; the tracker is pinned to column 3 by CSS
+  panels.forEach(p => body.insertBefore(p.el, building));
+  body.insertBefore(vaultPanel.el, building);
+  scenes.forEach((sc) => sc.update(0, 0));
+
   let arrivedSoFar = 0;
-  const slotOf = [];   // standing slot at the vault for each arriving crew member
+  const slotOf = [];
   let nextSlot = 0;
   o.results.forEach((r, i) => { slotOf[i] = r !== 'out' ? nextSlot++ : undefined; });
 
+  const arrive = (i) => {
+    arrivedSoFar++;
+    $('tally').textContent = arrivedSoFar;
+    vault.showFigure(slotOf[i]);
+  };
+
   if (run.quick) {
     /* ---- quick open: identical structure every time ----
-       intro 0-300 · three 800ms result beats · vault 2700-4000 */
+       300: all three resolved on screen · descents staggered · vault 2000-3900 */
     cue(0, () => { $('run-caption').textContent = 'quick open'; });
     SCENES.forEach((s, i) => {
-      const t0 = 300 + i * 800;
+      const t0 = 300 + i * 200;
       cue(t0, () => {
-        mountScene(scenes[i].svg);
         scenes[i].update(1, t0);
-        setStage(s.where + ' · ' + s.title, RESULT_STATUS[o.results[i]], o.results[i] === 'out' ? 'out' : 'in');
-        setCaption(scenes[i].captions[scenes[i].captions.length - 1][1]);
+        panels[i].setStatus(statusFor(i, o.results[i]), o.results[i] === 'out' ? 'out' : 'in');
+        panels[i].setCaption(scenes[i].captions[scenes[i].captions.length - 1][1]);
       });
       if (o.results[i] !== 'out') {
-        anim(t0 + 250, t0 + 750, p => descend(i, p, slotOf[i]));
-        cue(t0 + 750, () => { arrivedSoFar++; $('tally').textContent = arrivedSoFar; });
+        anim(t0 + 300, t0 + 900, p => descend(i, p, slotOf[i]));
+        cue(t0 + 900, () => arrive(i));
       } else {
-        cue(t0 + 400, () => markOut(i));
+        cue(t0 + 300, () => markOut(i));
       }
     });
     cue(700, () => playGag(pickGag(run.pres.gagRoll)));
-    cue(2700, () => {
-      mountScene(vault.svg);
-      setStage('THE VAULT', o.arrivals + ' OF 3 AT THE DOOR', 'in');
-      setCaption('');
+    cue(2000, () => {
+      vault.colour();
+      vaultPanel.el.classList.add('open');
+      vaultPanel.setStatus(o.arrivals + ' OF 3 AT THE DOOR', 'in');
+      vaultPanel.setCaption('');
       $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
       if (soundOn) tone(58, 0.5, 0.12);
     });
-    anim(2800, 3900, p => vault.update(p));
+    anim(2100, 3900, p => vault.update(p));
   } else {
-    /* ---- full run: intro 1200 · three scenes (5500 play + 800 descent) · vault 3900 ---- */
-    const INTRO = 1200, PLAY = 5500, DESCENT = 800, SCENE = PLAY + DESCENT;
-    cue(0, () => { $('run-caption').textContent = 'three in. how many make it down?'; });
-    cue(200, () => { setStage('THE BUILDING', 'CREW IN POSITION'); setCaption('roof, lobby, below ground. one guy each.'); });
+    /* ---- full run: everyone on screen; go-signals in drawn order, 2.8s apart;
+       each action 5.5s; descent 0.8s; the vault opens once the last one resolves ---- */
+    const INTRO = 1200, GAP = 2800, ACT = 5500, DESCENT = 800;
+    cue(0, () => { $('run-caption').textContent = 'three in. who makes it down?'; });
 
-    SCENES.forEach((s, i) => {
-      const t0 = INTRO + i * SCENE;
-      const sc = scenes[i];
-      cue(t0, () => {
-        mountScene(sc.svg);
-        setStage(s.where + ' · ' + s.title, s.guy, '');
-        $('stage-caption').className = '';
-        $('run-caption').textContent = (i + 1) + ' of 3';
+    o.order.forEach((i, k) => {
+      const go = INTRO + k * GAP;
+      const sc = scenes[i], pn = panels[i], r = o.results[i];
+      cue(go, () => {
+        pn.el.classList.add('active');
+        pn.setStatus(SCENES[i].guy, '');
+        $('run-caption').textContent = ['first go', 'second go', 'third go'][k] + ' · ' + SCENES[i].where.toLowerCase();
       });
-      sc.captions.forEach(([f, text]) => cue(t0 + f * PLAY, () => setCaption(text)));
-      anim(t0, t0 + PLAY, (p, t) => sc.update(p, t));
-      const r = o.results[i];
-      cue(t0 + PLAY * 0.97, () => setStage(s.where + ' · ' + s.title, RESULT_STATUS[r], r === 'out' ? 'out' : 'in'));
-      // the descent beat: the building shows who is heading down
+      sc.captions.forEach(([f, text]) => cue(go + f * ACT, () => pn.setCaption(text, false)));
+      // idle pose (beams sweeping) from the start; action from the go
+      anim(0, go + ACT, (p, t) => sc.update(Math.max(0, (t - go) / ACT), t));
+      cue(go + ACT * 0.97, () => pn.setStatus(statusFor(i, r), r === 'out' ? 'out' : 'in'));
+      cue(go + ACT, () => pn.el.classList.remove('active'));
       if (r !== 'out') {
-        cue(t0 + PLAY, () => { $('stage-caption').className = 'dimmed'; if (soundOn) tone(220, 0.25, 0.06); });
-        anim(t0 + PLAY, t0 + PLAY + DESCENT, p => descend(i, p, slotOf[i]));
-        cue(t0 + PLAY + DESCENT - 20, () => { arrivedSoFar++; $('tally').textContent = arrivedSoFar; });
+        cue(go + ACT, () => { if (soundOn) tone(220, 0.25, 0.06); });
+        anim(go + ACT, go + ACT + DESCENT, p => descend(i, p, slotOf[i]));
+        cue(go + ACT + DESCENT - 20, () => arrive(i));
       } else {
-        cue(t0 + PLAY, () => { markOut(i); $('stage-caption').className = 'dimmed'; });
+        cue(go + ACT, () => { markOut(i); if (soundOn) tone(90, 0.35, 0.08); });
       }
     });
 
-    const vaultStart = INTRO + 3 * SCENE;   // 20100
+    const vaultStart = INTRO + 2 * GAP + ACT + DESCENT + 300;   // 13800
     cue(vaultStart, () => {
-      mountScene(vault.svg);
-      setStage('THE VAULT', o.arrivals + ' OF 3 AT THE DOOR', 'in');
-      setCaption(o.arrivals === 3 ? 'all three. the door knows it.' : o.arrivals === 2 ? 'two at the door. it opens for them.' : 'one at the door. it still opens.');
-      $('run-caption').textContent = '';
+      panels.forEach(p => p.el.classList.add('dimmed'));
+      vault.colour();
+      vaultPanel.el.classList.add('open');
+      vaultPanel.setStatus(o.arrivals + ' OF 3 AT THE DOOR', 'in');
+      vaultPanel.setCaption(o.arrivals === 3 ? 'all three. the door knows it.' : o.arrivals === 2 ? 'two at the door. it opens for them.' : 'one at the door. it still opens.', false);
+      $('run-caption').textContent = 'the vault';
       $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
       if (soundOn) tone(58, 0.6, 0.12);
     });
-    anim(vaultStart + 600, total, p => vault.update(p));
+    anim(vaultStart + 500, vaultStart + 4500, p => vault.update(p));
   }
 
   cues.sort((a, b) => a.t - b.t);
@@ -1028,7 +1100,7 @@ function tick(ts) {
 function instantFinish() {
   const e = engine;
   while (e.cueIndex < e.cues.length) { e.cues[e.cueIndex].fn(); e.cueIndex++; }
-  for (const a of e.animators) a.update(1, e.total);
+  for (const a of e.animators) a.update(1, a.t1);
   e.done = true;
   finishRun();
 }
@@ -1049,7 +1121,7 @@ function finishRun() {
   o.results.forEach((r, i) => {
     const s = document.createElement('span');
     s.className = r === 'out' ? 'out' : 'in';
-    s.textContent = SCENES[i].where + ' · ' + (r === 'out' ? 'OUT' : r === 'close' ? 'IN, CLOSE' : 'IN');
+    s.textContent = SCENES[i].where + ' · ' + (r === 'out' ? SCENES[i].outLabel.replace('OUT — ', '') : r === 'close' ? 'IN, CLOSE' : 'IN');
     chips.appendChild(s);
   });
 
@@ -1119,6 +1191,7 @@ $('dbg-run100').addEventListener('click', () => {
   const tierCount = { floor: 0, solid: 0, grail: 0 };
   const arrivals = { 1: 0, 2: 0, 3: 0 };
   const perGuy = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; // [clean, close, out] per crew member
+  const firstGo = [0, 0, 0];
   const simBase = randomHex(8);
   for (let i = 0; i < 100; i++) {
     const s = serverSeed + ':sim' + simBase + ':' + i;
@@ -1126,6 +1199,7 @@ $('dbg-run100').addEventListener('click', () => {
     tierCount[o.tier]++;
     arrivals[o.arrivals]++;
     o.results.forEach((r, g) => perGuy[g][{ clean: 0, close: 1, out: 2 }[r]]++);
+    firstGo[o.order[0]]++;
   }
   const row = (name, a) => '  ' + name.padEnd(7) + 'clean ' + String(a[0]).padStart(2) + '  close ' + String(a[1]).padStart(2) + '  out ' + String(a[2]).padStart(2);
   $('dbg-out').textContent =
@@ -1133,7 +1207,8 @@ $('dbg-run100').addEventListener('click', () => {
     + 'tier      floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '\n'
     + 'at vault  1: ' + arrivals[1] + '  2: ' + arrivals[2] + '  3: ' + arrivals[3] + '\n'
     + 'per crew member\n'
-    + row('roof', perGuy[0]) + '\n' + row('lobby', perGuy[1]) + '\n' + row('keypad', perGuy[2]);
+    + row('roof', perGuy[0]) + '\n' + row('lobby', perGuy[1]) + '\n' + row('keypad', perGuy[2]) + '\n'
+    + 'first go  roof ' + firstGo[0] + '  lobby ' + firstGo[1] + '  keypad ' + firstGo[2];
 });
 
 /* ============================== init ============================== */
