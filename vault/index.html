@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>The Vault Job</title>
+<style>
+  /* ============================== palette ============================== */
+  :root {
+    --ground:  #12141B;
+    --panel:   #1A1D26;
+    --ink:     #EAE4D4;
+    --dim:     #9AA2B1;
+    --line:    #2C313E;
+    --bone:    #B9B2A0;
+    --ember:   #DE8A52;
+    --auric:   #E3B84E;
+    --pris-a:  #5ED0C0;
+    --pris-b:  #8F7BE8;
+    --pris-c:  #E3B84E;
+    --laser:   #B0455C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    font-size: 12px; letter-spacing: .14em; color: var(--dim);
+  }
+  header .brand { color: var(--ink); font-weight: 600; }
+  header .hbtns { display: flex; gap: 8px; }
+  header button {
+    background: none; border: 1px solid var(--line); color: var(--dim);
+    font: inherit; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  }
+  header button[aria-pressed="true"] { color: var(--ink); border-color: var(--dim); }
+
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; }
+  section[hidden] { display: none !important; }
+
+  /* ============================== pick screen ============================== */
+  #screen-pick { text-align: center; padding-top: 6vh; }
+  #screen-pick h1 { font-size: 28px; font-weight: 600; letter-spacing: .04em; margin-bottom: 10px; }
+  #screen-pick .sub { color: var(--dim); font-size: 14px; max-width: 420px; margin: 0 auto 32px; line-height: 1.5; }
+  .swatches { display: flex; gap: 18px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+  .swatch {
+    width: 108px; padding: 16px 0 12px; border-radius: 8px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font: inherit; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    transition: border-color .25s ease-out, transform .25s cubic-bezier(.215,.61,.355,1);
+  }
+  .swatch:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .swatch .chip { display: block; width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 10px; }
+  .swatch[data-colour="crimson"] .chip { background: #A8384A; }
+  .swatch[data-colour="azure"]   .chip { background: #4A7DB8; }
+  .swatch[data-colour="bone"]    .chip { background: var(--bone); }
+  .pick-meta { color: var(--dim); font-size: 12px; line-height: 2; }
+  .pick-meta code { font-size: 11px; color: var(--ink); word-break: break-all; }
+  .toggle-row { margin: 18px 0 8px; }
+  .toggle-row label { color: var(--dim); font-size: 13px; cursor: pointer; }
+  .toggle-row input { accent-color: var(--auric); margin-right: 6px; vertical-align: -1px; }
+
+  /* ============================== run screen ============================== */
+  #screen-run {
+    background-image:
+      linear-gradient(rgba(44,49,62,.55) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(44,49,62,.55) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #run-caption {
+    text-align: center; color: var(--dim); font-size: 13px; letter-spacing: .18em;
+    text-transform: uppercase; min-height: 20px;
+    transition: opacity .35s ease-out;
+  }
+  #panels {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(var(--n, 3), 1fr);
+    transition: opacity .4s ease-out;
+  }
+  #panels.dimmed { opacity: .22; }
+  @media (max-width: 640px) { #panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; opacity: 0; transform: translateY(8px);
+    transition: opacity .35s ease-out, transform .35s cubic-bezier(.215,.61,.355,1),
+                background-color .3s ease-out, border-color .3s ease-out;
+  }
+  .panel.in { opacity: 1; transform: none; }
+  .panel.beat { background: #262c3d; border-color: var(--ink); }
+  .panel.stood { opacity: .45; }
+  .panel-head {
+    display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
+    font-size: 11px; letter-spacing: .14em; color: var(--dim); margin-bottom: 8px;
+  }
+  .panel-head .where { color: var(--ink); }
+  .panel-head .status { text-transform: uppercase; text-align: right; }
+  .panel svg { width: 100%; height: auto; display: block; }
+  .panel .mover { transition: opacity .35s ease-out; }
+  .panel.secured .mover { opacity: .12; }
+  .panel .case { opacity: 0; transition: opacity .35s ease-out; }
+  .panel.secured .case { opacity: 1; }
+  .grade-bone      { color: var(--bone); }
+  .grade-ember     { color: var(--ember); }
+  .grade-auric     { color: var(--auric); }
+  .grade-prismatic {
+    background: linear-gradient(90deg, var(--pris-a), var(--pris-b), var(--pris-c));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  #gag-strip {
+    height: 44px; position: relative; overflow: hidden;
+    color: var(--dim); font-size: 12px; letter-spacing: .04em;
+  }
+  #gag-strip[hidden] { display: none; }
+  #gag-strip .gag-caption { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; }
+  #gag-strip svg { position: absolute; top: 0; height: 26px; }
+
+  /* the vault is on screen from the first frame — dormant, waiting */
+  #finale { opacity: .35; transition: opacity .4s ease-out; margin-top: 4px; }
+  #finale.in { opacity: 1; }
+  #finale-top { display: flex; justify-content: center; margin-bottom: 6px; }
+  #alarm {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px;
+    font-size: 10px; letter-spacing: .2em; color: var(--dim);
+  }
+  #alarm .alarm-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember);
+    transition: background-color .6s ease-out, opacity .6s ease-out; }
+  #alarm.down .alarm-dot { background: var(--line); opacity: .5; }
+  #alarm[hidden] { display: none; }
+  #vault-svg { display: block; margin: 0 auto; width: min(420px, 100%); height: auto; }
+  .fin-case { opacity: 0; transition: opacity .3s ease-out, transform .3s cubic-bezier(.215,.61,.355,1); transform: translateY(-14px); }
+  .fin-case.landed { opacity: 1; transform: none; }
+  #platform-group { transition: transform .4s cubic-bezier(.215,.61,.355,1); }
+
+  /* ============================== reveal screen ============================== */
+  #screen-reveal { max-width: 560px; margin: 0 auto; }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+  #screen-reveal:not([hidden]) .prize-card { animation: card-in .4s cubic-bezier(.215,.61,.355,1) both; }
+  #screen-reveal:not([hidden]) .receipt    { animation: card-in .4s cubic-bezier(.215,.61,.355,1) .15s both; }
+  @keyframes card-in-fade { from { opacity: 0; } to { opacity: 1; } }
+  body.reduced #screen-reveal:not([hidden]) .prize-card,
+  body.reduced #screen-reveal:not([hidden]) .receipt { animation-name: card-in-fade; }
+  .prize-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    text-align: center; padding: 34px 20px 26px; margin-bottom: 20px;
+  }
+  .tier-label { font-size: 13px; letter-spacing: .34em; margin-bottom: 12px; color: var(--dim); }
+  .tier-label.tier-floor { color: var(--ink); }
+  .tier-label.tier-solid { color: var(--ember); }
+  .tier-label.tier-grail {
+    background: linear-gradient(90deg, var(--pris-a), var(--pris-b), var(--pris-c));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .prize-name { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .prize-copy { color: var(--dim); font-size: 13px; margin-bottom: 18px; }
+  .haul-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .haul-chips span {
+    font-size: 10px; letter-spacing: .14em; border: 1px solid var(--line);
+    padding: 4px 10px; border-radius: 999px;
+  }
+
+  .receipt {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; font-size: 13px;
+  }
+  .receipt blockquote {
+    border-left: 2px solid var(--line); padding-left: 14px; margin-bottom: 18px;
+    color: var(--dim); line-height: 1.55;
+  }
+  .receipt blockquote strong { color: var(--ink); }
+  .receipt dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin-bottom: 16px; }
+  .receipt dt { color: var(--dim); white-space: nowrap; }
+  .receipt dd { word-break: break-all; }
+  .receipt dd code { font-size: 11px; }
+  .receipt input[type="text"] {
+    width: 100%; background: var(--ground); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+  }
+  .receipt .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .receipt button, #debug button {
+    background: none; border: 1px solid var(--line); color: var(--ink);
+    font: inherit; font-size: 12px; padding: 7px 14px; border-radius: 5px; cursor: pointer;
+    transition: border-color .2s ease-out;
+  }
+  .receipt button:hover, #debug button:hover { border-color: var(--dim); }
+  .receipt button.primary { border-color: var(--dim); }
+  #verify-result { font-size: 12px; letter-spacing: .1em; }
+  #verify-result.pass { color: var(--auric); }
+  #verify-result.fail { color: var(--laser); }
+  .receipt details { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  .receipt details code { color: var(--ink); }
+
+  /* ============================== debug panel ============================== */
+  #debug {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 92vw);
+    background: var(--panel); border-left: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; z-index: 40; font-size: 12px;
+  }
+  #debug h2 { font-size: 12px; letter-spacing: .2em; color: var(--dim); margin-bottom: 14px; }
+  #debug .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  #debug label { color: var(--dim); }
+  #debug select, #debug input[type="text"] {
+    background: var(--ground); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 4px; padding: 4px 6px; font: inherit; font-size: 12px; max-width: 150px;
+  }
+  #debug input[type="text"] { width: 100%; max-width: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; }
+  #debug .btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  #debug pre {
+    background: var(--ground); border: 1px solid var(--line); border-radius: 5px;
+    padding: 10px; font-size: 10px; line-height: 1.6; overflow-x: auto; color: var(--dim);
+  }
+  #debug hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+  #debug-toggle {
+    position: fixed; bottom: 10px; right: 10px; z-index: 41;
+    background: none; border: 1px solid var(--line); color: var(--dim);
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 11px;
+  }
+
+  /* ============================== reduced motion ============================== */
+  /* Motion becomes cross-fades: transforms are dropped, opacity transitions kept,
+     all timings and information identical. */
+  body.reduced .panel,
+  body.reduced .fin-case,
+  body.reduced .swatch,
+  body.reduced #platform-group { transform: none !important; transition-property: opacity, background-color, border-color; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">THE VAULT JOB</span>
+  <div class="hbtns">
+    <span id="cases-header" class="mono" title="Cases in your collection"></span>
+    <button id="sound-toggle" aria-pressed="false" type="button">SOUND OFF</button>
+  </div>
+</header>
+
+<main>
+  <!-- 1 · pick -->
+  <section id="screen-pick">
+    <h1>Pick your crew.</h1>
+    <p class="sub">Every colour is exactly as lucky. Your choice picks the run you watch, not the prize you get.</p>
+    <div class="swatches">
+      <button class="swatch" data-colour="crimson" type="button"><span class="chip"></span>Crimson</button>
+      <button class="swatch" data-colour="azure"   type="button"><span class="chip"></span>Azure</button>
+      <button class="swatch" data-colour="bone"    type="button"><span class="chip"></span>Bone</button>
+    </div>
+    <div class="toggle-row">
+      <label><input type="checkbox" id="quick-toggle"> Quick open</label>
+    </div>
+    <div class="pick-meta">
+      <div>Cases in your collection: <span id="cases-count">0</span></div>
+      <div>commit <code id="commit-display">computing…</code></div>
+      <div>SHA-256 of tonight's server seed, shown before you pick.</div>
+    </div>
+  </section>
+
+  <!-- 2 · run -->
+  <section id="screen-run" hidden>
+    <div id="run-caption"></div>
+    <div id="panels"></div>
+    <div id="gag-strip" hidden></div>
+    <div id="finale">
+      <div id="finale-top">
+        <div id="alarm"><span class="alarm-dot"></span><span class="alarm-label">ALARM · ARMED</span></div>
+      </div>
+      <svg id="vault-svg" viewBox="0 0 320 232" aria-label="The vault door">
+        <defs>
+          <radialGradient id="door-glow-grad">
+            <stop offset="0%"  stop-color="#E3B84E" stop-opacity="0.9"/>
+            <stop offset="70%" stop-color="#E3B84E" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#E3B84E" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="grad-fin" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"  stop-color="#5ED0C0"/>
+            <stop offset="50%" stop-color="#8F7BE8"/>
+            <stop offset="100%" stop-color="#E3B84E"/>
+          </linearGradient>
+        </defs>
+        <circle id="door-glow" cx="160" cy="94" r="76" fill="url(#door-glow-grad)" opacity="0"/>
+        <g id="door">
+          <circle cx="160" cy="94" r="62" fill="#1A1D26" stroke="#2C313E" stroke-width="4"/>
+          <circle cx="160" cy="94" r="24" fill="none" stroke="#3A4152" stroke-width="3"/>
+          <g stroke="#3A4152" stroke-width="3">
+            <line x1="160" y1="46" x2="160" y2="142"/>
+            <line x1="112" y1="94" x2="208" y2="94"/>
+            <line x1="126" y1="60" x2="194" y2="128"/>
+            <line x1="194" y1="60" x2="126" y2="128"/>
+          </g>
+        </g>
+        <g id="platform-group">
+          <rect x="92" y="200" width="136" height="8" rx="2" fill="#2C313E"/>
+          <line x1="108" y1="208" x2="100" y2="224" stroke="#2C313E" stroke-width="4"/>
+          <line x1="212" y1="208" x2="220" y2="224" stroke="#2C313E" stroke-width="4"/>
+          <g id="fin-stack"></g>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 3 + 4 · reveal & receipt -->
+  <section id="screen-reveal" hidden>
+    <div class="prize-card">
+      <div class="tier-label" id="tier-label"></div>
+      <div class="prize-name" id="prize-name"></div>
+      <div class="prize-copy" id="prize-copy"></div>
+      <div class="haul-chips" id="haul-chips"></div>
+    </div>
+    <div class="receipt">
+      <blockquote>
+        The prize was drawn and locked when you picked your crew, before the first frame played. Nothing in the run changed it.<br><br>
+        <strong>Your choice picks the run you watch, not the prize you get.</strong>
+      </blockquote>
+      <dl>
+        <dt>Commit (shown before pick)</dt><dd><code id="r-commit"></code></dd>
+        <dt>Server seed (revealed)</dt><dd><input type="text" id="r-seed" spellcheck="false" aria-label="Revealed server seed — edit to test tampering"></dd>
+        <dt>Your pick</dt><dd id="r-pick"></dd>
+        <dt>Nonce</dt><dd id="r-nonce"></dd>
+        <dt>Run seed</dt><dd><code id="r-runseed"></code></dd>
+      </dl>
+      <div class="btns">
+        <button id="btn-verify" type="button">Verify</button>
+        <button id="btn-replay" type="button">Replay this seed</button>
+        <button id="btn-again" class="primary" type="button">Open another</button>
+      </div>
+      <span id="verify-result" role="status"></span>
+      <details>
+        <summary>Published odds</summary>
+        <div>floor <code>60%</code> · solid <code>36%</code> · grail <code>4%</code> <em>(placeholder values from CONFIG.tierWeights)</em></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<button id="debug-toggle" type="button" title="Debug panel (D)">D</button>
+<aside id="debug" hidden>
+  <h2>DEBUG · forces apply at draw time</h2>
+  <div class="row"><label for="dbg-tier">Force tier</label>
+    <select id="dbg-tier"><option>random</option><option>floor</option><option>solid</option><option>grail</option></select></div>
+  <div class="row"><label for="dbg-exit">Force exit</label>
+    <select id="dbg-exit"><option>random</option><option>short</option><option>medium</option><option>full</option></select></div>
+  <div class="row"><label for="dbg-omen">Force omen</label>
+    <select id="dbg-omen"><option>random</option><option>on</option><option>off</option></select></div>
+  <div class="row"><label for="dbg-signal">Force guaranteed signal</label>
+    <select id="dbg-signal"><option>random</option><option>on</option><option>off</option></select></div>
+  <div class="row"><label for="dbg-g1">Event 1 grade</label>
+    <select id="dbg-g1" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+  <div class="row"><label for="dbg-g2">Event 2 grade</label>
+    <select id="dbg-g2" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+  <div class="row"><label for="dbg-g3">Event 3 grade</label>
+    <select id="dbg-g3" class="dbg-grade"><option>random</option><option>bone</option><option>ember</option><option>auric</option><option>prismatic</option></select></div>
+  <div class="row"><label for="dbg-speed">Speed</label>
+    <select id="dbg-speed"><option>0.5x</option><option selected>1x</option><option>2x</option><option>instant</option></select></div>
+  <hr>
+  <label for="dbg-seed">Seed (serverSeed:pick:nonce)</label>
+  <input type="text" id="dbg-seed" spellcheck="false" placeholder="paste a run seed">
+  <div class="btns">
+    <button id="dbg-replay" type="button">Replay</button>
+    <button id="dbg-copy" type="button">Copy seed</button>
+  </div>
+  <hr>
+  <div class="btns"><button id="dbg-run100" type="button">Run 100 opens</button></div>
+  <pre id="dbg-out">draw-only simulation. uses the current
+force settings (random = unforced).</pre>
+  <hr>
+  <pre id="dbg-config"></pre>
+</aside>
+
+<script>
+'use strict';
+/* =====================================================================
+   THE VAULT JOB · prototype
+   The one thing that must be true: the outcome is drawn once, frozen,
+   before any animation begins. drawOutcome() is the only place a run's
+   outcome is decided. The built-in unseeded random number generator is
+   never called anywhere in this file; all randomness comes from the
+   seeded PRNG below or from crypto.getRandomValues (seed generation only).
+   ===================================================================== */
+
+/* ============================== CONFIG ==============================
+   Every tunable lives here and nowhere else. */
+const CONFIG = {
+  tierWeights:          { floor: 0.60, solid: 0.36, grail: 0.04 },        // PLACEHOLDER
+  exitWeights: {                                                          // PLACEHOLDER
+    floor: { short: 0.70, medium: 0.25, full: 0.05 },
+    solid: { short: 0.25, medium: 0.45, full: 0.30 },
+    grail: { short: 0.10, medium: 0.25, full: 0.65 },
+  },
+  gradeWeights: {                                                         // PLACEHOLDER
+    floor: { bone: 0.70, ember: 0.22, auric: 0.07, prismatic: 0.01 },
+    solid: { bone: 0.35, ember: 0.38, auric: 0.24, prismatic: 0.03 },
+    grail: { bone: 0.10, ember: 0.25, auric: 0.45, prismatic: 0.20 },
+  },
+  omenWeights:          { floor: 0.03, solid: 0.15, grail: 0.45 },        // PLACEHOLDER
+  guaranteedSignalRate: 0.14,                                             // PLACEHOLDER, grail only
+  durations:            { short: 8000, medium: 16000, full: 26000, quick: 4000 },
+  crewColours:          ['crimson', 'azure', 'bone'],
+  gagVariants:          ['trip', 'cat', 'walkie', 'car'],
+  prizePool: {                                                            // PLACEHOLDER names
+    floor: ['Brass Lockpick Charm', 'Crew Patch', 'Blueprint Print'],
+    solid: ['Chrome Case Tag', 'Signed Floorplan', 'Night-Shift Jacket'],
+    grail: ['The Auric Case', 'Master Key, One of One', 'Founders Vault Card'],
+  },
+};
+
+/* ============================== rng & hashing ============================== */
+// xmur3 string hash -> 32-bit seeds
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+// mulberry32 deterministic PRNG
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function makeRng(seedStr) { return mulberry32(xmur3(seedStr)()); }
+
+function randomHex(nChars) {
+  const bytes = new Uint8Array(nChars / 2);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// SHA-256: crypto.subtle when available, tiny sync fallback otherwise
+// (fallback keeps the prototype working if a host serves it in a non-secure context).
+function sha256HexSync(ascii) {
+  function rr(v, c) { return (v >>> c) | (v << (32 - c)); }
+  const maxWord = Math.pow(2, 32);
+  let result = '';
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+  const hash = [], k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return '';
+    words[i >> 2] |= j << (((3 - i) % 4) * 8);
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16);
+    let h = hash.slice(0);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+      const a = h[0], e = h[4];
+      const temp1 = h[7]
+        + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25))
+        + ((e & h[5]) ^ (~e & h[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (w[i - 16]
+            + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+      const temp2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22))
+        + ((a & h[1]) ^ (a & h[2]) ^ (h[1] & h[2]));
+      h = [(temp1 + temp2) | 0].concat(h);
+      h[4] = (h[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (h[i] + hash[i]) | 0;
+  }
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+async function sha256Hex(str) {
+  if (crypto.subtle) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) { /* fall through to sync implementation */ }
+  }
+  return sha256HexSync(str);
+}
+
+/* ============================== the draw ==============================
+   Called exactly once per run, before any animation. Returns a frozen
+   object. Nothing downstream may (or can) change any field of it. */
+function weightedPick(rng, weights) {
+  const r = rng();
+  let acc = 0;
+  const entries = Object.entries(weights);
+  for (const [key, w] of entries) {
+    acc += w;
+    if (r < acc) return key;
+  }
+  return entries[entries.length - 1][0];
+}
+
+function drawOutcome(rng, config, seed, forces) {
+  forces = forces || {};
+  const pick = (forced, weights) =>
+    (forced && forced !== 'random') ? forced : weightedPick(rng, weights);
+
+  const tier = pick(forces.tier, config.tierWeights);
+  const exit = pick(forces.exit, config.exitWeights[tier]);
+  const eventsPlayed = { short: 1, medium: 2, full: 3 }[exit];
+
+  const grades = [];
+  for (let i = 0; i < eventsPlayed; i++) {
+    grades.push(pick(forces.grades && forces.grades[i], config.gradeWeights[tier]));
+  }
+
+  let omen;
+  if (forces.omen && forces.omen !== 'random') omen = forces.omen === 'on';
+  else omen = rng() < config.omenWeights[tier];
+  if (exit === 'short') omen = false; // one panel: nothing to sync
+
+  // Licensed certainty: only ever fires on grail. A forced "on" with a
+  // non-grail tier stays false so a forced run remains internally consistent.
+  let guaranteedSignal = false;
+  if (tier === 'grail') {
+    if (forces.signal && forces.signal !== 'random') guaranteedSignal = forces.signal === 'on';
+    else guaranteedSignal = rng() < config.guaranteedSignalRate;
+  }
+
+  return Object.freeze({
+    tier, exit, eventsPlayed,
+    grades: Object.freeze(grades),
+    omen, guaranteedSignal, seed,
+  });
+}
+
+/* Presentation flavour drawn from the same seeded stream, after the outcome
+   is frozen. These values dress the run; none of them can touch the outcome. */
+function derivePresentation(rng, outcome) {
+  const staggers = [0, 0, 0];
+  if (!outcome.omen) {
+    let t = 0;
+    for (let i = 1; i < 3; i++) { t += 200 + rng() * 300; staggers[i] = t; }
+  }
+  const digits = [];
+  for (let i = 0; i < 4; i++) digits.push(Math.floor(rng() * 10));
+  const laserPhases = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
+  const gagRoll = rng();
+  const prizeRoll = rng();
+  return Object.freeze({ staggers, digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), gagRoll, prizeRoll });
+}
+
+/* ============================== constants & state ============================== */
+const GRADE_LABEL = { bone: 'BONE', ember: 'EMBERGLOW', auric: 'AURIC', prismatic: 'PRISMATIC' };
+const GRADE_FILL  = { bone: '#B9B2A0', ember: '#DE8A52', auric: '#E3B84E' }; // prismatic uses a gradient
+const GRADE_RANK  = { bone: 1, ember: 2, auric: 3, prismatic: 4 };
+const EVENTS = [
+  { id: 'roof',   where: 'ROOF',         working: 'on the grid' },
+  { id: 'lobby',  where: 'LOBBY',        working: 'badge in play' },
+  { id: 'keypad', where: 'BELOW GROUND', working: 'cracking' },
+];
+const TIER_COPY = {
+  floor: 'Banked. The collection grows.',
+  solid: 'A good night’s work.',
+  grail: 'The one they’ll talk about.',
+};
+const GAG_CAPTIONS = {
+  trip:   'the new hire trips, recovers, nails the landing.',
+  cat:    'a cat crosses the job. it is not part of the plan.',
+  walkie: 'the walkie squawks. everyone freezes. it’s fine.',
+  car:    'the getaway car is early. keen.',
+};
+const LS = { quick: 'vaultjob.quickOpen', cases: 'vaultjob.cases', sound: 'vaultjob.sound' };
+
+// localStorage can throw on restrictive origins; the registry is cosmetic,
+// so fall back to in-memory for the session rather than breaking the run.
+const store = {
+  get(k)    { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* session-only */ } },
+};
+
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (REDUCED) document.body.classList.add('reduced');
+
+let serverSeed = '';
+let commitHash = '';
+let nonce = 1;
+let soundOn = false;
+let gagPool = CONFIG.gagVariants.slice(); // session pool, refilled when exhausted
+let lastRun = null;                       // { seed, pick, nonce, outcome }
+let engine = null;                        // the active timeline
+let audioCtx = null;
+
+const $ = id => document.getElementById(id);
+const easeOutCubic = p => 1 - Math.pow(1 - p, 3);
+
+/* ============================== sound (optional, default off) ============================== */
+function tone(freq, dur, vol) {
+  if (!soundOn) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* sound is decorative */ }
+}
+
+/* ============================== registry (cosmetic only) ============================== */
+let casesCount = parseInt(store.get(LS.cases) || '0', 10) || 0;
+function casesBanked() { return casesCount; }
+function bankCases(n) {
+  casesCount += n;
+  store.set(LS.cases, String(casesCount));
+  refreshCaseCounter();
+}
+function refreshCaseCounter() {
+  $('cases-count').textContent = casesBanked();
+  $('cases-header').textContent = 'CASES ' + casesBanked();
+}
+
+/* ============================== screens ============================== */
+function showScreen(name) {
+  for (const id of ['screen-pick', 'screen-run', 'screen-reveal']) {
+    $(id).hidden = (id !== 'screen-' + name);
+  }
+}
+
+/* ============================== panel builders ============================== */
+function gradeFillFor(grade, panelIndex) {
+  return grade === 'prismatic' ? 'url(#grad-p' + panelIndex + ')' : GRADE_FILL[grade];
+}
+function prismaticDefs(panelIndex) {
+  return '<defs><linearGradient id="grad-p' + panelIndex + '" x1="0" y1="0" x2="1" y2="1">'
+    + '<stop offset="0%" stop-color="#5ED0C0"/><stop offset="50%" stop-color="#8F7BE8"/>'
+    + '<stop offset="100%" stop-color="#E3B84E"/></linearGradient></defs>';
+}
+function caseMarkup(grade, panelIndex) {
+  const fill = grade ? gradeFillFor(grade, panelIndex) : 'none';
+  return '<g class="case">'
+    + '<rect x="82" y="50" width="44" height="30" rx="4" fill="' + fill + '"/>'
+    + '<rect x="82" y="62" width="44" height="4" fill="rgba(0,0,0,0.28)"/>'
+    + '<circle cx="104" cy="64" r="3" fill="#12141B"/>'
+    + '</g>';
+}
+
+// Each builder returns { el, setStatus, secure, update(workP, tMs) }.
+// workP is 0..1 over the working portion of the events phase.
+function buildPanel(kind, index, grade, pres) {
+  const meta = EVENTS.find(e => e.id === kind);
+  const el = document.createElement('div');
+  el.className = 'panel';
+  el.innerHTML =
+    '<div class="panel-head"><span class="where">' + meta.where + '</span>'
+    + '<span class="status">' + meta.working + '</span></div>';
+
+  let svgInner = '';
+  if (kind === 'roof') {
+    svgInner =
+      '<g class="mover">'
+      + '<line class="laser" x1="10" y1="40" x2="198" y2="40" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
+      + '<line class="laser" x1="10" y1="70" x2="198" y2="70" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
+      + '<line class="laser" x1="10" y1="100" x2="198" y2="100" stroke="#B0455C" stroke-width="1.5" opacity="0.8"/>'
+      + '<circle class="climber" cx="104" cy="122" r="5" fill="#EAE4D4"/>'
+      + '</g>';
+  } else if (kind === 'lobby') {
+    svgInner =
+      '<g class="mover">'
+      + '<line x1="8" y1="112" x2="200" y2="112" stroke="#2C313E" stroke-width="2"/>'
+      + '<rect x="128" y="80" width="48" height="30" rx="3" fill="#12141B" stroke="#2C313E"/>'
+      + '<circle cx="152" cy="70" r="7" fill="#9AA2B1"/>'
+      + '<circle class="walker" cx="14" cy="104" r="6" fill="#EAE4D4"/>'
+      + '<rect class="badge" x="0" y="86" width="9" height="12" rx="1.5" fill="#E3B84E" opacity="0"/>'
+      + '</g>';
+  } else { // keypad
+    let slots = '';
+    for (let i = 0; i < 4; i++) {
+      const x = 34 + i * 38;
+      slots += '<rect class="slot" data-i="' + i + '" x="' + x + '" y="48" width="30" height="40" rx="4" fill="none" stroke="#2C313E" stroke-width="2"/>'
+        + '<text class="digit" data-i="' + i + '" x="' + (x + 15) + '" y="75" text-anchor="middle" '
+        + 'font-size="20" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#EAE4D4" opacity="0"></text>';
+    }
+    svgInner = '<g class="mover">' + slots + '</g>';
+  }
+
+  el.innerHTML += '<svg viewBox="0 0 208 140">' + prismaticDefs(index) + svgInner + caseMarkup(grade, index) + '</svg>';
+
+  const statusEl = el.querySelector('.status');
+  const api = {
+    el,
+    setStatus(text, gradeClass) {
+      statusEl.textContent = text;
+      statusEl.className = 'status' + (gradeClass ? ' grade-' + gradeClass : '');
+    },
+    secure() {
+      el.classList.add('secured');
+      api.setStatus('SECURED — ' + GRADE_LABEL[grade], grade);
+    },
+    standDown() {
+      el.classList.add('stood');
+      api.setStatus('stood down');
+    },
+    update(workP, tMs) {},
+  };
+
+  if (kind === 'roof') {
+    const lasers = el.querySelectorAll('.laser');
+    const climber = el.querySelector('.climber');
+    api.update = (workP, tMs) => {
+      const p = REDUCED ? Math.floor(workP * 4) / 4 : workP;
+      if (!REDUCED) {
+        lasers.forEach((ln, i) => {
+          const y = 40 + i * 30 + Math.sin(tMs / 700 + pres.laserPhases[i]) * 12;
+          ln.setAttribute('y1', y); ln.setAttribute('y2', y);
+        });
+      }
+      climber.setAttribute('cy', 122 - p * 100);
+      climber.setAttribute('cx', 104 + Math.sin(p * Math.PI * 3 + pres.laserPhases[0]) * (REDUCED ? 0 : 34));
+    };
+  } else if (kind === 'lobby') {
+    const walker = el.querySelector('.walker');
+    const badge = el.querySelector('.badge');
+    api.update = (workP) => {
+      const p = REDUCED ? Math.floor(workP * 4) / 4 : workP;
+      let x;
+      if (p < 0.35)      x = 14 + (98 - 14) * (p / 0.35);
+      else if (p < 0.55) x = 98;
+      else               x = 98 + (192 - 98) * ((p - 0.55) / 0.45);
+      walker.setAttribute('cx', x);
+      const showBadge = p >= 0.35 && p < 0.55;
+      badge.setAttribute('opacity', showBadge ? '1' : '0');
+      badge.setAttribute('x', x - 4.5);
+    };
+  } else {
+    const slots = el.querySelectorAll('.slot');
+    const digits = el.querySelectorAll('.digit');
+    api.update = (workP) => {
+      const locked = Math.min(4, Math.floor(workP * 4.6));
+      for (let i = 0; i < 4; i++) {
+        if (i < locked) {
+          slots[i].setAttribute('fill', '#12141B');
+          slots[i].setAttribute('stroke', '#9AA2B1');
+          digits[i].textContent = pres.digits[i];
+          digits[i].setAttribute('opacity', '1');
+        }
+      }
+    };
+  }
+  return api;
+}
+
+/* ============================== finale ============================== */
+function resetFinale() {
+  $('finale').classList.remove('in');
+  $('alarm').hidden = false;
+  $('alarm').classList.remove('down');
+  $('alarm').querySelector('.alarm-label').textContent = 'ALARM · ARMED';
+  $('door-glow').setAttribute('opacity', '0');
+  $('door').setAttribute('transform', '');
+  $('door').setAttribute('opacity', '1');
+  $('platform-group').style.transform = '';
+  $('fin-stack').innerHTML = '';
+}
+function landCases(grades) {
+  const stack = $('fin-stack');
+  stack.innerHTML = '';
+  const n = grades.length;
+  const w = 34, gap = 8;
+  const x0 = 160 - (n * w + (n - 1) * gap) / 2;
+  grades.forEach((g, i) => {
+    const fill = g === 'prismatic' ? 'url(#grad-fin)' : GRADE_FILL[g];
+    const gEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    gEl.setAttribute('class', 'fin-case');
+    gEl.innerHTML = '<rect x="' + (x0 + i * (w + gap)) + '" y="176" width="' + w + '" height="22" rx="3" fill="' + fill + '"/>';
+    stack.appendChild(gEl);
+    setTimeout(() => gEl.classList.add('landed'), 40 + i * 150);
+  });
+}
+function updateDoor(p, weight, fixedSpectacle) {
+  // The door ALWAYS opens fully by p = 1. Weight changes only the flourish:
+  // a modest stack walks it open, a rich stack throws it wide.
+  const rich = fixedSpectacle ? 0.5 : Math.min(1, weight / 12);
+  const eased = easeOutCubic(p);
+  const curve = rich * eased + (1 - rich) * p;   // rich fronts the motion, modest walks it
+  const slide = curve * (58 + rich * 30);
+  const spin  = curve * (140 + rich * 120);
+  $('door').setAttribute('transform',
+    REDUCED ? '' : 'translate(' + slide + ' 0) rotate(' + spin + ' ' + (160 + slide) + ' 94)');
+  if (REDUCED) $('door').setAttribute('opacity', String(1 - curve));
+  $('door-glow').setAttribute('opacity', (curve * (0.35 + rich * 0.55)).toFixed(3));
+}
+
+/* ============================== gags (quick open only) ============================== */
+function pickGag(roll) {
+  if (gagPool.length === 0) gagPool = CONFIG.gagVariants.slice();
+  const idx = Math.floor(roll * gagPool.length) % gagPool.length;
+  return gagPool.splice(idx, 1)[0];
+}
+function playGag(gag) {
+  const strip = $('gag-strip');
+  strip.hidden = false;
+  let art = '';
+  if (gag === 'cat') {
+    art = '<svg viewBox="0 0 60 26" style="left:0; width:60px; animation:none;">'
+      + '<ellipse cx="30" cy="18" rx="14" ry="7" fill="#2C313E"/>'
+      + '<circle cx="44" cy="12" r="5" fill="#2C313E"/>'
+      + '<path d="M41 8 l2 -4 l2 4 Z M45 8 l2 -4 l2 4 Z" fill="#2C313E"/>'
+      + '<path d="M16 16 q-8 -2 -6 -10" stroke="#2C313E" stroke-width="2.5" fill="none"/></svg>';
+  } else if (gag === 'car') {
+    art = '<svg viewBox="0 0 70 26" style="left:0; width:70px;">'
+      + '<rect x="8" y="8" width="44" height="10" rx="3" fill="#2C313E"/>'
+      + '<circle cx="18" cy="20" r="4" fill="#12141B" stroke="#2C313E"/>'
+      + '<circle cx="42" cy="20" r="4" fill="#12141B" stroke="#2C313E"/>'
+      + '<path d="M52 10 l14 3 l-14 3 Z" fill="#E3B84E" opacity="0.35"/></svg>';
+  } else if (gag === 'trip') {
+    art = '<svg viewBox="0 0 40 26" style="left:0; width:40px;">'
+      + '<circle cx="20" cy="10" r="6" fill="#9AA2B1"/></svg>';
+  } else { // walkie
+    art = '<svg viewBox="0 0 60 26" style="left:0; width:60px;">'
+      + '<rect x="6" y="6" width="10" height="16" rx="2" fill="#2C313E"/>'
+      + '<line x1="8" y1="6" x2="8" y2="1" stroke="#2C313E" stroke-width="2"/>'
+      + '<text x="22" y="17" font-size="9" fill="#9AA2B1" font-family="ui-monospace,Consolas,monospace">—kzzht. copy.</text></svg>';
+  }
+  strip.innerHTML = art + '<div class="gag-caption">' + GAG_CAPTIONS[gag] + '</div>';
+  const svg = strip.querySelector('svg');
+  if (!REDUCED && (gag === 'cat' || gag === 'car' || gag === 'trip')) {
+    svg.style.transition = 'left 1.4s linear';
+    svg.style.left = '-80px';
+    requestAnimationFrame(() => requestAnimationFrame(() => { svg.style.left = 'calc(100% + 10px)'; }));
+  } else {
+    svg.style.left = 'calc(50% - 30px)';
+  }
+}
+
+/* ============================== run engine ============================== */
+function speedFactor() {
+  const v = $('dbg-speed').value;
+  if (v === '0.5x') return 0.5;
+  if (v === '2x') return 2;
+  if (v === 'instant') return Infinity;
+  return 1;
+}
+
+function beginRun(run) {
+  // run: { seed, pick, nonce, outcome, pres, quick, replay }
+  lastRun = run;
+  const o = run.outcome;
+  const total = run.quick ? CONFIG.durations.quick : CONFIG.durations[o.exit];
+
+  // reset stage
+  const panelsEl = $('panels');
+  panelsEl.innerHTML = '';
+  panelsEl.classList.remove('dimmed');
+  $('run-caption').textContent = '';
+  $('gag-strip').hidden = true;
+  $('gag-strip').innerHTML = '';
+  resetFinale();
+  showScreen('run');
+
+  const cues = [];
+  const animators = [];
+  const cue = (t, fn) => cues.push({ t, fn });
+  const anim = (t0, t1, update) => animators.push({ t0, t1, update });
+  const weight = o.grades.reduce((s, g) => s + GRADE_RANK[g], 0);
+
+  if (run.quick) {
+    /* ---- quick open: byte-identical structure across tiers ----
+       Fixed beats: split 0-600, resolve window 600-2400, door 2400-3400,
+       hold to 4000. Only grade colouring (and the outcome data itself)
+       differs. Omen stagger and the guaranteed signal do not play here. */
+    const panels = EVENTS.map((e, i) => buildPanel(e.id, i, o.grades[i], run.pres));
+    panelsEl.style.setProperty('--n', 3);
+    panels.forEach(p => panelsEl.appendChild(p.el));
+    $('alarm').hidden = true; // identical across tiers: no signal channel in quick open
+    cue(0, () => { $('run-caption').textContent = 'quick open'; });
+    panels.forEach((p, i) => cue(120 + i * 120, () => p.el.classList.add('in')));
+    anim(600, 1950, (p, t) => panels.forEach((pan, i) => { if (i < o.eventsPlayed) pan.update(p, t); }));
+    cue(900, () => playGag(pickGag(run.pres.gagRoll)));
+    cue(1500, () => {
+      panels.forEach(p => p.el.classList.add('beat'));
+      setTimeout(() => panels.forEach(p => p.el.classList.remove('beat')), 300);
+    });
+    cue(1950, () => panels.forEach((p, i) => { if (i < o.eventsPlayed) p.secure(); else p.standDown(); }));
+    cue(2400, () => {
+      panelsEl.classList.add('dimmed');
+      $('finale').classList.add('in');
+      landCases(o.grades);
+    });
+    anim(2500, 3400, p => updateDoor(p, weight, true)); // fixed spectacle, tier-blind
+    cue(3400, () => { if (soundOn) tone(58, 0.5, 0.12); });
+  } else {
+    /* ---- full run: intro / events / approach / door ---- */
+    const ph = {
+      intro:    total * 0.10,
+      events:   total * 0.55,
+      approach: total * 0.175,
+      door:     total * 0.175,
+    };
+    const eventsStart = ph.intro;
+    const approachStart = eventsStart + ph.events;
+    const doorStart = approachStart + ph.approach;
+
+    const panels = [];
+    for (let i = 0; i < o.eventsPlayed; i++) panels.push(buildPanel(EVENTS[i].id, i, o.grades[i], run.pres));
+    panelsEl.style.setProperty('--n', o.eventsPlayed);
+    panels.forEach(p => panelsEl.appendChild(p.el));
+
+    cue(0, () => { $('run-caption').textContent = 'the crew splits'; });
+    panels.forEach((p, i) => cue(ph.intro * 0.3 + i * 160, () => p.el.classList.add('in')));
+    cue(eventsStart, () => { $('run-caption').textContent = o.eventsPlayed === 1 ? 'one job tonight' : o.eventsPlayed + ' jobs, one night'; });
+
+    // working portion = first 75% of the events phase
+    anim(eventsStart, eventsStart + ph.events * 0.75, (p, t) => panels.forEach(pan => pan.update(p, t)));
+
+    // the brightening beat: synced on the same frame when the omen is true,
+    // deliberately staggered 200-500ms otherwise
+    const beatBase = eventsStart + ph.events * 0.55;
+    panels.forEach((p, i) => cue(beatBase + run.pres.staggers[i], () => {
+      p.el.classList.add('beat');
+      setTimeout(() => p.el.classList.remove('beat'), 320);
+      if (o.omen && i === 0) tone(110, 0.6, 0.1); // the low sync tone
+    }));
+
+    // secure moments: fixed small offsets so three results stay readable
+    panels.forEach((p, i) => cue(eventsStart + ph.events * 0.8 + i * 260, () => p.secure()));
+
+    cue(approachStart, () => {
+      panelsEl.classList.add('dimmed');
+      $('run-caption').textContent = 'the crew regroups below';
+      $('finale').classList.add('in');
+      landCases(o.grades);
+      if (!REDUCED) $('platform-group').style.transform = 'translateY(' + (weight * 0.8) + 'px)';
+    });
+    if (o.guaranteedSignal) {
+      cue(approachStart + ph.approach * 0.6, () => {
+        const alarm = $('alarm');
+        alarm.classList.add('down');
+        alarm.querySelector('.alarm-label').textContent = 'ALARM · POWERED DOWN';
+        $('run-caption').textContent = 'the alarm goes quiet';
+      });
+    }
+    cue(doorStart, () => { $('run-caption').textContent = ''; if (soundOn) tone(58, 0.5, 0.12); });
+    anim(doorStart, total, p => updateDoor(p, weight, false));
+  }
+
+  cues.sort((a, b) => a.t - b.t);
+  engine = { run, cues, animators, total, elapsed: 0, last: null, cueIndex: 0, done: false };
+
+  if (speedFactor() === Infinity) { instantFinish(); return; }
+  requestAnimationFrame(tick);
+}
+
+function tick(ts) {
+  const e = engine;
+  if (!e || e.done) return;
+  if (e.last === null) e.last = ts;
+  const dt = Math.min(100, ts - e.last);
+  e.last = ts;
+  e.elapsed += dt * speedFactor();
+
+  while (e.cueIndex < e.cues.length && e.cues[e.cueIndex].t <= e.elapsed) {
+    e.cues[e.cueIndex].fn();
+    e.cueIndex++;
+  }
+  for (const a of e.animators) {
+    if (e.elapsed >= a.t0) {
+      const p = Math.min(1, (e.elapsed - a.t0) / (a.t1 - a.t0));
+      a.update(p, e.elapsed);
+    }
+  }
+  if (e.elapsed >= e.total) { e.done = true; finishRun(); return; }
+  requestAnimationFrame(tick);
+}
+
+function instantFinish() {
+  const e = engine;
+  while (e.cueIndex < e.cues.length) { e.cues[e.cueIndex].fn(); e.cueIndex++; }
+  for (const a of e.animators) a.update(1, e.total);
+  e.done = true;
+  finishRun();
+}
+
+/* ============================== reveal & receipt ============================== */
+function finishRun() {
+  const run = engine.run;
+  const o = run.outcome;
+  if (!run.replay) bankCases(o.eventsPlayed);
+
+  $('tier-label').textContent = { floor: 'FLOOR', solid: 'SOLID', grail: 'GRAIL' }[o.tier];
+  $('tier-label').className = 'tier-label tier-' + o.tier;
+  const pool = CONFIG.prizePool[o.tier];
+  $('prize-name').textContent = pool[Math.floor(run.pres.prizeRoll * pool.length)];
+  $('prize-copy').textContent = TIER_COPY[o.tier];
+  const chips = $('haul-chips');
+  chips.innerHTML = '';
+  o.grades.forEach(g => {
+    const s = document.createElement('span');
+    s.className = 'grade-' + g;
+    s.textContent = GRADE_LABEL[g];
+    chips.appendChild(s);
+  });
+
+  $('r-commit').textContent = commitHash;
+  $('r-seed').value = serverSeed;
+  $('r-pick').textContent = run.pick;
+  $('r-nonce').textContent = run.nonce;
+  $('r-runseed').textContent = o.seed;
+  $('verify-result').textContent = '';
+  $('verify-result').className = '';
+  $('dbg-seed').value = o.seed;
+  showScreen('reveal');
+}
+
+/* ============================== flow wiring ============================== */
+function currentForces() {
+  return {
+    tier: $('dbg-tier').value,
+    exit: $('dbg-exit').value,
+    omen: $('dbg-omen').value,
+    signal: $('dbg-signal').value,
+    grades: [$('dbg-g1').value, $('dbg-g2').value, $('dbg-g3').value],
+  };
+}
+
+function startRun(pick, seedStr, runNonce, replay) {
+  const rng = makeRng(seedStr);
+  const outcome = drawOutcome(rng, CONFIG, seedStr, currentForces());
+  const pres = derivePresentation(rng, outcome);
+  beginRun({ seed: seedStr, pick, nonce: runNonce, outcome, pres, quick: $('quick-toggle').checked, replay: !!replay });
+}
+
+document.querySelectorAll('.swatch').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const pick = btn.dataset.colour;
+    startRun(pick, serverSeed + ':' + pick + ':' + nonce, nonce, false);
+  });
+});
+
+$('btn-again').addEventListener('click', () => {
+  nonce += 1;
+  refreshCaseCounter();
+  showScreen('pick');
+});
+
+$('btn-replay').addEventListener('click', () => {
+  if (lastRun) startRun(lastRun.pick, lastRun.seed, lastRun.nonce, true);
+});
+
+$('btn-verify').addEventListener('click', async () => {
+  const hash = await sha256Hex($('r-seed').value.trim());
+  const pass = hash === commitHash;
+  const el = $('verify-result');
+  el.textContent = pass ? 'PASS — hash matches the commit shown before your pick'
+                        : 'FAIL — this seed does not match the commit';
+  el.className = pass ? 'pass' : 'fail';
+});
+
+$('quick-toggle').addEventListener('change', e => store.set(LS.quick, e.target.checked ? '1' : '0'));
+
+$('sound-toggle').addEventListener('click', () => {
+  soundOn = !soundOn;
+  const b = $('sound-toggle');
+  b.textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+  b.setAttribute('aria-pressed', String(soundOn));
+  store.set(LS.sound, soundOn ? '1' : '0');
+});
+
+/* ============================== debug panel ============================== */
+function toggleDebug() { $('debug').hidden = !$('debug').hidden; }
+$('debug-toggle').addEventListener('click', toggleDebug);
+document.addEventListener('keydown', e => {
+  if ((e.key === 'd' || e.key === 'D') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggleDebug();
+});
+
+$('dbg-copy').addEventListener('click', () => {
+  const seed = lastRun ? lastRun.seed : serverSeed + ':crimson:' + nonce;
+  $('dbg-seed').value = seed;
+  if (navigator.clipboard) navigator.clipboard.writeText(seed).catch(() => {});
+});
+
+$('dbg-replay').addEventListener('click', () => {
+  const seedStr = $('dbg-seed').value.trim();
+  if (!seedStr) return;
+  const parts = seedStr.split(':');
+  const pick = parts.length === 3 ? parts[1] : 'debug';
+  const n = parts.length === 3 ? parseInt(parts[2], 10) || 0 : 0;
+  startRun(pick, seedStr, n, true);
+});
+
+$('dbg-run100').addEventListener('click', () => {
+  const forces = currentForces();
+  const tierCount = { floor: 0, solid: 0, grail: 0 };
+  const exitCount = { short: 0, medium: 0, full: 0 };
+  const shortByTier = { floor: [0, 0], solid: [0, 0], grail: [0, 0] }; // [short, total]
+  const simBase = randomHex(8);
+  for (let i = 0; i < 100; i++) {
+    const s = serverSeed + ':sim' + simBase + ':' + i;
+    const o = drawOutcome(makeRng(s), CONFIG, s, forces);
+    tierCount[o.tier]++;
+    exitCount[o.exit]++;
+    shortByTier[o.tier][1]++;
+    if (o.exit === 'short') shortByTier[o.tier][0]++;
+  }
+  const pct = (a, b) => b === 0 ? '—' : Math.round(100 * a / b) + '%';
+  $('dbg-out').textContent =
+      '100 draws (draw only, no animation)\n'
+    + 'tier   floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '\n'
+    + 'exit   short ' + exitCount.short + '  medium ' + exitCount.medium + '  full ' + exitCount.full + '\n'
+    + 'short-exit rate per tier\n'
+    + '  floor ' + shortByTier.floor[0] + '/' + shortByTier.floor[1] + ' (' + pct(shortByTier.floor[0], shortByTier.floor[1]) + ')\n'
+    + '  solid ' + shortByTier.solid[0] + '/' + shortByTier.solid[1] + ' (' + pct(shortByTier.solid[0], shortByTier.solid[1]) + ')\n'
+    + '  grail ' + shortByTier.grail[0] + '/' + shortByTier.grail[1] + ' (' + pct(shortByTier.grail[0], shortByTier.grail[1]) + ')';
+});
+
+/* ============================== init ============================== */
+(async function init() {
+  serverSeed = randomHex(32);
+  nonce = 1;
+  commitHash = await sha256Hex(serverSeed);
+  $('commit-display').textContent = commitHash;
+  $('quick-toggle').checked = store.get(LS.quick) === '1';
+  if (store.get(LS.sound) === '1') $('sound-toggle').click();
+  refreshCaseCounter();
+  $('dbg-config').textContent = 'CONFIG (placeholders)\n' + JSON.stringify({
+    tierWeights: CONFIG.tierWeights,
+    exitWeights: CONFIG.exitWeights,
+    gradeWeights: CONFIG.gradeWeights,
+    omenWeights: CONFIG.omenWeights,
+    guaranteedSignalRate: CONFIG.guaranteedSignalRate,
+  }, null, 1);
+  showScreen('pick');
+})();
+
+// exposed for review tooling only; nothing in the app reads this
+window.VaultDebug = { CONFIG, drawOutcome, derivePresentation, makeRng, sha256Hex };
+</script>
+</body>
+</html>
