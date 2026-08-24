@@ -301,7 +301,9 @@
     box-shadow: inset 0 0 110px -40px var(--heatcol), inset 0 0 60px -30px rgba(94, 208, 192, 0.5); }
   #screen-run.fore { --heat-a: 0.14; }
 
-  /* ============================== decider push, stumbles, bleedout ============================== */
+  /* ==================== decider push, stumbles, the rescue clock ====================
+     nobody bleeds in this show: a downed crew member is pinned, and the bar is
+     the window the crew has to pull him out before security closes in. */
   .panel { transition: border-color .3s ease-out, opacity .4s ease-out, transform .5s cubic-bezier(.215,.61,.355,1); }
   .panel.push { transform: scale(1.03); border-color: var(--dim); z-index: 2; }
   body.reduced .panel.push { transform: none; }
@@ -310,9 +312,9 @@
   .panel.flash-assist { border-color: var(--auric); }
   @keyframes stumble-shake { 0%,100% { transform: none; } 25% { transform: translateX(-3px); } 50% { transform: translateX(2px); } 75% { transform: translateX(-1px); } }
   body.reduced .panel.flash-stumble svg { animation: none; }
-  .bleed { height: 5px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--ground); }
-  .bleed[hidden] { display: none; }
-  .bleed-fill { height: 100%; width: 100%; background: var(--laser); transition: width .12s linear; }
+  .clock { height: 5px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--ground); }
+  .clock[hidden] { display: none; }
+  .clock-fill { height: 100%; width: 100%; background: var(--laser); transition: width .12s linear; }
 
   /* ============================== reduced motion ============================== */
   body.reduced .swatch { transform: none !important; }
@@ -761,7 +763,7 @@ force settings (random = unforced).</pre>
       "text": "man down. talk to me. TALK to me."
     },
     {
-      "text": "he’s down. i still have a pulse on comms. hold on—"
+      "text": "he’s pinned. i’ve still got him on comms. hold on—"
     },
     {
       "text": "down. the clock is running."
@@ -781,12 +783,12 @@ force settings (random = unforced).</pre>
       "text": "pulled him out. never do that again."
     },
     {
-      "text": "breathing. walking. good enough."
+      "text": "on his feet. moving. good enough."
     }
   ],
   "handler.lost": [
     {
-      "text": "he’s gone. leave it. i said leave it."
+      "text": "they’ve got him. leave it. i said leave it."
     },
     {
       "text": "no response. we’re minus one."
@@ -1728,23 +1730,23 @@ function buildPanel(where, svg, status, caption, extraClass) {
   el.className = 'panel' + (extraClass ? ' ' + extraClass : '');
   el.innerHTML = '<div class="panel-head"><span class="where">' + where + '</span><span class="status">' + status + '</span></div>';
   el.appendChild(svg);
-  const bleed = document.createElement('div');
-  bleed.className = 'bleed'; bleed.hidden = true;
-  bleed.innerHTML = '<div class="bleed-fill"></div>';
-  el.appendChild(bleed);
+  const clock = document.createElement('div');   // the rescue clock (§5.3) — time, not blood
+  clock.className = 'clock'; clock.hidden = true;
+  clock.innerHTML = '<div class="clock-fill"></div>';
+  el.appendChild(clock);
   const cap = document.createElement('div');
   cap.className = 'panel-caption idle';
   cap.textContent = caption;
   el.appendChild(cap);
   const statusEl = el.querySelector('.status');
-  const bleedFill = bleed.querySelector('.bleed-fill');
+  const clockFill = clock.querySelector('.clock-fill');
   let flashTimer = null;
   return {
     el,
     setStatus(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); },
     setCaption(text, idle) { cap.textContent = text; cap.className = 'panel-caption' + (idle ? ' idle' : ''); },
-    showBleed(on) { bleed.hidden = !on; },
-    setBleed(frac) { bleedFill.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%'; },
+    showClock(on) { clock.hidden = !on; },
+    setClock(frac) { clockFill.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%'; },
     flash(cls) {                                     // stumble (laser) or assist (auric) pulse
       el.classList.remove('flash-stumble', 'flash-assist');
       void el.offsetWidth;
@@ -2102,19 +2104,20 @@ function beginRun(run) {
       }
     });
 
-    // ---- §5.3 the downed window: bleedout bar, save moment drawn at seal
+    // ---- §5.3 the downed window: he's pinned, the rescue clock drains, and the
+    // save moment is drawn at seal. Nobody bleeds — the stakes are the job.
     if (o.windowIdx !== null && o.shown.includes(o.windowIdx)) {
       const i = o.windowIdx, wb = bMap['window.' + i], pn = panels[i], sc = scenes[i];
       const rec = o.windowKind === 'recovered';
       const saveF = Math.max(0.35, Math.min(0.9, o.windowSaveAt / 3000));
       cue(wb.at, () => {
         pn.el.classList.add('active');
-        pn.showBleed(true); pn.setBleed(1);
+        pn.showClock(true); pn.setClock(1);
         say('downed');
-        pn.setStatus('DOWN — BLEEDING OUT', 'out');
+        pn.setStatus('DOWN — CLOCK RUNNING', 'out');
         if (soundOn) tone(90, 0.4, 0.08);
       });
-      anim(wb.at, wb.at + Math.max(1, wb.dur), p => pn.setBleed(rec ? 1 - Math.min(p, saveF) : 1 - p));
+      anim(wb.at, wb.at + Math.max(1, wb.dur), p => pn.setClock(rec ? 1 - Math.min(p, saveF) : 1 - p));
       if (rec) {
         cue(wb.at + wb.dur * saveF, () => {
           pn.flash('assist'); say('rescued');
@@ -2123,7 +2126,7 @@ function beginRun(run) {
           const guy = sc.svg.querySelector('.guy'); if (guy) guy.setAttribute('opacity', '0.35');
           if (soundOn) tone(330, 0.3, 0.07);
         });
-        cue(wb.at + wb.dur * 0.97, () => { pn.showBleed(false); pn.el.classList.remove('active'); });
+        cue(wb.at + wb.dur * 0.97, () => { pn.showClock(false); pn.el.classList.remove('active'); });
       } else {
         const inner = sceneClock[i];   // the consequence completes when the bar empties
         sceneClock[i] = t => {
@@ -2133,9 +2136,9 @@ function beginRun(run) {
         cue(wb.at + wb.dur * 0.85, () => {
           say('lost');
           pn.setStatus(statusFor(i, 'out'), 'out');
-          pn.setCaption('the bar runs out. he is not coming.', false);
+          pn.setCaption('the clock runs out. security has him.', false);
         });
-        cue(wb.at + wb.dur * 0.97, () => { pn.showBleed(false); pn.el.classList.remove('active'); markOut(i); });
+        cue(wb.at + wb.dur * 0.97, () => { pn.showClock(false); pn.el.classList.remove('active'); markOut(i); });
       }
     }
 

@@ -44,10 +44,10 @@ reach; the missing numbers come over comms), split by `CONFIG.lockboxRadioOutRat
   non-decider, non-window encounters; two near-miss flashes at +0.9/+1.8s on
   BOTH the win path (assist at +2.45s) and the loss path (the consequence just
   lands). Verified both paths occur (~44% win / 56% loss of flags in 2000 draws).
-- The downed window (§5.3): sealed staging, bleedout bar, save moment drawn at
-  seal between 1.5–2.7s; `CONFIG.recoveryRate` 0.33 ships as specced (measured
-  0.33 over 5000 draws). Loss path completes the consequence when the bar runs
-  out. Both outcomes staged.
+- The downed window (§5.3): sealed staging, a draining **rescue clock**, save
+  moment drawn at seal between 1.5–2.7s; `CONFIG.recoveryRate` 0.33 ships as
+  specced (measured 0.33 over 5000 draws). Loss path completes the consequence
+  (security has him) when the clock runs out. Both outcomes staged.
 - The handler (§5.5): 12 states, lines in the manifest as data with `{token}`
   substitution, selected deterministically by seed+slot hash. The decider-hold
   line names the stakes from the banked results ("two in. one to go. if he
@@ -123,6 +123,13 @@ reach; the missing numbers come over comms), split by `CONFIG.lockboxRadioOutRat
 11. **Asset durations** come from a sidecar `<file>.json` (`{"dur":1800}`) or a
     `_1800ms` filename suffix; WebM parsing without deps was not worth it for a
     placeholder pipeline. A 0-duration entry never extends a beat.
+12. **No death language (Makko, 2026-08-24).** The spec's "bleedout bar" fiction
+    is replaced by a **rescue clock**: a downed crew member is pinned, and the
+    bar is the window the crew has to pull him out before security closes in.
+    This matches the standing v1 direction (no blood; stunned, arrested, caged).
+    Copy sweep: "DOWN — CLOCK RUNNING", "security has him", handler lines
+    de-medicalised ("pinned", "on his feet", "they've got him"). The mechanic,
+    timings and `recoveryRate` are unchanged.
 
 ## Verified in a live browser (this build)
 

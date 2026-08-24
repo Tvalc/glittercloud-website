@@ -106,7 +106,7 @@ const BUILTINS = {
   ],
   'handler.downed': [
     { text: 'man down. talk to me. TALK to me.' },
-    { text: 'he’s down. i still have a pulse on comms. hold on—' },
+    { text: 'he’s pinned. i’ve still got him on comms. hold on—' },
     { text: 'down. the clock is running.' },
     { text: 'no no no. he’s down.' },
   ],
@@ -114,10 +114,10 @@ const BUILTINS = {
     { text: 'got him. GOT him. moving.' },
     { text: 'he’s up. limping, but up.' },
     { text: 'pulled him out. never do that again.' },
-    { text: 'breathing. walking. good enough.' },
+    { text: 'on his feet. moving. good enough.' },
   ],
   'handler.lost': [
-    { text: 'he’s gone. leave it. i said leave it.' },
+    { text: 'they’ve got him. leave it. i said leave it.' },
     { text: 'no response. we’re minus one.' },
     { text: 'that’s it. he’s out of it. keep moving.' },
     { text: '…nothing. finish the job for him.' },
