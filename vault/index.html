@@ -268,6 +268,52 @@
     width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 11px;
   }
 
+  /* ============================== alarm counter (§5.1) ============================== */
+  #screen-run { position: relative; }
+  #alarm {
+    position: absolute; top: 10px; right: 12px; z-index: 5;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 9px; letter-spacing: .2em; color: var(--dim);
+    transition: opacity .6s ease-out;
+  }
+  #alarm .pip {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1px solid var(--line); background: transparent;
+    transition: background-color .25s ease-out, border-color .25s ease-out;
+  }
+  #alarm .pip.on { background: var(--auric); border-color: var(--auric); }
+  #alarm.critical .alabel { color: var(--laser); }
+  #alarm.critical .pip.on { background: var(--laser); border-color: var(--laser); animation: pip-throb 0.9s ease-in-out infinite; }
+  #alarm.tripped .alabel { color: var(--laser); animation: pip-throb 0.4s steps(2) infinite; }
+  #alarm.powered-down { opacity: 0.25; }
+  #alarm.snap .pip.on { animation: pip-snap 0.35s ease-out; }
+  @keyframes pip-throb { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes pip-snap { 0% { transform: scale(1.8); } 100% { transform: scale(1); } }
+  body.reduced #alarm .pip.on, body.reduced #alarm.tripped .alabel { animation: none; }
+
+  /* ============================== heat ladder (§5.4) ============================== */
+  #screen-run { box-shadow: inset 0 0 110px -40px var(--heatcol, transparent); transition: box-shadow 1.2s ease-out; }
+  #screen-run.heat1 { --heatcol: rgba(74, 125, 184, var(--heat-a, 0.45)); }
+  #screen-run.heat2 { --heatcol: rgba(222, 138, 82, var(--heat-a, 0.5)); }
+  #screen-run.heat3 { --heatcol: rgba(227, 184, 78, var(--heat-a, 0.55)); }
+  #screen-run.heat4 { --heatcol: rgba(242, 227, 179, var(--heat-a, 0.6)); }
+  #screen-run.heat5 { --heatcol: rgba(143, 123, 232, var(--heat-a, 0.6));
+    box-shadow: inset 0 0 110px -40px var(--heatcol), inset 0 0 60px -30px rgba(94, 208, 192, 0.5); }
+  #screen-run.fore { --heat-a: 0.14; }
+
+  /* ============================== decider push, stumbles, bleedout ============================== */
+  .panel { transition: border-color .3s ease-out, opacity .4s ease-out, transform .5s cubic-bezier(.215,.61,.355,1); }
+  .panel.push { transform: scale(1.03); border-color: var(--dim); z-index: 2; }
+  body.reduced .panel.push { transform: none; }
+  .panel.flash-stumble { border-color: var(--laser); }
+  .panel.flash-stumble svg { animation: stumble-shake 0.4s ease-out; }
+  .panel.flash-assist { border-color: var(--auric); }
+  @keyframes stumble-shake { 0%,100% { transform: none; } 25% { transform: translateX(-3px); } 50% { transform: translateX(2px); } 75% { transform: translateX(-1px); } }
+  body.reduced .panel.flash-stumble svg { animation: none; }
+  .bleed { height: 5px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: var(--ground); }
+  .bleed[hidden] { display: none; }
+  .bleed-fill { height: 100%; width: 100%; background: var(--laser); transition: width .12s linear; }
+
   /* ============================== reduced motion ============================== */
   body.reduced .swatch { transform: none !important; }
 </style>
@@ -295,6 +341,7 @@
     </div>
     <div class="toggle-row">
       <label><input type="checkbox" id="quick-toggle"> Quick open</label>
+      <label style="margin-left:14px" title="After the 5th open the show plays leaner. This restores the full presentation."><input type="checkbox" id="fullshow-toggle"> Full show</label>
     </div>
 
     <!-- how it pays: what the rewards are and how the crew wins them -->
@@ -327,6 +374,7 @@
 
   <!-- 2 · run -->
   <section id="screen-run" hidden>
+    <div id="alarm" hidden aria-label="Alarm counter"><span class="alabel">ALARM</span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span></div>
     <div id="run-caption"></div>
     <div id="run-body">
       <!-- scene panels are inserted here by beginRun(); the tracker is static -->
@@ -369,6 +417,7 @@
         <dt>Your pick</dt><dd id="r-pick"></dd>
         <dt>Nonce</dt><dd id="r-nonce"></dd>
         <dt>Run seed</dt><dd><code id="r-runseed"></code></dd>
+        <dt>Exit</dt><dd id="r-exit"></dd>
       </dl>
       <div class="btns">
         <button id="btn-verify" type="button">Verify</button>
@@ -389,13 +438,15 @@
   <h2>DEBUG · forces apply at draw time</h2>
   <div class="row"><label for="dbg-tier">Force tier</label>
     <select id="dbg-tier"><option>random</option><option>getaway</option><option>floor</option><option>solid</option><option>grail</option><option>lockbox</option></select></div>
+  <div class="row"><label for="dbg-exit">Force exit</label>
+    <select id="dbg-exit"><option>random</option><option>short</option><option>medium</option><option>full</option></select></div>
   <div class="row"><label for="dbg-r1">Roof guy</label>
-    <select id="dbg-r1" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
+    <select id="dbg-r1" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></div>
   <div class="row"><label for="dbg-r2">Lobby guy</label>
-    <select id="dbg-r2" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
+    <select id="dbg-r2" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></div>
   <div class="row"><label for="dbg-r3">Keypad guy</label>
-    <select id="dbg-r3" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option></select></div>
-  <div class="note">Tier follows the results: 0 in → getaway (vault shut) · 1 floor · 2 solid · 3 grail · 3 all clean → lockbox. Per-guy forces win when they conflict with the tier. Who goes first is drawn per run.</div>
+    <select id="dbg-r3" class="dbg-res"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></div>
+  <div class="note">The tier is drawn first; crew results are drawn consistent with it (0 in → getaway · 1 floor · 2 solid · 3 grail; lockbox is its own sealed tier, in-person or radio-out). Per-guy forces win when they conflict with the tier. "rescued" = downed then recovered — counts as in, with a number. Reveal order is drawn at seal, decider last.</div>
   <div class="row"><label for="dbg-speed">Speed</label>
     <select id="dbg-speed"><option>0.5x</option><option selected>1x</option><option>2x</option><option>instant</option></select></div>
   <hr>
@@ -410,8 +461,402 @@
   <pre id="dbg-out">draw-only simulation. uses the current
 force settings (random = unforced).</pre>
   <hr>
+  <div class="note">Last sealed run</div>
+  <pre id="dbg-seal">no run sealed yet.</pre>
+  <hr>
   <pre id="dbg-config"></pre>
 </aside>
+
+<!-- MANIFEST:BEGIN — generated by tools/build-manifest.mjs; do not edit by hand.
+     The engine reads this inline copy and never fetches it, so file:// works.
+     "builtin" entries are the placeholder library (one CSS/SVG stand-in per
+     visual slot); real assets are added by dropping files into vault/assets/
+     and re-running the script. Handler lines are data entries here. -->
+<script type="application/json" id="manifest">
+{
+  "encounter.roof.clean": [
+    {
+      "builtin": "roof-clean-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.roof.close": [
+    {
+      "builtin": "roof-close-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.roof.out": [
+    {
+      "builtin": "roof-out-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.lobby.clean": [
+    {
+      "builtin": "lobby-clean-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.lobby.close": [
+    {
+      "builtin": "lobby-close-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.lobby.out": [
+    {
+      "builtin": "lobby-out-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.keypad.clean": [
+    {
+      "builtin": "keypad-clean-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.keypad.close": [
+    {
+      "builtin": "keypad-close-v0",
+      "dur": 0
+    }
+  ],
+  "encounter.keypad.out": [
+    {
+      "builtin": "keypad-out-v0",
+      "dur": 0
+    }
+  ],
+  "softfail.roof": [
+    {
+      "builtin": "softfail-v0",
+      "dur": 0
+    }
+  ],
+  "softfail.lobby": [
+    {
+      "builtin": "softfail-v0",
+      "dur": 0
+    }
+  ],
+  "softfail.keypad": [
+    {
+      "builtin": "softfail-v0",
+      "dur": 0
+    }
+  ],
+  "assist.roof": [
+    {
+      "builtin": "assist-v0",
+      "dur": 0
+    }
+  ],
+  "assist.lobby": [
+    {
+      "builtin": "assist-v0",
+      "dur": 0
+    }
+  ],
+  "assist.keypad": [
+    {
+      "builtin": "assist-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.roof.recovered": [
+    {
+      "builtin": "rescue-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.roof.lost": [
+    {
+      "builtin": "lost-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.lobby.recovered": [
+    {
+      "builtin": "rescue-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.lobby.lost": [
+    {
+      "builtin": "lost-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.keypad.recovered": [
+    {
+      "builtin": "rescue-v0",
+      "dur": 0
+    }
+  ],
+  "rescue.keypad.lost": [
+    {
+      "builtin": "lost-v0",
+      "dur": 0
+    }
+  ],
+  "heat.1": [
+    {
+      "builtin": "heat-cold-blue",
+      "dur": 0
+    }
+  ],
+  "heat.2": [
+    {
+      "builtin": "heat-warm-amber",
+      "dur": 0
+    }
+  ],
+  "heat.3": [
+    {
+      "builtin": "heat-gold",
+      "dur": 0
+    }
+  ],
+  "heat.4": [
+    {
+      "builtin": "heat-white-gold",
+      "dur": 0
+    }
+  ],
+  "heat.5": [
+    {
+      "builtin": "heat-prismatic",
+      "dur": 0
+    }
+  ],
+  "vaultopen.getaway": [
+    {
+      "builtin": "door-shut-v0",
+      "dur": 0
+    }
+  ],
+  "vaultopen.floor": [
+    {
+      "builtin": "door-v0",
+      "dur": 0
+    }
+  ],
+  "vaultopen.solid": [
+    {
+      "builtin": "door-v0",
+      "dur": 0
+    }
+  ],
+  "vaultopen.grail": [
+    {
+      "builtin": "door-v0",
+      "dur": 0
+    }
+  ],
+  "vaultopen.lockbox": [
+    {
+      "builtin": "door-prismatic-v0",
+      "dur": 0
+    }
+  ],
+  "ambient": [
+    {
+      "builtin": "ambient-v0",
+      "dur": 0
+    }
+  ],
+  "crew.skin": [
+    {
+      "builtin": "skin-v0",
+      "dur": 0
+    }
+  ],
+  "gag.quick": [
+    {
+      "gag": "trip"
+    },
+    {
+      "gag": "cat"
+    },
+    {
+      "gag": "walkie"
+    },
+    {
+      "gag": "car"
+    }
+  ],
+  "handler.cold_open": [
+    {
+      "text": "overwatch on. cameras are mine for six minutes. let’s go to work."
+    },
+    {
+      "text": "three ways in, one box. quiet feet."
+    },
+    {
+      "text": "i’ve got eyes on all three. make me look good."
+    },
+    {
+      "text": "comms check. good. it’s a nice night to get rich."
+    }
+  ],
+  "handler.encounter_start": [
+    {
+      "text": "go. {where}."
+    },
+    {
+      "text": "{where}. you’re up. clean and quiet."
+    },
+    {
+      "text": "{where}. your window’s open. move."
+    },
+    {
+      "text": "{where}. breathe. go."
+    }
+  ],
+  "handler.softfail_1": [
+    {
+      "text": "easy — hold. hold…"
+    },
+    {
+      "text": "that was close. nobody breathe."
+    },
+    {
+      "text": "careful. careful."
+    },
+    {
+      "text": "i saw that. so did my heart."
+    }
+  ],
+  "handler.softfail_2": [
+    {
+      "text": "again?! okay. okay. you’re still alive."
+    },
+    {
+      "text": "twice. nobody’s that unlucky. reset."
+    },
+    {
+      "text": "i can’t watch. i’m watching."
+    },
+    {
+      "text": "second stumble. steady. steady…"
+    }
+  ],
+  "handler.assist": [
+    {
+      "text": "got you — the loop’s frozen. go."
+    },
+    {
+      "text": "hatch on your left. that one’s mine. go."
+    },
+    {
+      "text": "and that is why you bring a crew."
+    },
+    {
+      "text": "handled. don’t ask how. move."
+    }
+  ],
+  "handler.downed": [
+    {
+      "text": "man down. talk to me. TALK to me."
+    },
+    {
+      "text": "he’s down. i still have a pulse on comms. hold on—"
+    },
+    {
+      "text": "down. the clock is running."
+    },
+    {
+      "text": "no no no. he’s down."
+    }
+  ],
+  "handler.rescued": [
+    {
+      "text": "got him. GOT him. moving."
+    },
+    {
+      "text": "he’s up. limping, but up."
+    },
+    {
+      "text": "pulled him out. never do that again."
+    },
+    {
+      "text": "breathing. walking. good enough."
+    }
+  ],
+  "handler.lost": [
+    {
+      "text": "he’s gone. leave it. i said leave it."
+    },
+    {
+      "text": "no response. we’re minus one."
+    },
+    {
+      "text": "that’s it. he’s out of it. keep moving."
+    },
+    {
+      "text": "…nothing. finish the job for him."
+    }
+  ],
+  "handler.counter_reset": [
+    {
+      "text": "clean. the board resets. breathe."
+    },
+    {
+      "text": "counter’s back to three. we’re whole."
+    },
+    {
+      "text": "reset. that buys the night back."
+    },
+    {
+      "text": "green across the board again."
+    }
+  ],
+  "handler.counter_critical": [
+    {
+      "text": "one pip left. nothing fancy from here."
+    },
+    {
+      "text": "we’re one alarm from done. walk, don’t run."
+    },
+    {
+      "text": "red board. the next mistake ends it."
+    },
+    {
+      "text": "one left. i don’t like this either."
+    }
+  ],
+  "handler.decider_hold": [
+    {
+      "text": "{stakes} hold."
+    },
+    {
+      "text": "{stakes} nobody breathe."
+    },
+    {
+      "text": "{stakes} i’ll be watching through my fingers."
+    },
+    {
+      "text": "{stakes} steady…"
+    }
+  ],
+  "handler.tier_reveal": [
+    {
+      "text": "door’s yours. take it home."
+    },
+    {
+      "text": "open it up. we’re done here."
+    },
+    {
+      "text": "that’s the job. bag it and walk."
+    },
+    {
+      "text": "there it is. load up."
+    }
+  ]
+}
+</script>
+<!-- MANIFEST:END -->
 
 <script>
 'use strict';
@@ -432,15 +877,26 @@ force settings (random = unforced).</pre>
    ===================================================================== */
 
 /* ============================== CONFIG ==============================
-   Every tunable lives here and nowhere else. */
+   Every tunable lives here and nowhere else. The client owns every weight;
+   nothing in the build may retune a weight to solve a design problem. */
 const CONFIG = {
-  // five rungs: getaway (nobody makes it, vault shut) · floor 1 · solid 2 · grail 3 · lockbox 3 clean
+  // five rungs. The tier is drawn FIRST from these weights (spec v2 §0) and the
+  // crew results are then drawn consistent with it. Lockbox is a sealed tier in
+  // its own right, no longer "3 clean" (§5.6).
   tierWeights:    { getaway: 0.20, floor: 0.44, solid: 0.28, grail: 0.07, lockbox: 0.01 },   // PLACEHOLDER
-  arrivalsByTier: { getaway: 0, floor: 1, solid: 2, grail: 3, lockbox: 3 },                // how many reach the vault
-  closeCallRate:  0.40,   // PLACEHOLDER: of those who make it, share that are close calls (grail keeps at least one; lockbox has none)
-  durations:      { run: 20000, quick: 4000 },
+  arrivalsByTier: { getaway: 0, floor: 1, solid: 2, grail: 3, lockbox: 3 },  // in-person arrivals; a radio-out lockbox draws fewer (§5.6)
+  closeCallRate:  0.40,   // PLACEHOLDER: of those who make it, share that are close calls (grail keeps at least one miss; lockbox reachers carry numbers)
+  recoveryRate:   0.33,   // §5.3 ship value: P(pulled out | the downed window plays)
+  lockboxRadioOutRate: 0.5, // §5.6 ship value: share of sealed lockboxes drawn as radio-out
+  exitWeights:    { short: 0.18, medium: 0.27, full: 0.55 },   // PLACEHOLDER; lockbox always full, grail never short (band math — NOTES)
+  signalRate:     0.85,   // PLACEHOLDER published rate of the guaranteed signal, grail & lockbox only (§4)
+  softFailChance: 0.45,   // PLACEHOLDER per shown non-decider encounter; at most two per run (§5.2)
+  downedWindowChance: 0.60, // PLACEHOLDER chance the downed window plays when the seal has a candidate (§5.3)
+  heatByTier:     { getaway: [1], floor: [1, 2], solid: [2, 3], grail: [3, 4], lockbox: [5] }, // §5.4 allowed heat sets
+  // pick-to-reveal bands, ms [floor, ceiling]; the scheduler trims to the ceiling (§2.1)
+  caps: { short: [6500, 9000], medium: [13000, 17000], full: [19000, 24000], premium: [24000, 26500] },
+  durations:      { quick: 4000 },
   crewColours:    ['crimson', 'azure', 'bone'],
-  gagVariants:    ['trip', 'cat', 'walkie', 'car'],
   prizePool: {                                                  // PLACEHOLDER names
     getaway: ['Lobby Nameplate', 'Security Lanyard', 'Potted Plant, Lobby'],
     floor:   ['Brass Lockpick Charm', 'Crew Patch', 'Blueprint Print'],
@@ -557,14 +1013,20 @@ function weightedPick(rng, weights) {
   }
   return entries[entries.length - 1][0];
 }
-// The tier is a pure function of the three results:
-// 0 in → getaway · 1 → floor · 2 → solid · 3 → grail · 3 all clean → lockbox
-function tierFromResults(results) {
-  const n = results.filter(r => r !== 'out').length;
+// A crew result is one of clean · close · out · downedThenRecovered.
+// A recovered member counts as having reached the vault and contributes his
+// number and his gem exactly as a clean solve does (§5.3, test 12c).
+const isIn = r => r !== 'out';
+const hasNumber = r => r === 'clean' || r === 'downedThenRecovered';
+// The five-rung ladder as a function of results. Used for swing detection and
+// for reconciling debug forces; the sealed tier itself is DRAWN first (§0) and
+// a sealed lockbox is not derivable from results alone (radio-out has < 3 in).
+function tierOf(results) {
+  const n = results.filter(isIn).length;
   if (n === 0) return 'getaway';
   if (n === 1) return 'floor';
   if (n === 2) return 'solid';
-  return results.every(r => r === 'clean') ? 'lockbox' : 'grail';
+  return results.every(hasNumber) ? 'lockbox' : 'grail';
 }
 function shuffled(rng, arr) {
   const a = arr.slice();
@@ -575,49 +1037,141 @@ function shuffled(rng, arr) {
   return a;
 }
 
+/* §4.1 — the reveal order: the encounter that determines the tier resolves
+   last. A swing is an encounter where some alternative result changes the
+   tier. Seeded Fisher–Yates only; never Math.random. */
+function pickRevealOrder(results, rng) {
+  const base = tierOf(results);
+  const swings = [];
+  for (let i = 0; i < 3; i++) {
+    for (const alt of ['clean', 'close', 'out']) {
+      if (alt === results[i]) continue;
+      const probe = results.slice(); probe[i] = alt;
+      if (tierOf(probe) !== base) { swings.push(i); break; }
+    }
+  }
+  if (swings.length === 0) return { order: shuffled(rng, [0, 1, 2]), decider: null };
+  const decider = swings[Math.floor(rng() * swings.length)];
+  const rest = shuffled(rng, [0, 1, 2].filter(i => i !== decider));
+  return { order: Object.freeze([...rest, decider]), decider };
+}
+
 function drawOutcome(rng, config, seed, forces) {
   forces = forces || {};
   const isForced = v => v && v !== 'random';
 
-  // the drawn (or forced) tier guides how the three results are filled in
-  const guide = isForced(forces.tier) ? forces.tier : weightedPick(rng, config.tierWeights);
+  // ---- §0 THE INVERSION: draw the tier first, then everything consistent with it
+  let tier = isForced(forces.tier) ? forces.tier : weightedPick(rng, config.tierWeights);
 
-  // per-guy forces (debug only); null = to be drawn
-  const results = [0, 1, 2].map(i => (forces.results && isForced(forces.results[i])) ? forces.results[i] : null);
+  // a sealed lockbox also draws how the numbers are obtained (§5.6)
+  let lockboxMode = tier === 'lockbox'
+    ? (rng() < config.lockboxRadioOutRate ? 'radioOut' : 'inPerson') : null;
 
-  // how many must reach the vault, reconciled with any per-guy forces
-  let need = config.arrivalsByTier[guide];
-  const forcedIn  = results.filter(r => r && r !== 'out').length;
+  // ---- crew results consistent with the tier; per-guy debug forces win on conflict
+  const results = [0, 1, 2].map(i => {
+    const f = forces.results && forces.results[i];
+    return isForced(f) ? (f === 'rescued' ? 'downedThenRecovered' : f) : null;
+  });
+  let need = (tier === 'lockbox' && lockboxMode === 'radioOut')
+    ? 1 + Math.floor(rng() * 2)              // 1 or 2 reach; the missing numbers come over comms
+    : config.arrivalsByTier[tier];
+  const forcedIn  = results.filter(r => r && isIn(r)).length;
   const forcedOut = results.filter(r => r === 'out').length;
   if (need < forcedIn) need = forcedIn;
   if (need > 3 - forcedOut) need = 3 - forcedOut;
 
-  // draw which of the unforced crew make it, and how
   const open = shuffled(rng, results.map((r, i) => r === null ? i : -1).filter(i => i >= 0));
   let toArrive = need - forcedIn;
   for (const i of open) {
     if (toArrive > 0) {
-      const close = guide === 'lockbox' ? false : rng() < config.closeCallRate;
-      results[i] = close ? 'close' : 'clean';
+      // lockbox reachers carry their numbers in, so no close calls among them
+      results[i] = (tier === 'lockbox') ? 'clean' : (rng() < config.closeCallRate ? 'close' : 'clean');
       toArrive--;
     } else results[i] = 'out';
   }
-  // grail means all three in but not all clean: if the draw came up all clean,
-  // one unforced clean becomes a close call (forced-all-clean simply becomes lockbox)
-  if (guide === 'grail' && results.every(r => r === 'clean')) {
+  // grail = three in but the lockbox stays shut: at least one number missing
+  if (tier === 'grail' && results.every(hasNumber)) {
     const cands = open.filter(i => results[i] === 'clean');
     if (cands.length) results[cands[Math.floor(rng() * cands.length)]] = 'close';
   }
 
-  // the sequencing: who gets his go-signal first, second, third
-  const order = shuffled(rng, [0, 1, 2]);
+  // reconcile with forces (unforced draws always already agree with the tier)
+  let arrivals = results.filter(isIn).length;
+  if (tier === 'lockbox') {
+    if (arrivals === 0) { tier = 'getaway'; lockboxMode = null; }
+    else if (arrivals < 3 && lockboxMode !== 'radioOut') lockboxMode = 'radioOut';
+  } else {
+    tier = tierOf(results);
+    if (tier === 'lockbox') lockboxMode = 'inPerson';
+  }
 
-  const tier = tierFromResults(results);   // always consistent with the results, forced or drawn
-  const arrivals = results.filter(r => r !== 'out').length;
+  // ---- §5.3 the downed window: sealed staging, at most one per run (budget — NOTES).
+  // Not drawn on a radio-out lockbox: the radio beat already features the downed crew.
+  let windowIdx = results.indexOf('downedThenRecovered');    // a forced rescue is the window
+  let windowSaveAt = 0;
+  if (windowIdx >= 0) {
+    windowSaveAt = 1500 + rng() * 1200;
+  } else if (lockboxMode !== 'radioOut') {
+    // a recovered member carries his number (12c), so on a grail seal the last
+    // non-numbered member can never be the one recovered — grail must keep a miss
+    const recCands  = open.filter(i => (results[i] === 'clean' || results[i] === 'close')
+      && !(results[i] === 'close' && tier === 'grail' && results.filter(x => !hasNumber(x)).length === 1));
+    const lossCands = open.filter(i => results[i] === 'out');
+    if ((recCands.length || lossCands.length) && rng() < config.downedWindowChance) {
+      const wantRecover = rng() < config.recoveryRate;
+      const pool = wantRecover ? (recCands.length ? recCands : lossCands)
+                               : (lossCands.length ? lossCands : recCands);
+      windowIdx = pool[Math.floor(rng() * pool.length)];
+      if (results[windowIdx] !== 'out') {
+        results[windowIdx] = 'downedThenRecovered';          // reach count is unchanged
+        windowSaveAt = 1500 + rng() * 1200;                  // the save moment itself varies
+      }
+    }
+  }
+  const windowKind = windowIdx < 0 ? null : (isIn(results[windowIdx]) ? 'recovered' : 'lost');
+
+  // ---- §5.2 soft-fail flags, drawn per encounter; applied to at most two shown,
+  // non-decider, non-window encounters (the decider's tension belongs to the hold)
+  const sfDraws = [rng() < config.softFailChance, rng() < config.softFailChance, rng() < config.softFailChance];
+
+  // ---- §4.1 reveal order, swing last
+  const { order, decider } = pickRevealOrder(results, rng);
+
+  // ---- §2.1/§4 the exit. Lockbox is always the full track; grail never short;
+  // a run with a downed window never short, and a grail with a window is always
+  // full (the shorter bands cannot hold the mandatory beats — NOTES)
+  let exit = isForced(forces.exit) ? forces.exit
+    : tier === 'lockbox' ? 'full' : weightedPick(rng, config.exitWeights);
+  if (!isForced(forces.exit)) {
+    if (exit === 'short' && (tier === 'grail' || windowIdx >= 0)) exit = 'medium';
+    if (exit === 'medium' && tier === 'grail' && windowIdx >= 0) exit = 'full';
+  }
+  const shownCount = exit === 'short' ? 1 : exit === 'medium' ? 2 : 3;
+  const shown = order.slice(3 - shownCount);       // the decider is always among the shown
+  const offscreen = order.slice(0, 3 - shownCount);
+
+  const softFails = shown.filter(i => sfDraws[i] && i !== decider && i !== windowIdx).slice(0, 2);
+
+  // ---- §2.3 the decider hold, drawn at seal
+  const holdMs = decider === null ? 400 : (tier === 'grail' || tier === 'lockbox') ? 3400 : 2400;
+
+  // ---- §5.4 heat level from the tier's allowed set
+  const heatSet = config.heatByTier[tier];
+  const heatLevel = heatSet[Math.floor(rng() * heatSet.length)];
+
+  // ---- the guaranteed signal: top tiers only, at the published rate
+  const signal = (tier === 'grail' || tier === 'lockbox') && rng() < config.signalRate;
+
+  arrivals = results.filter(isIn).length;
   return Object.freeze({
-    tier, arrivals,
-    results: Object.freeze(results),   // ['clean'|'close'|'out'] for roof, lobby, keypad
-    order: Object.freeze(order),       // crew index in go order
+    tier, arrivals, lockboxMode,
+    results: Object.freeze(results),       // roof, lobby, keypad
+    order, decider,                        // reveal order; decider is order's last
+    exit, shown: Object.freeze(shown), offscreen: Object.freeze(offscreen),
+    softFails: Object.freeze(softFails),
+    windowIdx: windowIdx < 0 ? null : windowIdx, windowKind,
+    windowSaveAt: Math.round(windowSaveAt),
+    holdMs, heatLevel, signal,
     seed,
   });
 }
@@ -628,10 +1182,70 @@ function derivePresentation(rng, outcome) {
   const digits = [];
   for (let i = 0; i < 4; i++) digits.push(Math.floor(rng() * 10));
   const laserPhases = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
-  const lockNumbers = [Math.floor(rng() * 10), Math.floor(rng() * 10), Math.floor(rng() * 10)]; // what each clean solve finds
-  const gagRoll = rng();
+  const lockNumbers = [Math.floor(rng() * 10), Math.floor(rng() * 10), Math.floor(rng() * 10)]; // what each numbered solve carries
   const prizeRoll = rng();
-  return Object.freeze({ digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), lockNumbers: Object.freeze(lockNumbers), gagRoll, prizeRoll });
+  return Object.freeze({ digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), lockNumbers: Object.freeze(lockNumbers), prizeRoll });
+}
+
+/* ============================== the beat scheduler ==============================
+   §2.2 — every beat declares a cost and a priority; the scheduler assembles the
+   run, sums the costs and trims lowest-priority-first until the run fits its
+   ceiling. Priority 0/1 beats never trim. Beats trimmed to zero stay in the
+   list (their cues still fire, instantly) so nothing is ever silently lost. */
+function buildBeatList(o, depth) {
+  const B = [];
+  const add = (id, dur, prio, minDur) => B.push({ id, dur, prio, minDur: minDur !== undefined ? minDur : dur });
+  const last = o.shown[o.shown.length - 1];
+  const windowOnDecider = o.windowIdx !== null && o.windowIdx === last && o.shown.includes(o.windowIdx);
+
+  add('cold', 1200, 3, 0);
+  add('blueprint', 800, 3, 0);
+  // off-screen resolutions are reported early; on a short exit they are
+  // zero-cost events during the blueprint (the 9.0s ceiling has no room)
+  o.offscreen.forEach(i => add('report.' + i, o.exit === 'short' ? 0 : 500, 2, o.exit === 'short' ? 0 : 250));
+  o.shown.forEach(i => {
+    add('enc.' + i, 3200, 0);
+    if (o.windowIdx === i && !windowOnDecider) add('window.' + i, 3000, 2, 1800);
+    if (i !== last) add('counter.' + i, 800, 2, 400);
+  });
+  if (o.exit !== 'short') add('heat', 1400, 3, 0);
+  add('hold', o.holdMs, 1);
+  if (windowOnDecider) add('window.' + o.windowIdx, 3000, 2, 1800);  // the window resolves the decider, after the hold
+  if (o.tier === 'getaway') {
+    add('trip', 700, 2, 400);
+    add('shut', 1400, 0);
+  } else {
+    add('approach', o.exit === 'short' ? 1000 : 1500, 2, o.exit === 'short' ? 400 : 800);
+    if (o.signal) add('signal', 1500, 1);
+    add('door', 2000, 0);
+    if (o.tier === 'lockbox') {
+      if (o.lockboxMode === 'radioOut') add('radio', 6500, 1);     // §5.6 premium, whitelisted past 24s
+      else add('lockfill', 1500, 1);
+    } else if (o.arrivals === 3) add('locktry', 900, 2, 500);
+  }
+  add('reveal', 1000, 0);
+
+  // §2.4 session pacing: presentation depth only; the sealed result, the reveal
+  // order, the variants and the decider hold are untouched
+  if (depth === 'reduced') for (const b of B) { if (b.prio === 3) b.dur = 0; else if (b.prio === 2) b.dur = b.minDur; }
+
+  const band = (o.tier === 'lockbox' && o.lockboxMode === 'radioOut') ? CONFIG.caps.premium : CONFIG.caps[o.exit];
+  let total = B.reduce((s, b) => s + b.dur, 0);
+  for (const prio of [3, 2]) {
+    if (total <= band[1]) break;
+    for (const b of B) {
+      if (b.prio !== prio || b.dur <= b.minDur) continue;
+      const cut = Math.min(b.dur - b.minDur, total - band[1]);
+      b.dur -= cut; total -= cut;
+      if (total <= band[1]) break;
+    }
+  }
+  let t = 0;
+  for (const b of B) { b.at = t; t += b.dur; }
+  const overrun = total > band[1];
+  if (overrun) console.error('[vaultjob] beat budget overrun: ' + total + 'ms > ' + band[1] + 'ms cap\n'
+    + B.map(b => '  ' + b.id + ' ' + b.dur + 'ms p' + b.prio).join('\n'));
+  return { beats: B, total, floor: band[0], cap: band[1], overrun, depth };
 }
 
 /* ============================== constants & state ============================== */
@@ -646,13 +1260,16 @@ const SCENES = [
   { id: 'lobby',  where: 'LOBBY',        title: 'the guard desk', guy: 'the lobby guy',  outLabel: 'OUT — ARRESTED' },
   { id: 'keypad', where: 'BELOW GROUND', title: 'the keypad',     guy: 'the keypad guy', outLabel: 'OUT — CAGED' },
 ];
-const statusFor = (i, r) => r === 'out' ? SCENES[i].outLabel : r === 'close' ? 'IN — CLOSE CALL' : 'IN — CLEAN';
+const statusFor = (i, r) => r === 'out' ? SCENES[i].outLabel
+  : r === 'downedThenRecovered' ? 'IN — PULLED OUT'
+  : r === 'close' ? 'IN — CLOSE CALL' : 'IN — CLEAN';
 const TIER_COPY = {
   getaway: 'Nobody reached the vault. They took what they could on the way out.',
   floor:   'One got through, one gem. It still pays.',
   solid:   'Two at the door. A gem each.',
   grail:   'All three at the door, a gem each. The lockbox stays shut.',
-  lockbox: 'All three, clean. The lockbox opens — the case goes out with them.',
+  lockbox: 'All three numbers carried in, clean. The lockbox opens — the case goes out with them.',
+  lockboxRadio: 'Not everyone made it — the missing numbers came over comms. The lockbox opens anyway.',
 };
 const GAG_CAPTIONS = {
   trip:   'the new hire trips, recovers, nails the landing.',
@@ -660,7 +1277,55 @@ const GAG_CAPTIONS = {
   walkie: 'the walkie squawks. everyone freezes. it’s fine.',
   car:    'the getaway car is early. keen.',
 };
-const LS = { quick: 'vaultjob.quickOpen', jobs: 'vaultjob.jobs', sound: 'vaultjob.sound' };
+const LS = { quick: 'vaultjob.quickOpen', jobs: 'vaultjob.jobs', sound: 'vaultjob.sound',
+  opens: 'vj.session.opens', fullshow: 'vj.fullShow' };
+
+/* ============================== the variety engine ==============================
+   §3 — every interchangeable thing is a variant slot backed by the manifest,
+   inlined into this file by tools/build-manifest.mjs. Selection is a pure
+   function of the run seed and the slot id: no session state, no Math.random,
+   no "recently used" tracking. The engine reads whatever counts are present
+   and behaves identically at N=1 and N=12. */
+const MANIFEST = (() => {
+  try { return JSON.parse(document.getElementById('manifest').textContent); }
+  catch (e) { console.error('[vaultjob] manifest missing or invalid; running on empty library'); return {}; }
+})();
+const missingSlotLogged = {};
+function variantIndex(seed, slotId, len) {
+  if (!len) return 0;
+  return xmur3(seed + ':' + slotId)() % len;
+}
+function pickVariant(seed, slotId) {
+  const entries = MANIFEST[slotId];
+  if (!entries || !entries.length) {
+    if (!missingSlotLogged[slotId]) { missingSlotLogged[slotId] = true; console.warn('[vaultjob] no variants for slot "' + slotId + '"; placeholder used'); }
+    return { index: 0, entry: null };
+  }
+  const index = variantIndex(seed, slotId, entries.length);
+  return { index, entry: entries[index] };
+}
+/* Preload hook (§3.6): file-backed variants the sealed run will use would be
+   fetched here, during the cold open / blueprint window. Loading never stalls
+   the run: a variant that is not ready falls back to the placeholder and the
+   miss is logged. The placeholder library is builtin, so this is a no-op today. */
+function preloadVariants(picks) {
+  for (const slotId in picks) {
+    const e = picks[slotId] && picks[slotId].entry;
+    if (e && e.src) {
+      try { fetch(e.src).catch(() => console.warn('[vaultjob] preload miss: ' + e.src)); }
+      catch (err) { /* placeholder covers it */ }
+    }
+  }
+}
+/* the handler (§5.5): twelve states, lines live in the manifest as data.
+   {n} tokens are filled from run context; the handler names the stakes and
+   never solicits input. */
+function handlerLine(seed, state, ctx) {
+  const { entry } = pickVariant(seed, 'handler.' + state, null);
+  let text = entry && entry.text ? entry.text : '…';
+  text = text.replace(/\{(\w+)\}/g, (m, k) => (ctx && ctx[k] !== undefined) ? ctx[k] : m);
+  return text;
+}
 
 const store = {
   get(k)    { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -674,10 +1339,10 @@ let serverSeed = '';
 let commitHash = '';
 let nonce = 1;
 let soundOn = false;
-let gagPool = CONFIG.gagVariants.slice();
 let lastRun = null;
 let engine = null;
 let audioCtx = null;
+let sessionOpens = parseInt(store.get(LS.opens) || '0', 10) || 0;   // §2.4 session pacing
 
 const $ = id => document.getElementById(id);
 const smooth = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
@@ -1063,15 +1728,30 @@ function buildPanel(where, svg, status, caption, extraClass) {
   el.className = 'panel' + (extraClass ? ' ' + extraClass : '');
   el.innerHTML = '<div class="panel-head"><span class="where">' + where + '</span><span class="status">' + status + '</span></div>';
   el.appendChild(svg);
+  const bleed = document.createElement('div');
+  bleed.className = 'bleed'; bleed.hidden = true;
+  bleed.innerHTML = '<div class="bleed-fill"></div>';
+  el.appendChild(bleed);
   const cap = document.createElement('div');
   cap.className = 'panel-caption idle';
   cap.textContent = caption;
   el.appendChild(cap);
   const statusEl = el.querySelector('.status');
+  const bleedFill = bleed.querySelector('.bleed-fill');
+  let flashTimer = null;
   return {
     el,
     setStatus(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); },
     setCaption(text, idle) { cap.textContent = text; cap.className = 'panel-caption' + (idle ? ' idle' : ''); },
+    showBleed(on) { bleed.hidden = !on; },
+    setBleed(frac) { bleedFill.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%'; },
+    flash(cls) {                                     // stumble (laser) or assist (auric) pulse
+      el.classList.remove('flash-stumble', 'flash-assist');
+      void el.offsetWidth;
+      el.classList.add('flash-' + cls);
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => el.classList.remove('flash-' + cls), 650);
+    },
   };
 }
 
@@ -1093,11 +1773,12 @@ function descend(i, p, slot) {
 }
 function markOut(i) { document.querySelector('.bfig.b' + i).classList.add('out'); }
 
-/* ============================== gags (quick open only) ============================== */
-function pickGag(roll) {
-  if (gagPool.length === 0) gagPool = CONFIG.gagVariants.slice();
-  const idx = Math.floor(roll * gagPool.length) % gagPool.length;
-  return gagPool.splice(idx, 1)[0];
+/* ============================== gags (quick open only) ==============================
+   Drawn from the gag.quick slot by seed hash — no session pool, no "no repeat"
+   tracking (§3.2). Beat repetition with library size, not with state. */
+function pickGag(seed) {
+  const { entry } = pickVariant(seed, 'gag.quick');
+  return entry && entry.gag ? entry.gag : 'trip';
 }
 function playGag(gag) {
   const strip = $('gag-strip');
@@ -1140,18 +1821,75 @@ function speedFactor() {
   return 1;
 }
 
+/* ============================== alarm counter & heat ============================== */
+function renderPips(n, snap) {
+  const el = $('alarm');
+  el.hidden = false;
+  el.classList.toggle('critical', n === 1);
+  el.classList.toggle('tripped', n === 0);
+  el.querySelectorAll('.pip').forEach((p, k) => p.classList.toggle('on', k < n));
+  if (snap) { el.classList.remove('snap'); void el.offsetWidth; el.classList.add('snap'); }
+}
+function hideAlarm() { const el = $('alarm'); el.hidden = true; el.classList.remove('critical', 'tripped', 'snap', 'powered-down'); }
+function setHeat(level, fore) {
+  const el = $('screen-run');
+  el.classList.remove('heat1', 'heat2', 'heat3', 'heat4', 'heat5', 'fore');
+  if (level) el.classList.add('heat' + level);
+  if (fore) el.classList.add('fore');
+}
+
+/* §5.5 — the handler names the stakes on the decider hold. Computed, so the
+   copy is always truthful about what is banked and what is riding. */
+function stakesLine(o) {
+  const d = o.decider;
+  const banked = o.results.filter((r, i) => i !== d && isIn(r)).length;
+  const up = o.results.slice(); up[d] = 'clean';
+  // lockbox is a sealed tier, never a sum of results: on a non-lockbox seal the
+  // best a made decider can promise is grail
+  let upTier = o.tier === 'lockbox' ? 'lockbox' : tierOf(up);
+  if (upTier === 'lockbox' && o.tier !== 'lockbox') upTier = 'grail';
+  const bankedTxt = ['nobody in yet', 'one in', 'two in'][banked];
+  const upTxt = upTier === 'lockbox' ? 'we’re opening the box' : 'it’s ' + TIER_LABEL[upTier].toLowerCase();
+  return bankedTxt + '. one to go. if he makes it, ' + upTxt + '.';
+}
+
 function beginRun(run) {
   // run: { seed, pick, nonce, outcome, pres, quick, replay }
   lastRun = run;
   const o = run.outcome;
+  const seed = run.seed;
   const crewHex = CREW_HEX[run.pick] || '#EAE4D4';
-  const total = run.quick ? CONFIG.durations.quick : CONFIG.durations.run;
+
+  // §2.4 session pacing: presentation depth only — it never touches the sealed
+  // result, the reveal order, the variants or the decider hold. Replays always
+  // force the full track so a replay is byte-comparable with the original.
+  const depth = (!run.quick && !run.replay && sessionOpens >= 5 && !$('fullshow-toggle').checked) ? 'reduced' : 'full';
+
+  // sealed variant picks (§3.2): pure function of seed + slot id, logged for
+  // debug, preloaded during the cold open. Identical at N=1 and N=12.
+  const picks = {};
+  const notePick = slotId => { picks[slotId] = pickVariant(seed, slotId); return picks[slotId]; };
+  SCENES.forEach((s, i) => {
+    const r = o.results[i];
+    notePick('encounter.' + s.id + '.' + ((r === 'clean' || r === 'close') ? r : 'out'));
+    if (o.softFails.includes(i)) { notePick('softfail.' + s.id); if (isIn(r)) notePick('assist.' + s.id); }
+    if (o.windowIdx === i) notePick('rescue.' + s.id + '.' + o.windowKind);
+  });
+  notePick('heat.' + o.heatLevel);
+  notePick('vaultopen.' + o.tier);
+  notePick('crew.skin');
+  notePick('ambient');
+  if (run.quick) notePick('gag.quick');
+  run.picks = picks;
+  preloadVariants(picks);
 
   // reset stage: remove old scene panels, keep the tracker
   const body = $('run-body');
   body.querySelectorAll('.panel').forEach(p => p.remove());
   $('run-caption').textContent = '';
   $('gag-strip').hidden = true; $('gag-strip').innerHTML = '';
+  hideAlarm();
+  setHeat(0);
   buildBuilding(crewHex);
   showScreen('run');
 
@@ -1159,13 +1897,16 @@ function beginRun(run) {
   const cue = (t, fn) => cues.push({ t, fn });
   const anim = (t0, t1, update) => animators.push({ t0, t1, update });
 
-  // build the four scenes and mount them: roof, lobby, keypad, vault (+ tracker, static)
-  const scenes = SCENES.map((s, i) => buildScene(s.id, o.results[i], run.pres, crewHex));
+  // §4.05: all three panels stay on screen for the whole run. A downed member
+  // (recovered or lost) uses the out-path visuals up to the hit.
+  const scenes = SCENES.map((s, i) => {
+    const r = o.results[i];
+    return buildScene(s.id, (r === 'clean' || r === 'close') ? r : 'out', run.pres, crewHex);
+  });
   const vault = buildVaultScene(o, crewHex);
   const panels = SCENES.map((s, i) => buildPanel(s.where + ' · ' + s.title, scenes[i].svg, 'in position', 'waiting on the go.'));
   const vaultPanel = buildPanel('THE VAULT', vault.svg, 'waiting', 'the door. it opens when they get there.', 'vault');
   const building = $('building');
-  // grid order: roof, lobby, keypad, vault; the tracker is pinned to column 3 by CSS
   panels.forEach(p => body.insertBefore(p.el, building));
   body.insertBefore(vaultPanel.el, building);
   scenes.forEach((sc) => sc.update(0, 0));
@@ -1173,35 +1914,52 @@ function beginRun(run) {
   let arrivedSoFar = 0;
   const slotOf = [];
   let nextSlot = 0;
-  o.results.forEach((r, i) => { slotOf[i] = r !== 'out' ? nextSlot++ : undefined; });
-
+  o.results.forEach((r, i) => { slotOf[i] = isIn(r) ? nextSlot++ : undefined; });
   const arrive = (i) => {
     arrivedSoFar++;
     $('tally').textContent = arrivedSoFar;
     vault.showFigure(slotOf[i]);
   };
-  const numSuffix = i => o.results[i] === 'clean' ? ' · #' + run.pres.lockNumbers[i] : '';
-  const cleanIdx = o.results.map((r, i) => r === 'clean' ? i : -1).filter(i => i >= 0);
+  const numSuffix = i => hasNumber(o.results[i]) ? ' · #' + run.pres.lockNumbers[i] : '';
+  const numberedIdx = o.results.map((r, i) => hasNumber(r) ? i : -1).filter(i => i >= 0);
+  const say = (state, ctx) => { $('run-caption').textContent = '⌁ ' + handlerLine(seed, state, ctx); };
+  const caption = t => { $('run-caption').textContent = t; };
+
+  // §5.1 the alarm counter: a presentation device. It paces and frames reveals
+  // of results already drawn at the seal; it never gates or decides anything.
+  let pips = 3;
+  const burnPip = () => {
+    pips = Math.max(0, pips - 1);
+    renderPips(pips);
+    if (pips === 1) say('counter_critical');
+    if (soundOn) tone(120, 0.2, 0.07);
+  };
+  const resetPips = () => {
+    const was = pips; pips = 3;
+    renderPips(pips, was < 3);
+    if (was < 3) { say('counter_reset'); if (soundOn) tone(300, 0.2, 0.06); }
+  };
 
   if (run.quick) {
-    /* ---- quick open: identical structure every time ----
+    /* ---- §5.7 quick open: 4.0s, structurally identical across every tier ----
        300: all three resolved on screen · descents staggered · vault 2000-3900 */
-    cue(0, () => { $('run-caption').textContent = 'quick open'; });
+    cue(0, () => { caption('quick open'); });
     SCENES.forEach((s, i) => {
       const t0 = 300 + i * 200;
+      const r = o.results[i];
       cue(t0, () => {
-        scenes[i].update(1, t0);
-        panels[i].setStatus(statusFor(i, o.results[i]) + numSuffix(i), o.results[i] === 'out' ? 'out' : 'in');
-        panels[i].setCaption(scenes[i].captions[scenes[i].captions.length - 1][1]);
+        scenes[i].update(r === 'downedThenRecovered' ? 0.58 : 1, t0);
+        panels[i].setStatus(statusFor(i, r) + numSuffix(i), r === 'out' ? 'out' : 'in');
+        panels[i].setCaption(r === 'downedThenRecovered' ? 'went down. pulled out by the crew.' : scenes[i].captions[scenes[i].captions.length - 1][1]);
       });
-      if (o.results[i] !== 'out') {
+      if (isIn(r)) {
         anim(t0 + 300, t0 + 900, p => descend(i, p, slotOf[i]));
         cue(t0 + 900, () => arrive(i));
       } else {
         cue(t0 + 300, () => markOut(i));
       }
     });
-    cue(700, () => playGag(pickGag(run.pres.gagRoll)));
+    cue(700, () => playGag(pickGag(seed)));
     cue(2000, () => {
       vaultPanel.el.classList.add('open');
       if (o.arrivals === 0) {
@@ -1221,96 +1979,310 @@ function beginRun(run) {
       cue(2750, () => { vault.showLockbox(); vaultPanel.setCaption(LOOT_COPY[o.arrivals], false); });
       for (let k = 0; k < o.arrivals; k++) cue(2750 + k * 80, () => vault.revealLoot(k));
       let haulAt = 3100;
-      if (o.arrivals === 3) {   // the lockbox is only tried with all three at the door
-        cleanIdx.forEach((i, k) => cue(3000 + k * 120, () => vault.fillSlot(k, run.pres.lockNumbers[i])));
+      if (o.tier === 'lockbox') {
+        // all three numbers land — carried in, or over comms on a radio-out seal
+        const contributors = [...numberedIdx, ...[0, 1, 2].filter(i => !hasNumber(o.results[i]))];
+        contributors.forEach((m, k) => cue(3000 + k * 120, () => vault.fillSlot(k, run.pres.lockNumbers[m])));
         cue(3400, () => {
-          if (o.tier === 'lockbox') { vault.openLockbox(); vaultPanel.setStatus('LOCKBOX OPEN', 'in'); vaultPanel.setCaption('a case inside. the gems go in.', false); }
-          else vaultPanel.setCaption(cleanIdx.length + ' of three numbers. shut. a gem each and out.', false);
+          vault.openLockbox(); vaultPanel.setStatus('LOCKBOX OPEN', 'in');
+          vaultPanel.setCaption(o.lockboxMode === 'radioOut' ? 'the missing numbers come over comms. the case goes out.' : 'a case inside. the gems go in.', false);
         });
+        haulAt = 3450;
+      } else if (o.arrivals === 3) {   // the lockbox is only tried with all three at the door
+        numberedIdx.forEach((m, k) => cue(3000 + k * 120, () => vault.fillSlot(k, run.pres.lockNumbers[m])));
+        cue(3400, () => vaultPanel.setCaption(numberedIdx.length + ' of three numbers. shut. a gem each and out.', false));
         haulAt = 3450;
       }
       anim(haulAt, haulAt + 500, p => vault.haul(p));
     }
+    run.sched = null;
   } else {
-    /* ---- full run: everyone on screen; go-signals in drawn order, 2.8s apart;
-       each action 5.5s; descent 0.8s; the vault opens once the last one resolves ---- */
-    const INTRO = 1200, GAP = 2800, ACT = 5500, DESCENT = 800;
-    cue(0, () => { $('run-caption').textContent = 'three in. who makes it down?'; });
+    /* ---- the sequenced run: assembled by the beat scheduler (§2.2), reveal
+       order drawn at seal with the tier-deciding encounter last (§4.1) ---- */
+    const sched = buildBeatList(o, depth);
+    run.sched = sched;
+    const bMap = {};
+    sched.beats.forEach(b => { bMap[b.id] = b; });
+    const last = o.shown[o.shown.length - 1];
 
-    o.order.forEach((i, k) => {
-      const go = INTRO + k * GAP;
+    // report the crew who will not be shown (§4): resolved off screen, truthfully
+    const report = (i) => {
+      const r = o.results[i], pn = panels[i];
+      pn.setStatus((isIn(r) ? 'IN' : 'OUT') + ' · OFF SCREEN', isIn(r) ? 'in' : 'out');
+      pn.setCaption(isIn(r)
+        ? SCENES[i].guy + ' got through off screen.' + (hasNumber(r) ? ' number in hand.' : '')
+        : SCENES[i].guy + ' never made it.', false);
+      pn.el.classList.add('dimmed');
+      if (isIn(r)) { descend(i, 1, slotOf[i]); arrive(i); }
+      else { markOut(i); burnPip(); }
+    };
+
+    // cold open & blueprint — also the loading window (§3.6). The heat
+    // foreshadow tints the scene toward the sealed level, faintly.
+    cue(bMap.cold.at, () => { say('cold_open'); setHeat(o.heatLevel, true); });
+    cue(bMap.blueprint.at, () => { caption('three in. who makes it down?'); });
+    cue(bMap.blueprint.at + bMap.blueprint.dur, () => renderPips(3));   // the meter sits top-right from here
+    o.offscreen.forEach(i => cue(bMap['report.' + i].at + 1, () => report(i)));
+
+    // ---- the encounters, in the sealed reveal order
+    const sceneClock = [() => 0, () => 0, () => 0];   // off-screen members idle in position (§4.05)
+
+    o.shown.forEach((i) => {
+      const b = bMap['enc.' + i];
       const sc = scenes[i], pn = panels[i], r = o.results[i];
-      cue(go, () => {
+      const windowed = o.windowIdx === i;
+      const isDecider = o.decider === i;
+      const softfail = o.softFails.includes(i);
+
+      cue(b.at, () => {
         pn.el.classList.add('active');
         pn.setStatus(SCENES[i].guy, '');
-        $('run-caption').textContent = ['first go', 'second go', 'third go'][k] + ' · ' + SCENES[i].where.toLowerCase();
+        say('encounter_start', { where: SCENES[i].where.toLowerCase() });
       });
-      sc.captions.forEach(([f, text]) => cue(go + f * ACT, () => pn.setCaption(text, false)));
-      // idle pose (beams sweeping) from the start; action from the go
-      anim(0, go + ACT, (p, t) => sc.update(Math.max(0, (t - go) / ACT), t));
-      cue(go + ACT * 0.97, () => pn.setStatus(statusFor(i, r) + numSuffix(i), r === 'out' ? 'out' : 'in'));
-      cue(go + ACT, () => pn.el.classList.remove('active'));
-      if (r !== 'out') {
-        cue(go + ACT, () => { if (soundOn) tone(220, 0.25, 0.06); });
-        anim(go + ACT, go + ACT + DESCENT, p => descend(i, p, slotOf[i]));
-        cue(go + ACT + DESCENT - 20, () => arrive(i));
+
+      // scene progress across this beat (and beyond, for the decider / the window)
+      let mapT;
+      if (windowed) {
+        mapT = t => t <= b.at ? 0 : Math.min(0.58, (t - b.at) / b.dur * 0.58);
+      } else if (isDecider) {
+        const hb = bMap.hold;
+        mapT = t => {
+          if (t <= b.at) return 0;
+          if (t < hb.at) return Math.min(0.38, (t - b.at) / b.dur * 0.38);
+          const hp = Math.min(1, (t - hb.at) / hb.dur);
+          return kf(hp, [[0, 0.38], [0.6, 0.38], [1, 1]]);
+        };
+      } else if (softfail) {
+        mapT = t => t <= b.at ? 0 : kf(Math.min(1, (t - b.at) / b.dur), [[0, 0], [0.75, 0.38], [1, 1]]);
       } else {
-        cue(go + ACT, () => { markOut(i); if (soundOn) tone(90, 0.35, 0.08); });
+        mapT = t => t <= b.at ? 0 : Math.min(1, (t - b.at) / b.dur);
+      }
+      sceneClock[i] = mapT;
+
+      // captions follow the same clock
+      const capAt = f => {
+        if (windowed) return f <= 0.55 ? b.at + (f / 0.58) * b.dur : null;
+        if (isDecider) {
+          if (f <= 0.38) return b.at + (f / 0.38) * b.dur;
+          const hb = bMap.hold;
+          return hb.at + (0.6 + 0.4 * (f - 0.38) / 0.62) * hb.dur;
+        }
+        if (softfail) return b.at + (f <= 0.38 ? (f / 0.38) * 0.75 : 0.75 + ((f - 0.38) / 0.62) * 0.25) * b.dur;
+        return b.at + f * b.dur;
+      };
+      sc.captions.forEach(([f, text]) => { const t = capAt(f); if (t !== null) cue(t, () => pn.setCaption(text, false)); });
+
+      // §5.2 soft-fails: two visible near-misses, on BOTH the win and loss path
+      if (softfail) {
+        cue(b.at + 900,  () => { pn.flash('stumble'); say('softfail_1'); });
+        cue(b.at + 1800, () => { pn.flash('stumble'); say('softfail_2'); });
+        if (isIn(r)) cue(b.at + 2450, () => { pn.flash('assist'); say('assist'); });
+      }
+
+      if (windowed) {
+        cue(b.at + b.dur * 0.9, () => pn.setStatus('DOWN', 'out'));
+      } else if (!isDecider) {
+        cue(b.at + b.dur * 0.96, () => {
+          pn.setStatus(statusFor(i, r) + numSuffix(i), r === 'out' ? 'out' : 'in');
+          pn.el.classList.remove('active');
+        });
+      }
+
+      // the counter beat (§5.1): pips move here, and the tracker descends
+      const cb = bMap['counter.' + i];
+      if (cb) {
+        cue(cb.at, () => {
+          if (r === 'clean') resetPips();
+          else if (r === 'out') burnPip();
+        });
+        if (isIn(r)) {
+          anim(cb.at, cb.at + Math.max(1, cb.dur), p => descend(i, p, slotOf[i]));
+          cue(cb.at + cb.dur, () => arrive(i));
+        }
       }
     });
 
-    const vaultStart = INTRO + 2 * GAP + ACT + DESCENT + 300;   // 13800
-    cue(vaultStart, () => {
-      panels.forEach(p => p.el.classList.add('dimmed'));
-      vaultPanel.el.classList.add('open');
-      $('run-caption').textContent = 'the vault';
-      if (o.arrivals === 0) {
-        // nobody made it: the door never moves
+    // ---- §5.3 the downed window: bleedout bar, save moment drawn at seal
+    if (o.windowIdx !== null && o.shown.includes(o.windowIdx)) {
+      const i = o.windowIdx, wb = bMap['window.' + i], pn = panels[i], sc = scenes[i];
+      const rec = o.windowKind === 'recovered';
+      const saveF = Math.max(0.35, Math.min(0.9, o.windowSaveAt / 3000));
+      cue(wb.at, () => {
+        pn.el.classList.add('active');
+        pn.showBleed(true); pn.setBleed(1);
+        say('downed');
+        pn.setStatus('DOWN — BLEEDING OUT', 'out');
+        if (soundOn) tone(90, 0.4, 0.08);
+      });
+      anim(wb.at, wb.at + Math.max(1, wb.dur), p => pn.setBleed(rec ? 1 - Math.min(p, saveF) : 1 - p));
+      if (rec) {
+        cue(wb.at + wb.dur * saveF, () => {
+          pn.flash('assist'); say('rescued');
+          pn.setStatus(statusFor(i, o.results[i]) + numSuffix(i), 'in');
+          pn.setCaption('a teammate hauls him clear. he is up.', false);
+          const guy = sc.svg.querySelector('.guy'); if (guy) guy.setAttribute('opacity', '0.35');
+          if (soundOn) tone(330, 0.3, 0.07);
+        });
+        cue(wb.at + wb.dur * 0.97, () => { pn.showBleed(false); pn.el.classList.remove('active'); });
+      } else {
+        const inner = sceneClock[i];   // the consequence completes when the bar empties
+        sceneClock[i] = t => {
+          if (t <= wb.at + wb.dur * 0.8) return inner(t);
+          return 0.58 + 0.42 * Math.min(1, (t - (wb.at + wb.dur * 0.8)) / (wb.dur * 0.2));
+        };
+        cue(wb.at + wb.dur * 0.85, () => {
+          say('lost');
+          pn.setStatus(statusFor(i, 'out'), 'out');
+          pn.setCaption('the bar runs out. he is not coming.', false);
+        });
+        cue(wb.at + wb.dur * 0.97, () => { pn.showBleed(false); pn.el.classList.remove('active'); markOut(i); });
+      }
+    }
+
+    // one animator drives all three scenes from their sealed clocks
+    anim(0, sched.total, (p, t) => scenes.forEach((sc, i) => sc.update(sceneClock[i](t), t)));
+
+    // ---- heat escalation (§5.4): climbs monotonically to the sealed level
+    if (bMap.heat && bMap.heat.dur > 0) {
+      anim(bMap.heat.at, bMap.heat.at + bMap.heat.dur, p => setHeat(1 + Math.round(p * (o.heatLevel - 1))));
+    } else {
+      cue(bMap.hold.at, () => setHeat(o.heatLevel));
+    }
+
+    // ---- §2.3 the decider hold: the one long hold, on the tier-deciding beat
+    const hb = bMap.hold;
+    cue(hb.at, () => {
+      if (o.decider === null) return;
+      panels.forEach((p, ix) => p.el.classList.toggle('push', ix === o.decider));
+      say('decider_hold', { stakes: stakesLine(o) });
+      if (soundOn) tone(46, Math.min(2.5, hb.dur / 1000), 0.1);
+    });
+    if (o.decider !== null && o.windowIdx !== o.decider) {
+      const d = o.decider, r = o.results[d];
+      cue(hb.at + hb.dur * 0.97, () => {
+        panels[d].setStatus(statusFor(d, r) + numSuffix(d), r === 'out' ? 'out' : 'in');
+        panels[d].el.classList.remove('active', 'push');
+      });
+    } else {
+      cue(hb.at + hb.dur, () => panels.forEach(p => p.el.classList.remove('push')));
+    }
+
+    if (o.tier === 'getaway') {
+      // §5.1: the seal says out, out, out — the board hits zero, the alarm
+      // trips and the run cuts to the reveal. The door never moves.
+      const tb = bMap.trip, sb = bMap.shut;
+      cue(tb.at, () => {
+        burnPip();
+        caption('the alarm trips. it’s over.');
+        panels.forEach(p => p.el.classList.add('dimmed'));
+        setHeat(o.heatLevel);
+        if (soundOn) tone(70, 0.6, 0.1);
+      });
+      cue(sb.at, () => {
         vault.shut();
+        vaultPanel.el.classList.add('open');
         vaultPanel.setStatus('SHUT', 'out');
         vaultPanel.setCaption('nobody made it down. the door never moves.', false);
-        if (soundOn) tone(90, 0.5, 0.08);
-      } else {
-        vault.colour();
+      });
+      cue(sb.at + sb.dur * 0.7, () => vaultPanel.setCaption('they grab what they can on the way out.', false));
+    } else {
+      // ---- approach: crew converge, the alarm resolves
+      const ab = bMap.approach;
+      cue(ab.at, () => {
+        const r = o.results[last];
+        if (o.windowIdx !== last) { if (r === 'clean') resetPips(); else if (r === 'out') burnPip(); }
+        panels.forEach(p => p.el.classList.add('dimmed'));
+        vaultPanel.el.classList.add('open');
+        caption('the vault');
         vaultPanel.setStatus(o.arrivals + ' OF 3 AT THE DOOR', 'in');
         vaultPanel.setCaption(o.arrivals === 3 ? 'all three. the door knows it.' : o.arrivals === 2 ? 'two at the door. it opens for them.' : 'one at the door. it still opens.', false);
-        $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
-        if (soundOn) tone(58, 0.6, 0.12);
+        if (!o.signal) $('alarm').classList.add('powered-down');
+      });
+      if (isIn(o.results[last])) {
+        anim(ab.at, ab.at + Math.max(1, ab.dur * 0.8), p => descend(last, p, slotOf[last]));
+        cue(ab.at + ab.dur * 0.8, () => arrive(last));
       }
-    });
-    if (o.arrivals === 0) {
-      cue(vaultStart + 2600, () => vaultPanel.setCaption('they grab what they can on the way out.', false));
-    } else {
-      anim(vaultStart + 400, vaultStart + 2200, p => vault.update(p));
-      // the door is open: a gem each, waiting in the opening
-      cue(vaultStart + 2300, () => { vault.showLockbox(); vaultPanel.setCaption(LOOT_COPY[o.arrivals], false); });
-      for (let k = 0; k < o.arrivals; k++) cue(vaultStart + 2350 + k * 200, () => vault.revealLoot(k));
-      let haulAt;
-      if (o.arrivals === 3) {
-        // the lockbox is only tried with all three at the door
-        cue(vaultStart + 3300, () => vaultPanel.setCaption('all three at the door. they try the lockbox.', false));
-        cleanIdx.forEach((i, k) => cue(vaultStart + 3500 + k * 300, () => vault.fillSlot(k, run.pres.lockNumbers[i])));
-        cue(vaultStart + 4500, () => {
-          if (o.tier === 'lockbox') {
-            vault.openLockbox();
-            vaultPanel.setStatus('LOCKBOX OPEN', 'in');
-            vaultPanel.setCaption('three numbers. it opens. a case inside — the gems go in, one of them carries it out.', false);
-            if (soundOn) tone(440, 0.6, 0.08);
-          } else {
-            vaultPanel.setCaption(cleanIdx.length + ' of three numbers. it stays shut. a gem each and out.', false);
-          }
+
+      // ---- the guaranteed signal: grail and lockbox only, at the published rate
+      if (bMap.signal) {
+        cue(bMap.signal.at, () => {
+          $('alarm').classList.add('powered-down');
+          caption('the alarm powers down. without sounding.');
+          vaultPanel.setCaption('that only happens for a reason.', false);
+          if (soundOn) { tone(880, 0.3, 0.05); tone(1320, 0.5, 0.04); }
         });
-        haulAt = vaultStart + 4700;
-      } else {
-        cue(vaultStart + 3300, () => vaultPanel.setCaption('the lockbox needs three. not tonight. ' + (o.arrivals === 1 ? 'one gem and out.' : 'a gem each and out.'), false));
-        haulAt = vaultStart + 3800;
       }
-      anim(haulAt, haulAt + 1300, p => vault.haul(p));
+
+      // ---- the door: opens on every run with someone at it, scaled to the tier
+      const db = bMap.door;
+      cue(db.at, () => {
+        vault.colour();
+        $('bvault').setAttribute('stroke', TIER_HEX[o.tier]);
+        say('tier_reveal');
+        if (soundOn) tone(58, 0.6, 0.12);
+      });
+      anim(db.at + 100, db.at + db.dur * 0.6, p => vault.update(p));
+      cue(db.at + db.dur * 0.62, () => { vault.showLockbox(); vaultPanel.setCaption(LOOT_COPY[o.arrivals], false); });
+      for (let k = 0; k < o.arrivals; k++) cue(db.at + db.dur * 0.65 + k * 120, () => vault.revealLoot(k));
+
+      if (bMap.locktry) {   // three at the door, not a lockbox seal: tried, stays shut
+        const lt = bMap.locktry;
+        cue(lt.at, () => vaultPanel.setCaption('all three at the door. they try the lockbox.', false));
+        numberedIdx.forEach((m, k) => cue(lt.at + lt.dur * (0.2 + k * 0.18), () => vault.fillSlot(k, run.pres.lockNumbers[m])));
+        cue(lt.at + lt.dur * 0.9, () => vaultPanel.setCaption(numberedIdx.length + ' of three numbers. it stays shut. a gem each and out.', false));
+      }
+      if (bMap.lockfill) {   // §5.6 in-person lockbox: all three numbers carried in
+        const lf = bMap.lockfill;
+        numberedIdx.forEach((m, k) => cue(lf.at + lf.dur * (0.05 + k * 0.2), () => vault.fillSlot(k, run.pres.lockNumbers[m])));
+        cue(lf.at + lf.dur * 0.75, () => {
+          vault.openLockbox();
+          vaultPanel.setStatus('LOCKBOX OPEN', 'in');
+          vaultPanel.setCaption('three numbers. it opens. the gems go in — one of them carries it out.', false);
+          if (soundOn) tone(440, 0.6, 0.08);
+        });
+      }
+      if (bMap.radio) {   // §5.6 radio-out premium: the missing numbers over comms
+        const rb = bMap.radio;
+        const downs = [0, 1, 2].filter(i => !isIn(o.results[i]));
+        cue(rb.at, () => {
+          caption('⌁ you’re ' + (downs.length === 1 ? 'one number' : 'two numbers') + ' short. get them on comms.');
+          vaultPanel.setCaption('a three-number lock. ' + numberedIdx.length + ' carried in. ' + (downs.length === 1 ? 'one empty slot.' : 'two empty slots.'), false);
+        });
+        numberedIdx.forEach((m, k) => cue(rb.at + 300 + k * 250, () => vault.fillSlot(k, run.pres.lockNumbers[m])));
+        downs.forEach((m, j) => {
+          const t0 = rb.at + 1500 + j * 1500;
+          cue(t0, () => {
+            panels[m].el.classList.remove('dimmed');
+            panels[m].flash('assist');
+            panels[m].setStatus('ON COMMS', 'in');
+            panels[m].setCaption('“…' + run.pres.lockNumbers[m] + '.” through static.', false);
+            caption('⌁ ' + SCENES[m].guy + '. your number. slow.');
+          });
+          cue(t0 + 900, () => vault.fillSlot(numberedIdx.length + j, run.pres.lockNumbers[m]));
+          cue(t0 + 1400, () => panels[m].el.classList.add('dimmed'));
+        });
+        cue(rb.at + 1600 + downs.length * 1500, () => {
+          vault.openLockbox();
+          vaultPanel.setStatus('LOCKBOX OPEN', 'in');
+          vaultPanel.setCaption('the last number lands. the case opens — the gems go in, one man carries it out.', false);
+          if (soundOn) tone(440, 0.7, 0.08);
+        });
+      }
     }
+
+    // the haul plays into the reveal beat on every run with someone at the door
+    const rv = bMap.reveal;
+    if (o.arrivals > 0) anim(rv.at, rv.at + rv.dur * 0.7, p => vault.haul(p));
+    cue(rv.at + rv.dur * 0.5, () => caption(''));
   }
 
   cues.sort((a, b) => a.t - b.t);
-  engine = { run, cues, animators, total, elapsed: 0, last: null, cueIndex: 0, done: false };
+  const total = run.quick ? CONFIG.durations.quick : run.sched.total;
+  const boundaries = run.quick
+    ? [0, total]
+    : run.sched.beats.map(b => b.at).filter((v, i, a) => a.indexOf(v) === i).concat(total);
+  engine = { run, cues, animators, total, boundaries, elapsed: 0, last: null, cueIndex: 0, done: false, ff: false };
+  refreshSealDump(run);
   if (speedFactor() === Infinity) { instantFinish(); return; }
   requestAnimationFrame(tick);
 }
@@ -1321,10 +2293,10 @@ function tick(ts) {
   if (e.last === null) e.last = ts;
   const dt = Math.min(100, ts - e.last);
   e.last = ts;
-  e.elapsed += dt * speedFactor();
+  e.elapsed += dt * speedFactor() * (e.ff ? 3 : 1);   // §2.4 hold = 3x while held
   while (e.cueIndex < e.cues.length && e.cues[e.cueIndex].t <= e.elapsed) { e.cues[e.cueIndex].fn(); e.cueIndex++; }
   for (const a of e.animators) {
-    if (e.elapsed >= a.t0) a.update(Math.min(1, (e.elapsed - a.t0) / (a.t1 - a.t0)), e.elapsed);
+    if (e.elapsed >= a.t0) a.update(a.t1 > a.t0 ? Math.min(1, (e.elapsed - a.t0) / (a.t1 - a.t0)) : 1, e.elapsed);
   }
   if (e.elapsed >= e.total) { e.done = true; finishRun(); return; }
   requestAnimationFrame(tick);
@@ -1337,26 +2309,85 @@ function instantFinish() {
   finishRun();
 }
 
+/* §2.4 player controls: tap advances to the next beat boundary — never
+   mid-beat, so nothing looks broken. Holding fast-forwards at 3x. */
+let pressTimer = null, pressWasHold = false, pressActive = false;
+$('screen-run').addEventListener('pointerdown', () => {
+  if (!engine || engine.done) return;
+  pressActive = true; pressWasHold = false;
+  pressTimer = setTimeout(() => { pressWasHold = true; if (engine) engine.ff = true; }, 260);
+});
+addEventListener('pointerup', () => {
+  if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  if (!pressActive) return;
+  pressActive = false;
+  if (!engine || engine.done) return;
+  engine.ff = false;
+  if (!pressWasHold) {
+    const next = engine.boundaries.filter(b => b > engine.elapsed + 1).sort((a, b) => a - b)[0];
+    if (next !== undefined) engine.elapsed = next;
+  }
+  pressWasHold = false;
+});
+addEventListener('pointercancel', () => { pressActive = false; if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } if (engine) engine.ff = false; });
+
+/* the sealed run, dumped for the debug panel (§6 acceptance evidence) */
+function refreshSealDump(run) {
+  const o = run.outcome;
+  const el = $('dbg-seal');
+  if (!el) return;
+  const lines = [
+    'tier ' + o.tier + (o.lockboxMode ? ' (' + o.lockboxMode + ')' : '') + ' · exit ' + o.exit + (run.quick ? ' (quick shown)' : ''),
+    'results ' + o.results.join(' / '),
+    'order ' + o.order.map(i => SCENES[i].id).join(' → ') + ' · decider ' + (o.decider === null ? 'none' : SCENES[o.decider].id),
+    'shown ' + o.shown.map(i => SCENES[i].id).join(', ') + (o.offscreen.length ? ' · off screen ' + o.offscreen.map(i => SCENES[i].id).join(', ') : ''),
+    'hold ' + o.holdMs + 'ms · heat L' + o.heatLevel + ' · signal ' + (o.signal ? 'yes' : 'no'),
+    'window ' + (o.windowIdx === null ? 'none' : SCENES[o.windowIdx].id + ' → ' + o.windowKind + ' @' + o.windowSaveAt + 'ms'),
+    'softfails ' + (o.softFails.length ? o.softFails.map(i => SCENES[i].id).join(', ') : 'none'),
+  ];
+  if (run.sched) {
+    lines.push('beats (' + run.sched.depth + ') total ' + run.sched.total + 'ms · band [' + run.sched.floor + ', ' + run.sched.cap + ']' + (run.sched.overrun ? ' · OVERRUN' : ''));
+    lines.push(run.sched.beats.map(b => '  ' + String(b.at).padStart(5) + ' ' + b.id + ' ' + b.dur + 'ms p' + b.prio).join('\n'));
+  }
+  lines.push('variants ' + Object.keys(run.picks).map(s => s + '#' + run.picks[s].index).join(' '));
+  el.textContent = lines.join('\n');
+}
+
 /* ============================== reveal & receipt ============================== */
 function finishRun() {
   const run = engine.run;
   const o = run.outcome;
-  if (!run.replay) bankJob();
+  if (!run.replay) {
+    bankJob();
+    sessionOpens += 1; store.set(LS.opens, String(sessionOpens));   // §2.4 session pacing counter
+  }
 
   $('tier-label').textContent = TIER_LABEL[o.tier];
   $('tier-label').className = 'tier-label tier-' + o.tier;
   const pool = CONFIG.prizePool[o.tier];
   $('prize-name').textContent = pool[Math.floor(run.pres.prizeRoll * pool.length)];
-  $('prize-copy').textContent = TIER_COPY[o.tier];
+  // §4: short and medium exits report what happened to the crew who were not shown
+  let copy = (o.tier === 'lockbox' && o.lockboxMode === 'radioOut') ? TIER_COPY.lockboxRadio : TIER_COPY[o.tier];
+  if (o.offscreen.length) {
+    copy += ' Not shown: ' + o.offscreen.map(i => SCENES[i].guy + (isIn(o.results[i]) ? ' got through' : ' never made it')).join('; ') + ' — resolved off screen.';
+  }
+  $('prize-copy').textContent = copy;
   const chips = $('crew-chips');
   chips.innerHTML = '';
   o.results.forEach((r, i) => {
     const s = document.createElement('span');
     s.className = r === 'out' ? 'out' : 'in';
-    s.textContent = SCENES[i].where + ' · ' + (r === 'out' ? SCENES[i].outLabel.replace('OUT — ', '') : r === 'close' ? 'IN, CLOSE' : 'IN · #' + run.pres.lockNumbers[i]);
+    let label = r === 'out' ? SCENES[i].outLabel.replace('OUT — ', '')
+      : r === 'downedThenRecovered' ? 'IN, PULLED OUT · #' + run.pres.lockNumbers[i]
+      : r === 'close' ? 'IN, CLOSE' : 'IN · #' + run.pres.lockNumbers[i];
+    if (r === 'out' && o.tier === 'lockbox' && o.lockboxMode === 'radioOut') label += ' · #' + run.pres.lockNumbers[i] + ' OVER COMMS';
+    if (o.offscreen.includes(i)) label += ' · OFF SCREEN';
+    s.textContent = SCENES[i].where + ' · ' + label;
     chips.appendChild(s);
   });
 
+  $('r-exit').textContent = o.exit + (run.quick ? ' (played as quick open)' : '')
+    + (o.offscreen.length ? ' — ' + o.offscreen.map(i => SCENES[i].guy).join(', ') + ' resolved off screen' : ' — all three shown');
   $('r-commit').textContent = commitHash;
   $('r-seed').value = serverSeed;
   $('r-pick').textContent = run.pick;
@@ -1369,7 +2400,8 @@ function finishRun() {
 
 /* ============================== flow wiring ============================== */
 function currentForces() {
-  return { tier: $('dbg-tier').value, results: [$('dbg-r1').value, $('dbg-r2').value, $('dbg-r3').value] };
+  return { tier: $('dbg-tier').value, exit: $('dbg-exit').value,
+    results: [$('dbg-r1').value, $('dbg-r2').value, $('dbg-r3').value] };
 }
 function startRun(pick, seedStr, runNonce, replay) {
   const rng = makeRng(seedStr);
@@ -1399,6 +2431,7 @@ $('btn-verify').addEventListener('click', async () => {
   el.className = pass ? 'pass' : 'fail';
 });
 $('quick-toggle').addEventListener('change', e => store.set(LS.quick, e.target.checked ? '1' : '0'));
+$('fullshow-toggle').addEventListener('change', e => store.set(LS.fullshow, e.target.checked ? '1' : '0'));
 $('sound-toggle').addEventListener('click', () => {
   soundOn = !soundOn;
   const b = $('sound-toggle');
@@ -1429,26 +2462,41 @@ $('dbg-replay').addEventListener('click', () => {
 $('dbg-run100').addEventListener('click', () => {
   const forces = currentForces();
   const tierCount = { getaway: 0, floor: 0, solid: 0, grail: 0, lockbox: 0 };
+  const exitCount = { short: 0, medium: 0, full: 0 };
   const arrivals = { 0: 0, 1: 0, 2: 0, 3: 0 };
-  const perGuy = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; // [clean, close, out] per crew member
-  const firstGo = [0, 0, 0];
+  const perGuy = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]; // clean/close/out/rescued per crew member
+  let radioOut = 0, inPerson = 0, windows = 0, recovered = 0, signals = 0, deciderLast = 0, deciders = 0, softfails = 0;
+  let inconsistent = 0, overruns = 0;
   const simBase = randomHex(8);
   for (let i = 0; i < 100; i++) {
     const s = serverSeed + ':sim' + simBase + ':' + i;
     const o = drawOutcome(makeRng(s), CONFIG, s, forces);
-    tierCount[o.tier]++;
-    arrivals[o.arrivals]++;
-    o.results.forEach((r, g) => perGuy[g][{ clean: 0, close: 1, out: 2 }[r]]++);
-    firstGo[o.order[0]]++;
+    tierCount[o.tier]++; exitCount[o.exit]++; arrivals[o.arrivals]++;
+    o.results.forEach((r, g) => perGuy[g][{ clean: 0, close: 1, out: 2, downedThenRecovered: 3 }[r]]++);
+    if (o.lockboxMode === 'radioOut') radioOut++;
+    if (o.lockboxMode === 'inPerson') inPerson++;
+    if (o.windowIdx !== null) { windows++; if (o.windowKind === 'recovered') recovered++; }
+    if (o.signal) signals++;
+    softfails += o.softFails.length;
+    if (o.decider !== null) { deciders++; if (o.order[2] === o.decider && o.shown[o.shown.length - 1] === o.decider) deciderLast++; }
+    // §12a consistency: the results must always agree with the sealed tier
+    const ok = o.tier === 'lockbox'
+      ? (o.lockboxMode === 'inPerson' ? o.arrivals === 3 && o.results.every(hasNumber) : o.arrivals >= 1 && o.arrivals < 3)
+      : tierOf(o.results) === o.tier;
+    if (!ok) inconsistent++;
+    if (buildBeatList(o, 'full').overrun) overruns++;
   }
-  const row = (name, a) => '  ' + name.padEnd(7) + 'clean ' + String(a[0]).padStart(2) + '  close ' + String(a[1]).padStart(2) + '  out ' + String(a[2]).padStart(2);
+  const row = (name, a) => '  ' + name.padEnd(7) + 'cln ' + String(a[0]).padStart(2) + ' cls ' + String(a[1]).padStart(2) + ' out ' + String(a[2]).padStart(2) + ' rsc ' + String(a[3]).padStart(2);
   $('dbg-out').textContent =
       '100 draws (draw only, no animation)\n'
-    + 'tier      getaway ' + tierCount.getaway + '  floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '  lockbox ' + tierCount.lockbox + '\n'
-    + 'at vault  0: ' + arrivals[0] + '  1: ' + arrivals[1] + '  2: ' + arrivals[2] + '  3: ' + arrivals[3] + '\n'
-    + 'per crew member\n'
+    + 'tier     getaway ' + tierCount.getaway + '  floor ' + tierCount.floor + '  solid ' + tierCount.solid + '  grail ' + tierCount.grail + '  lockbox ' + tierCount.lockbox + '\n'
+    + 'exit     short ' + exitCount.short + '  medium ' + exitCount.medium + '  full ' + exitCount.full + '\n'
+    + 'at vault 0: ' + arrivals[0] + '  1: ' + arrivals[1] + '  2: ' + arrivals[2] + '  3: ' + arrivals[3] + '\n'
     + row('roof', perGuy[0]) + '\n' + row('lobby', perGuy[1]) + '\n' + row('keypad', perGuy[2]) + '\n'
-    + 'first go  roof ' + firstGo[0] + '  lobby ' + firstGo[1] + '  keypad ' + firstGo[2];
+    + 'lockbox  in-person ' + inPerson + '  radio-out ' + radioOut + '\n'
+    + 'windows  ' + windows + ' (recovered ' + recovered + ')  signals ' + signals + '  softfail flags ' + softfails + '\n'
+    + 'decider last ' + deciderLast + '/' + deciders + '\n'
+    + 'tier<->results consistent ' + (100 - inconsistent) + '/100 · budget overruns ' + overruns;
 });
 
 /* ============================== how it pays + demo selector ==============================
@@ -1532,19 +2580,29 @@ $('dbg-tier').addEventListener('change', e => setDemoTier(e.target.value));
   commitHash = await sha256Hex(serverSeed);
   $('commit-display').textContent = commitHash;
   $('quick-toggle').checked = store.get(LS.quick) === '1';
+  $('fullshow-toggle').checked = store.get(LS.fullshow) === '1';
   if (store.get(LS.sound) === '1') $('sound-toggle').click();
   refreshJobCounter();
   $('dbg-config').textContent = 'CONFIG (placeholders)\n' + JSON.stringify({
     tierWeights: CONFIG.tierWeights,
     arrivalsByTier: CONFIG.arrivalsByTier,
     closeCallRate: CONFIG.closeCallRate,
+    recoveryRate: CONFIG.recoveryRate,
+    lockboxRadioOutRate: CONFIG.lockboxRadioOutRate,
+    exitWeights: CONFIG.exitWeights,
+    signalRate: CONFIG.signalRate,
+    softFailChance: CONFIG.softFailChance,
+    downedWindowChance: CONFIG.downedWindowChance,
+    heatByTier: CONFIG.heatByTier,
+    caps: CONFIG.caps,
     durations: CONFIG.durations,
-  }, null, 1);
+  }, null, 1) + '\nmanifest slots: ' + Object.keys(MANIFEST).length
+    + '\nsession opens: ' + sessionOpens;
   showScreen('pick');
 })();
 
 // exposed for review tooling only; nothing in the app reads this
-window.VaultDebug = { CONFIG, drawOutcome, derivePresentation, makeRng, sha256Hex };
+window.VaultDebug = { CONFIG, MANIFEST, drawOutcome, derivePresentation, makeRng, sha256Hex, tierOf, pickRevealOrder, buildBeatList, variantIndex };
 </script>
 </body>
 </html>
