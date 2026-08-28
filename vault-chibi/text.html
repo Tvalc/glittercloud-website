@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>The Temple — Text Pacing Build</title>
+<style>
+  :root { --ground:#14100A; --panel:#1D160D; --ink:#EAE4D4; --dim:#A18F74; --line:#302617;
+    --laser:#B0455C; --rescue:#25D0E0; --nearmiss:#FFB020; --gold:#F4C430; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { background:var(--ground); color:var(--ink); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; }
+  header { display:flex; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--line); color:var(--dim); letter-spacing:.12em; font-size:12px; }
+  header .brand { color:var(--ink); font-weight:600; }
+  main { max-width:880px; margin:0 auto; padding:12px 14px 40px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; color:var(--dim); font-size:12px; }
+  select, input[type=text], button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:4px; font:inherit; font-size:12px; padding:4px 8px; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--dim); }
+  label { cursor:pointer; white-space:nowrap; }
+  input[type=checkbox] { accent-color:var(--ink); vertical-align:-1px; }
+  #status { position:sticky; top:0; background:var(--ground); border:1px solid var(--line); border-radius:6px; padding:8px 12px; margin-bottom:8px; line-height:1.7; z-index:2; }
+  #status .lbl { color:var(--dim); }
+  #status .wk-stirring { color:var(--laser); }
+  #status .wk-WAKING { color:var(--laser); font-weight:700; }
+  #log { border:1px solid var(--line); border-radius:6px; padding:10px 12px; height:50vh; overflow-y:auto; line-height:1.7; cursor:pointer; }
+  .ln { white-space:pre-wrap; }
+  .ln.dim { color:var(--dim); }
+  .ln.marker { color:var(--dim); opacity:.45; font-size:11px; }
+  .ln.good { font-weight:700; }
+  .ln.bad { color:var(--dim); font-weight:700; }
+  .ln.alarm { color:var(--laser); font-weight:700; }
+  .ln.near { color:var(--nearmiss); font-weight:700; }
+  .ln.rescue { color:var(--rescue); font-weight:700; }
+  .ln.handler { color:var(--dim); font-style:italic; }
+  .ln.tier { color:var(--gold); font-weight:700; letter-spacing:.22em; }
+  .ln.room { font-weight:700; letter-spacing:.1em; }
+  #stackrow { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+  #stackrow button { min-width:54px; padding:9px 6px; font-size:14px; }
+  #stackrow button.glint { border-color:var(--gold); box-shadow:0 0 8px rgba(244,196,48,.35); }
+  #stackrow button.turned { color:var(--dim); border-style:dashed; cursor:default; }
+  #receipt { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-top:10px; display:none; line-height:1.8; }
+  #receipt.show { display:block; }
+  #receipt input { width:100%; font-size:11px; margin:4px 0; }
+  #receipt .btns { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  #verdict.pass { color:var(--ink); } #verdict.fail { color:var(--laser); }
+  .hint { color:var(--dim); font-size:11px; margin-top:6px; line-height:1.6; }
+  details { color:var(--dim); margin-top:8px; font-size:12px; }
+  pre { white-space:pre-wrap; font-size:11px; line-height:1.55; color:var(--dim); margin-top:6px; }
+</style>
+</head>
+<body>
+<header><span class="brand">THE TEMPLE · TEXT PACING BUILD</span><span id="counters"></span></header>
+<main>
+  <div class="row">
+    <span>descend as</span>
+    <button class="pick" data-colour="crimson">Crimson</button>
+    <button class="pick" data-colour="azure">Azure</button>
+    <button class="pick" data-colour="bone">Bone</button>
+    <span>·</span>
+    <label>tier <select id="dbg-tier"><option>random</option><option>getaway</option><option>floor</option><option>solid</option><option>grail</option><option>lockbox</option></select></label>
+    <label>exit <select id="dbg-exit"><option>random</option><option>short</option><option>medium</option><option>full</option></select></label>
+    <label>C1 <select id="dbg-r1"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></label>
+    <label>C2 <select id="dbg-r2"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></label>
+    <label>C3 <select id="dbg-r3"><option>random</option><option>clean</option><option>close</option><option>out</option><option>rescued</option></select></label>
+  </div>
+  <div class="row">
+    <label>speed <select id="spd"><option>0.5x</option><option selected>1x</option><option>2x</option><option>instant</option></select></label>
+    <label>words <select id="density"><option>sparse</option><option selected>standard</option><option>full</option></select></label>
+    <label><input type="checkbox" id="markers"> beat markers</label>
+    <label><input type="checkbox" id="quick-toggle"> quick open</label>
+    <label><input type="checkbox" id="fullshow-toggle"> full show</label>
+    <span class="hint">tap the log: next beat · hold: 3× · items: tap to turn</span>
+  </div>
+  <div id="status">pick a colour to descend. · commit <span id="commit" style="font-size:10px"></span></div>
+  <div id="log" aria-live="polite"></div>
+  <div id="stackrow"></div>
+  <div id="receipt"></div>
+</main>
+<script>
+'use strict';
+/* =====================================================================
+   THE TEMPLE · TEXT PACING BUILD (session 4)
+   Purpose: judge the pacing of a run with no visuals at all. Every line
+   below lands at the exact millisecond the real build fires its cue: the
+   structural core between the two markers is SPLICED VERBATIM from
+   vault-next/index.html by tools/build-text.py — CONFIG, the seeded rng,
+   sha-256, drawOutcome, buildStack, derivePresentation and the beat
+   scheduler are byte-identical with the graphical build. Only the
+   renderer differs: text instead of SVG. Skip grammar is the same (tap =
+   next beat boundary, hold = 3x, stack taps = land / turn next / finish).
+   ===================================================================== */
+
+/* ============================== CONFIG ==============================
+   Every tunable lives here and nowhere else. The client owns every weight;
+   nothing in the build may retune a weight to solve a design problem. */
+const CONFIG = {
+  // five rungs. The tier is drawn FIRST from these weights (spec v2 §0) and the
+  // crew results are then drawn consistent with it. Lockbox is a sealed tier in
+  // its own right, no longer "3 clean" (§5.6).
+  tierWeights:    { getaway: 0.20, floor: 0.44, solid: 0.28, grail: 0.07, lockbox: 0.01 },   // PLACEHOLDER
+  arrivalsByTier: { getaway: 0, floor: 1, solid: 2, grail: 3, lockbox: 3 },  // in-person arrivals; a radio-out lockbox draws fewer (§5.6)
+  closeCallRate:  0.40,   // PLACEHOLDER: of those who make it, share that are close calls (grail keeps at least one miss; lockbox reachers carry numbers)
+  recoveryRate:   0.33,   // §5.3 ship value: P(pulled out | the downed window plays)
+  lockboxRadioOutRate: 0.5, // §5.6 ship value: share of sealed lockboxes drawn as radio-out
+  exitWeights:    { short: 0.18, medium: 0.27, full: 0.55 },   // PLACEHOLDER; lockbox always full, grail never short (band math — NOTES)
+  signalRate:     0.85,   // PLACEHOLDER published rate of the guaranteed signal, grail & lockbox only (§4)
+  softFailChance: 0.45,   // PLACEHOLDER per shown non-decider encounter; at most two per run (§5.2)
+  downedWindowChance: 0.60, // PLACEHOLDER chance the downed window plays when the seal has a candidate (§5.3)
+  heatByTier:     { getaway: [1], floor: [1, 2], solid: [2, 3], grail: [3, 4], lockbox: [5] }, // §5.4 allowed heat sets
+  // pick-to-reveal bands, ms [floor, ceiling]; the scheduler trims to the ceiling (§2.1)
+  caps: { short: [6500, 9000], medium: [13000, 17000], full: [19000, 24000], premium: [24000, 26500] },
+  durations:      { quick: 3000 },   // session C: the quick cue timeline ends just past the reliquary beats (last cue 2850); the fast stack reveal follows (~5s total)
+  crewColours:    ['crimson', 'azure', 'bone'],
+  prizePool: {                                                  // PLACEHOLDER names (rethemed to artefacts)
+    getaway: ['Painted Potsherd', 'Worn Copper Coin', 'Woven Sandal'],
+    floor:   ['Clay Oil Lamp', 'Bone Comb', 'Bronze Votive Bell'],
+    solid:   ['Carved Stone Figure', 'Silver Amulet', 'Painted Funerary Urn'],
+    grail:   ['The Sun Disc', 'Obsidian Idol', 'The First King’s Seal'],
+    lockbox: ['The Reliquary’s Heart', 'The Gilded Idol', 'Crown of the First King'],
+  },
+  // PLACEHOLDER stack-length bands, [min, max] items per tier. The stack IS
+  // the tier read at the reveal: thin haul two or three, top haul six or more.
+  stackLenByTier: { getaway: [2, 3], floor: [3, 4], solid: [4, 5], grail: [5, 6], lockbox: [6, 8] },
+  // PLACEHOLDER stake: the cost of one open, in the same units as
+  // prizeValues. The win screen shows the haul as a multiplier of this.
+  stake: 100,
+  // PLACEHOLDER values, one per prizePool entry, for the counting-up prize
+  // value at the reveal (visual spec §7/§9.5). Client supplies real data.
+  prizeValues: {
+    getaway: [20, 15, 10],
+    floor:   [60, 45, 35],
+    solid:   [180, 140, 110],
+    grail:   [650, 520, 430],
+    lockbox: [2400, 2000, 1750],
+  },
+};
+
+
+/* ============================== rng & hashing ============================== */
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function makeRng(seedStr) { return mulberry32(xmur3(seedStr)()); }
+
+function randomHex(nChars) {
+  const bytes = new Uint8Array(nChars / 2);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// SHA-256: crypto.subtle when available, tiny sync fallback otherwise.
+function sha256HexSync(ascii) {
+  function rr(v, c) { return (v >>> c) | (v << (32 - c)); }
+  const maxWord = Math.pow(2, 32);
+  let result = '';
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+  const hash = [], k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return '';
+    words[i >> 2] |= j << (((3 - i) % 4) * 8);
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16);
+    let h = hash.slice(0);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+      const a = h[0], e = h[4];
+      const temp1 = h[7]
+        + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25))
+        + ((e & h[5]) ^ (~e & h[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (w[i - 16]
+            + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+      const temp2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22))
+        + ((a & h[1]) ^ (a & h[2]) ^ (h[1] & h[2]));
+      h = [(temp1 + temp2) | 0].concat(h);
+      h[4] = (h[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (h[i] + hash[i]) | 0;
+  }
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+async function sha256Hex(str) {
+  if (crypto.subtle) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) { /* fall through */ }
+  }
+  return sha256HexSync(str);
+}
+
+/* ============================== the draw ==============================
+   Called exactly once per run, before any animation. Returns a frozen
+   object. Nothing downstream may (or can) change any field of it. */
+function weightedPick(rng, weights) {
+  const r = rng();
+  let acc = 0;
+  const entries = Object.entries(weights);
+  for (const [key, w] of entries) {
+    acc += w;
+    if (r < acc) return key;
+  }
+  return entries[entries.length - 1][0];
+}
+// A crew result is one of clean · close · out · downedThenRecovered.
+// A recovered member counts as having reached the vault and contributes his
+// number and his gem exactly as a clean solve does (§5.3, test 12c).
+const isIn = r => r !== 'out';
+const hasNumber = r => r === 'clean' || r === 'downedThenRecovered';
+// The five-rung ladder as a function of results. Used for swing detection and
+// for reconciling debug forces; the sealed tier itself is DRAWN first (§0) and
+// a sealed lockbox is not derivable from results alone (radio-out has < 3 in).
+function tierOf(results) {
+  const n = results.filter(isIn).length;
+  if (n === 0) return 'getaway';
+  if (n === 1) return 'floor';
+  if (n === 2) return 'solid';
+  return results.every(hasNumber) ? 'lockbox' : 'grail';
+}
+function shuffled(rng, arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* §4.1 — the reveal order: the encounter that determines the tier resolves
+   last. A swing is an encounter where some alternative result changes the
+   tier. Seeded Fisher–Yates only; never Math.random. */
+function pickRevealOrder(results, rng) {
+  const base = tierOf(results);
+  const swings = [];
+  for (let i = 0; i < 3; i++) {
+    for (const alt of ['clean', 'close', 'out']) {
+      if (alt === results[i]) continue;
+      const probe = results.slice(); probe[i] = alt;
+      if (tierOf(probe) !== base) { swings.push(i); break; }
+    }
+  }
+  if (swings.length === 0) return { order: shuffled(rng, [0, 1, 2]), decider: null };
+  const decider = swings[Math.floor(rng() * swings.length)];
+  const rest = shuffled(rng, [0, 1, 2].filter(i => i !== decider));
+  return { order: Object.freeze([...rest, decider]), decider };
+}
+
+function drawOutcome(rng, config, seed, forces) {
+  forces = forces || {};
+  const isForced = v => v && v !== 'random';
+
+  // ---- §0 THE INVERSION: draw the tier first, then everything consistent with it
+  let tier = isForced(forces.tier) ? forces.tier : weightedPick(rng, config.tierWeights);
+
+  // a sealed lockbox also draws how the numbers are obtained (§5.6)
+  let lockboxMode = tier === 'lockbox'
+    ? (rng() < config.lockboxRadioOutRate ? 'radioOut' : 'inPerson') : null;
+
+  // ---- crew results consistent with the tier; per-guy debug forces win on conflict
+  const results = [0, 1, 2].map(i => {
+    const f = forces.results && forces.results[i];
+    return isForced(f) ? (f === 'rescued' ? 'downedThenRecovered' : f) : null;
+  });
+  let need = (tier === 'lockbox' && lockboxMode === 'radioOut')
+    ? 1 + Math.floor(rng() * 2)              // 1 or 2 reach; the missing numbers come over comms
+    : config.arrivalsByTier[tier];
+  const forcedIn  = results.filter(r => r && isIn(r)).length;
+  const forcedOut = results.filter(r => r === 'out').length;
+  if (need < forcedIn) need = forcedIn;
+  if (need > 3 - forcedOut) need = 3 - forcedOut;
+
+  const open = shuffled(rng, results.map((r, i) => r === null ? i : -1).filter(i => i >= 0));
+  let toArrive = need - forcedIn;
+  for (const i of open) {
+    if (toArrive > 0) {
+      // lockbox reachers carry their numbers in, so no close calls among them
+      results[i] = (tier === 'lockbox') ? 'clean' : (rng() < config.closeCallRate ? 'close' : 'clean');
+      toArrive--;
+    } else results[i] = 'out';
+  }
+  // grail = three in but the lockbox stays shut: at least one number missing
+  if (tier === 'grail' && results.every(hasNumber)) {
+    const cands = open.filter(i => results[i] === 'clean');
+    if (cands.length) results[cands[Math.floor(rng() * cands.length)]] = 'close';
+  }
+
+  // reconcile with forces (unforced draws always already agree with the tier)
+  let arrivals = results.filter(isIn).length;
+  if (tier === 'lockbox') {
+    if (arrivals === 0) { tier = 'getaway'; lockboxMode = null; }
+    else if (arrivals < 3 && lockboxMode !== 'radioOut') lockboxMode = 'radioOut';
+  } else {
+    tier = tierOf(results);
+    if (tier === 'lockbox') lockboxMode = 'inPerson';
+  }
+
+  // ---- §5.3 the downed window: sealed staging, at most one per run (budget — NOTES).
+  // Not drawn on a radio-out lockbox: the radio beat already features the downed crew.
+  let windowIdx = results.indexOf('downedThenRecovered');    // a forced rescue is the window
+  let windowSaveAt = 0;
+  if (windowIdx >= 0) {
+    windowSaveAt = 1500 + rng() * 1200;
+  } else if (lockboxMode !== 'radioOut') {
+    // a recovered member carries his number (12c), so on a grail seal the last
+    // non-numbered member can never be the one recovered — grail must keep a miss
+    const recCands  = open.filter(i => (results[i] === 'clean' || results[i] === 'close')
+      && !(results[i] === 'close' && tier === 'grail' && results.filter(x => !hasNumber(x)).length === 1));
+    const lossCands = open.filter(i => results[i] === 'out');
+    if ((recCands.length || lossCands.length) && rng() < config.downedWindowChance) {
+      const wantRecover = rng() < config.recoveryRate;
+      const pool = wantRecover ? (recCands.length ? recCands : lossCands)
+                               : (lossCands.length ? lossCands : recCands);
+      windowIdx = pool[Math.floor(rng() * pool.length)];
+      if (results[windowIdx] !== 'out') {
+        results[windowIdx] = 'downedThenRecovered';          // reach count is unchanged
+        windowSaveAt = 1500 + rng() * 1200;                  // the save moment itself varies
+      }
+    }
+  }
+  const windowKind = windowIdx < 0 ? null : (isIn(results[windowIdx]) ? 'recovered' : 'lost');
+
+  // ---- §5.2 soft-fail flags, drawn per encounter; applied to at most two shown,
+  // non-decider, non-window encounters (the decider's tension belongs to the hold)
+  const sfDraws = [rng() < config.softFailChance, rng() < config.softFailChance, rng() < config.softFailChance];
+
+  // ---- §4.1 reveal order, swing last
+  const { order, decider } = pickRevealOrder(results, rng);
+
+  // ---- §2.1/§4 the exit. Lockbox is always the full track; grail never short;
+  // a run with a downed window never short, and a grail with a window is always
+  // full (the shorter bands cannot hold the mandatory beats — NOTES)
+  let exit = isForced(forces.exit) ? forces.exit
+    : tier === 'lockbox' ? 'full' : weightedPick(rng, config.exitWeights);
+  if (!isForced(forces.exit)) {
+    if (exit === 'short' && (tier === 'grail' || windowIdx >= 0)) exit = 'medium';
+    if (exit === 'medium' && tier === 'grail' && windowIdx >= 0) exit = 'full';
+  }
+  const shownCount = exit === 'short' ? 1 : exit === 'medium' ? 2 : 3;
+  const shown = order.slice(3 - shownCount);       // the decider is always among the shown
+  const offscreen = order.slice(0, 3 - shownCount);
+
+  const softFails = shown.filter(i => sfDraws[i] && i !== decider && i !== windowIdx).slice(0, 2);
+
+  // ---- §2.3 the decider hold, drawn at seal
+  const holdMs = decider === null ? 400 : (tier === 'grail' || tier === 'lockbox') ? 3400 : 2400;
+
+  // ---- §5.4 heat level from the tier's allowed set
+  const heatSet = config.heatByTier[tier];
+  const heatLevel = heatSet[Math.floor(rng() * heatSet.length)];
+
+  // ---- the guaranteed signal: top tiers only, at the published rate
+  const signal = (tier === 'grail' || tier === 'lockbox') && rng() < config.signalRate;
+
+  arrivals = results.filter(isIn).length;
+  return Object.freeze({
+    tier, arrivals, lockboxMode,
+    results: Object.freeze(results),       // roof, lobby, keypad
+    order, decider,                        // reveal order; decider is order's last
+    exit, shown: Object.freeze(shown), offscreen: Object.freeze(offscreen),
+    softFails: Object.freeze(softFails),
+    windowIdx: windowIdx < 0 ? null : windowIdx, windowKind,
+    windowSaveAt: Math.round(windowSaveAt),
+    holdMs, heatLevel, signal,
+    seed,
+  });
+}
+
+/* ---- the stack (vault-next): the haul as items, drawn at seal ----
+   Stack length is the tier read: thin haul two or three items, top haul six
+   or more. Values strictly ascend; the LAST item is the run's drawn prize
+   and carries the whole reveal; the SECOND-TO-LAST is a deliberate step up
+   (the reverse-holo beat — good, not the best, there to fake out the
+   ending). row[] is the on-screen order (seeded shuffle) and glowRow is the
+   best item's position in it — the tell. The glow marks tier only, never
+   identity: the item under it stays face-down until turned. Debug forces
+   stackLen and glowRow at draw time, like every other force. */
+const TIER_ORDER = ['getaway', 'floor', 'solid', 'grail', 'lockbox'];
+function buildStack(rng, outcome, config, forces, prizeRoll) {
+  const isForced = v => v && v !== 'random';
+  const T = outcome.tier, oi = TIER_ORDER.indexOf(T);
+  const band = config.stackLenByTier[T];
+  const len = isForced(forces.stackLen)
+    ? Math.max(2, Math.min(8, parseInt(forces.stackLen, 10) || band[0]))
+    : band[0] + Math.floor(rng() * (band[1] - band[0] + 1));
+  const pool = t => config.prizePool[t], vals = t => config.prizeValues[t];
+  // the best item IS the drawn prize — same roll the reveal card shows
+  const bestIdx = Math.floor(prizeRoll * pool(T).length);
+  const best = { name: pool(T)[bestIdx], value: vals(T)[bestIdx], rank: 'best', band: T };
+  // the step-up: one rung below the run's tier (its own rung on getaway)
+  const stepT = TIER_ORDER[Math.max(0, oi - 1)];
+  const stepIdx = Math.floor(rng() * pool(stepT).length);
+  const step = { name: pool(stepT)[stepIdx], value: vals(stepT)[stepIdx], rank: 'step', band: stepT };
+  if (step.value >= best.value) step.value = Math.max(2, Math.round(best.value * 0.6));
+  // low fills: fast texture from the rungs below the step, values kept under it
+  const fillTiers = TIER_ORDER.slice(0, Math.max(1, oi - 1));
+  const fills = [];
+  for (let k = 0; k < len - 2; k++) {
+    const ft = fillTiers[Math.floor(rng() * fillTiers.length)];
+    const fi = Math.floor(rng() * pool(ft).length);
+    let v = vals(ft)[fi];
+    if (v >= step.value) v = Math.max(1, Math.round(step.value * (0.25 + 0.45 * rng())));
+    fills.push({ name: pool(ft)[fi], value: v, rank: 'low', band: ft });
+  }
+  fills.sort((a, b) => a.value - b.value);
+  let cap = step.value;                                   // strict ascent under the step
+  for (let k = fills.length - 1; k >= 0; k--) {
+    if (fills[k].value >= cap) fills[k].value = cap - 1;
+    fills[k].value = Math.max(1, fills[k].value);
+    cap = fills[k].value;
+  }
+  const items = fills.concat([step, best]);               // ascending; index len-1 is the best
+  const row = shuffled(rng, items.map((_, k) => k));      // where each item sits on screen
+  let glowRow = row.indexOf(len - 1);
+  if (isForced(forces.glowRow)) {
+    const g = Math.max(0, Math.min(len - 1, (parseInt(forces.glowRow, 10) || 1) - 1));
+    const cur = glowRow;
+    const tmp = row[cur]; row[cur] = row[g]; row[g] = tmp;
+    glowRow = g;
+  }
+  return Object.freeze({ len, items: Object.freeze(items.map(Object.freeze)), row: Object.freeze(row), glowRow });
+}
+
+/* Presentation flavour drawn from the same seeded stream, after the outcome
+   is frozen. These values dress the run; none of them can touch the outcome. */
+function derivePresentation(rng, outcome, forces) {
+  const digits = [];
+  for (let i = 0; i < 4; i++) digits.push(Math.floor(rng() * 10));
+  const laserPhases = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
+  const lockNumbers = [Math.floor(rng() * 10), Math.floor(rng() * 10), Math.floor(rng() * 10)]; // what each numbered solve carries
+  const prizeRoll = rng();
+  const stack = buildStack(rng, outcome, CONFIG, forces || {}, prizeRoll);
+  return Object.freeze({ digits: Object.freeze(digits), laserPhases: Object.freeze(laserPhases), lockNumbers: Object.freeze(lockNumbers), prizeRoll, stack });
+}
+
+/* ============================== the beat scheduler ==============================
+   §2.2 — every beat declares a cost and a priority; the scheduler assembles the
+   run, sums the costs and trims lowest-priority-first until the run fits its
+   ceiling. Priority 0/1 beats never trim. Beats trimmed to zero stay in the
+   list (their cues still fire, instantly) so nothing is ever silently lost. */
+function buildBeatList(o, depth) {
+  const B = [];
+  const add = (id, dur, prio, minDur) => B.push({ id, dur, prio, minDur: minDur !== undefined ? minDur : dur });
+  const last = o.shown[o.shown.length - 1];
+  const windowOnDecider = o.windowIdx !== null && o.windowIdx === last && o.shown.includes(o.windowIdx);
+
+  add('cold', 1200, 3, 0);
+  add('blueprint', 800, 3, 0);
+  // off-screen resolutions are reported early; on a short exit they are
+  // zero-cost events during the blueprint (the 9.0s ceiling has no room)
+  o.offscreen.forEach(i => add('report.' + i, o.exit === 'short' ? 0 : 500, 2, o.exit === 'short' ? 0 : 250));
+  o.shown.forEach(i => {
+    add('enc.' + i, 3200, 0);
+    if (o.windowIdx === i && !windowOnDecider) add('window.' + i, 3000, 2, 1800);
+    if (i !== last) add('counter.' + i, 800, 2, 400);
+  });
+  if (o.exit !== 'short') add('heat', 1400, 3, 0);
+  add('hold', o.holdMs, 1);
+  if (windowOnDecider) add('window.' + o.windowIdx, 3000, 2, 1800);  // the window resolves the decider, after the hold
+  if (o.tier === 'getaway') {
+    add('trip', 700, 2, 400);
+    add('open.g', 1400, 0);   // the vault opens on 100% of runs — the getaway door too, quietly
+  } else {
+    add('approach', o.exit === 'short' ? 1000 : 1500, 2, o.exit === 'short' ? 400 : 800);
+    if (o.signal) add('signal', 1500, 1);
+    add('door', 2000, 0);
+    if (o.tier === 'lockbox') {
+      if (o.lockboxMode === 'radioOut') add('radio', 6500, 1);     // §5.6 premium, whitelisted past 24s
+      else add('lockfill', 1500, 1);
+    } else if (o.arrivals === 3) add('locktry', 900, 2, 500);
+  }
+  add('reveal', 1000, 0);
+
+  // §2.4 session pacing: presentation depth only; the sealed result, the reveal
+  // order, the variants and the decider hold are untouched
+  if (depth === 'reduced') for (const b of B) { if (b.prio === 3) b.dur = 0; else if (b.prio === 2) b.dur = b.minDur; }
+  // the 20-second default (session C / S6): the SAME show, compressed —
+  // flavour beats halve, texture beats sit at their floors, the chamber act
+  // and the door tighten. The decider hold is untouched (the tension beat IS
+  // the show) and every cue lands at the same FRACTION of its beat, so the
+  // staging compresses proportionally. 'full' is now the opt-in long descent.
+  if (depth === 'standard') for (const b of B) {
+    if (b.prio === 3) { b.dur = Math.round(b.dur * 0.5); b.minDur = Math.min(b.minDur, b.dur); }
+    else if (b.prio === 2) b.dur = b.minDur;
+    else if (b.id.startsWith('enc.')) b.dur = 1800;
+    else if (b.id === 'door') b.dur = 1500;
+    else if (b.id === 'open.g') b.dur = 1100;
+    else if (b.id === 'radio') b.dur = 4500;
+    else if (b.id === 'lockfill') b.dur = 1000;
+    else if (b.id === 'signal') b.dur = 1000;
+    else if (b.id === 'reveal') b.dur = 800;
+  }
+
+  const band = (o.tier === 'lockbox' && o.lockboxMode === 'radioOut') ? CONFIG.caps.premium : CONFIG.caps[o.exit];
+  let total = B.reduce((s, b) => s + b.dur, 0);
+  for (const prio of [3, 2]) {
+    if (total <= band[1]) break;
+    for (const b of B) {
+      if (b.prio !== prio || b.dur <= b.minDur) continue;
+      const cut = Math.min(b.dur - b.minDur, total - band[1]);
+      b.dur -= cut; total -= cut;
+      if (total <= band[1]) break;
+    }
+  }
+  let t = 0;
+  for (const b of B) { b.at = t; t += b.dur; }
+  const overrun = total > band[1];
+  if (overrun) console.error('[vaultjob] beat budget overrun: ' + total + 'ms > ' + band[1] + 'ms cap\n'
+    + B.map(b => '  ' + b.id + ' ' + b.dur + 'ms p' + b.prio).join('\n'));
+  return { beats: B, total, floor: band[0], cap: band[1], overrun, depth };
+}
+
+
+/* ============================== display data (mirrors index.html) ============================== */
+const $ = id => document.getElementById(id);
+const TIERS = ['getaway', 'floor', 'solid', 'grail', 'lockbox'];
+const TIER_LABEL = { getaway: 'RETREAT', floor: 'THRESHOLD', solid: 'CHAMBER', grail: 'SANCTUM', lockbox: 'RELIQUARY' };
+const SCENES = [
+  { id: 'roof',   where: 'FIRST CHAMBER',   guy: 'the point climber' },
+  { id: 'lobby',  where: 'FLOODED PASSAGE', guy: 'the wader' },
+  { id: 'keypad', where: 'DEEP CHAMBER',    guy: 'the torchbearer' },
+];
+const TIER_COPY = {
+  getaway: 'The temple woke early — nobody reached the great door in time. They took what lay near it on the way up.',
+  floor:   'One bolt drawn. The door grinds open a body’s width — the near shelves still pay.',
+  solid:   'Two bolts drawn, the door half open. The deeper shelves.',
+  grail:   'Three bolts, the door full open — but the journal is a glyph short. They walk past the reliquary.',
+  lockbox: 'Three glyphs rubbed into the journal, clean. The inscription completes — the reliquary opens and goes out with them.',
+  lockboxRadio: 'Not everyone made the descent — the missing glyphs were called across the chamber. The reliquary opens anyway.',
+};
+/* caption fractions are the graphical scenes' own — same moments, same
+   shaping. Text is kept terse (≈5 words) so a reader keeps up at 1x. */
+const CAPTIONS = {
+  roof: {
+    clean: [[0.0, 'go. daylight above.'], [0.45, 'hands to the sun-plate.'], [0.86, 'it turns. down he goes.']],
+    close: [[0.0, 'go. daylight above.'], [0.4, 'a slab shifts. he freezes.'], [0.47, 'dust sifts down.'], [0.62, 'it holds. he moves.'], [0.9, 'the plate turns. barely.']],
+    out:   [[0.0, 'go. daylight above.'], [0.4, 'the floor lets go.'], [0.5, 'he catches the ledge.'], [0.6, 'hanging on. both hands good.'], [0.85, 'no deeper here.']],
+  },
+  lobby: {
+    clean: [[0.0, 'go. water to the knee.'], [0.48, 'the wheel, under the surface.'], [0.58, 'it gives.'], [0.88, 'through the arch.']],
+    close: [[0.0, 'go. water to the knee.'], [0.44, 'the wheel fights him.'], [0.56, 'the gate slips an inch.'], [0.7, 'the wheel gives. the gate holds.'], [0.92, 'through.']],
+    out:   [[0.0, 'go. water to the knee.'], [0.44, 'the wheel slips.'], [0.56, 'the portcullis falls.'], [0.7, 'cut off behind the bars.'], [0.82, 'he holds the bars. no deeper.']],
+  },
+  keypad: {
+    clean: [[0.0, 'go. torch and bones.'], [0.4, 'a stone on the scale. another.'], [0.66, 'the fourth settles.'], [0.78, 'the slab lifts.']],
+    close: [[0.0, 'go. torch and bones.'], [0.4, 'two stones on.'], [0.56, 'the third teeters.'], [0.7, 'it seats.'], [0.84, 'the slab lifts.']],
+    out:   [[0.0, 'go. torch and bones.'], [0.4, 'two stones on.'], [0.56, 'the third slips.'], [0.6, 'the ceiling starts down.'], [0.72, 'his shoulders take it. it stops.'], [0.9, 'bracing. no deeper.']],
+  },
+};
+const TRAP_TXT = [
+  'hanging from the ledge, in sight.',
+  'behind the dropped bars, waist deep, in sight.',
+  'bracing the ceiling, in sight.',
+];
+const SAVE_REACH = ['a rope drops through the broken light—', 'a teammate shoulders the gate up—', 'a torch arcs across the dark to him—'];
+const SAVE_LAND  = ['he climbs. he’s up.', 'he ducks under. he’s out.', 'he sees the way. he’s moving.'];
+const GLYPH_TXT = ['□', '†', '✕', '△', '♯', '◯', '§', '∩', '◇', '≡'];   // ten marks; lockNumbers 0–9 index in
+/* the handler's lines, same variants and same seed-hash selection as the
+   graphical build's manifest (slot id 'handler.<state>'), so the same
+   seed hears the same line in both builds */
+const HANDLER = {
+  cold_open: ['ropes set. the journal’s open on the ledge. down we go.', 'three ways down, one door. quiet feet.', 'i can see all three ledges from here. make me proud.', 'last check of the knots. good. it’s a fine day to go under.'],
+  encounter_start: ['go. {where}.', '{where}. you’re up. slow and sure.', '{where}. your window’s open. move.', '{where}. breathe. go.'],
+  softfail_1: ['easy — hold. hold…', 'that stone moved. nobody breathe.', 'careful. careful.', 'i heard that. so did the temple.'],
+  softfail_2: ['again?! okay. okay. still on your feet.', 'twice. nobody’s that unlucky. reset.', 'i can’t watch. i’m watching.', 'second slip. steady. steady…'],
+  assist: ['got you — wedge it there. go.', 'ledge on your left. that one holds. go.', 'and that is why you rope up in threes.', 'handled. don’t ask how. move.'],
+  downed: ['trap. talk to me. TALK to me.', 'he’s held. i can still see him. hold on—', 'stuck. the clock is running.', 'no no no. the temple has him.'],
+  rescued: ['got him. GOT him. moving.', 'he’s up. shaken, but up.', 'hauled him clear. never do that again.', 'on his feet. moving. good enough.'],
+  lost: ['he’s held fast. leave it. i said leave it.', 'he can’t come loose. we’re minus one.', 'that’s it. he waits it out. keep moving.', '…he’s safe where he is. finish the descent for him.'],
+  counter_reset: ['clean. the dust settles. breathe.', 'the temple’s quiet again. we’re whole.', 'settled. that buys the day back.', 'still air in every chamber.'],
+  counter_critical: ['the walls are stirring. nothing fancy from here.', 'one tremor from waking. walk, don’t run.', 'dust off the ceiling. the next mistake ends it.', 'it’s stirring. i don’t like this either.'],
+  decider_hold: ['{stakes} hold.', '{stakes} nobody breathe.', '{stakes} i’ll be watching through my fingers.', '{stakes} steady…'],
+  tier_reveal: ['the door’s yours. take it home.', 'open it up. we’re done here.', 'that’s the descent. wrap it and climb.', 'there it is. lay out the cloth.'],
+};
+function handlerLine(seed, state, ctx) {
+  const pool = HANDLER[state] || ['…'];
+  let text = pool[xmur3(seed + ':handler.' + state)() % pool.length];
+  return text.replace(/\{(\w+)\}/g, (m, k) => (ctx && ctx[k] !== undefined) ? ctx[k] : m);
+}
+function stakesLine(o) {
+  const d = o.decider;
+  const banked = o.results.filter((r, i) => i !== d && isIn(r)).length;
+  const up = o.results.slice(); up[d] = 'clean';
+  let upTier = o.tier === 'lockbox' ? 'lockbox' : tierOf(up);
+  if (upTier === 'lockbox' && o.tier !== 'lockbox') upTier = 'grail';
+  const bankedTxt = ['nobody through yet', 'one through', 'two through'][banked];
+  const upTxt = upTier === 'lockbox' ? 'we’re opening the reliquary' : 'it’s the ' + TIER_LABEL[upTier].toLowerCase();
+  return bankedTxt + '. one to go. if he makes it, ' + upTxt + '.';
+}
+
+/* ============================== log & scoreboard ============================== */
+const logEl = $('log');
+function stamp(t) { return '[' + (t / 1000).toFixed(1).padStart(5) + 's] '; }
+/* word density: the beats land at the same milliseconds regardless — this
+   only chooses how many of them PRINT. lvl 1 = the skeleton (rooms,
+   resolutions, trackers, traps, saves, door, tier); lvl 2 = texture
+   (captions, near misses, counter dust); lvl 3 = flavour (handler quotes,
+   hints). sparse prints 1, standard 1–2, full everything. */
+function densityLevel() { const v = $('density').value; return v === 'sparse' ? 1 : v === 'full' ? 3 : 2; }
+
+/* one currency (session A): the transcript speaks stake multiples, same as
+   the graphical build's card faces. Mirror of index.html's fmtMult (which is
+   outside the spliced core). */
+function fmtStake(value) {
+  const x = value / CONFIG.stake;
+  const v = x >= 10 ? Math.round(x) : x >= 1 ? Math.round(x * 10) / 10 : Math.round(x * 100) / 100;
+  return v + '×';
+}
+function put(t, text, cls, lvl) {
+  if ((lvl || 1) > densityLevel()) return;
+  const d = document.createElement('div');
+  d.className = 'ln ' + (cls || '');
+  d.textContent = stamp(t) + text;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+/* the two trackers + the waking, always on screen — the text scoreboard */
+const S = { bolts: 0, glyphs: [], pips: 3, members: ['working…', 'working…', 'working…'], done: false };
+function wakeName() { return S.pips >= 3 ? 'settled' : S.pips === 2 ? 'settled · dust' : S.pips === 1 ? 'stirring' : 'WAKING'; }
+function renderStatus(extra) {
+  const bolts = Array.from({ length: 3 }, (_, k) => k < S.bolts ? '▮' : '▯').join(' ');
+  const journ = Array.from({ length: 3 }, (_, k) => S.glyphs[k] || '·').join(' ');
+  const wk = wakeName();
+  $('status').innerHTML =
+    '<span class="lbl">BOLTS</span> ' + bolts + '   <span class="lbl">JOURNAL</span> ⟦ ' + journ + ' ⟧   '
+    + '<span class="lbl">TEMPLE</span> <span class="wk-' + wk.replace(/[^A-Za-z]/g, '') + '">' + wk + '</span>'
+    + (extra ? '   <span class="lbl">' + extra + '</span>' : '')
+    + '<br><span class="lbl">C1</span> ' + S.members[0] + ' · <span class="lbl">C2</span> ' + S.members[1] + ' · <span class="lbl">C3</span> ' + S.members[2];
+}
+
+/* ============================== state & engine ============================== */
+let serverSeed = '', commitHash = '', nonce = 1, opens = 0, descents = 0, collection = 0;
+let engine = null, stackCtl = null, lastRun = null;
+function refreshCounters() { $('counters').textContent = 'DESCENTS ' + descents + ' · COLLECTION ' + collection; }
+function speedFactor() {
+  const v = $('spd').value;
+  return v === '0.5x' ? 0.5 : v === '2x' ? 2 : v === 'instant' ? Infinity : 1;
+}
+function currentForces() {
+  return { tier: $('dbg-tier').value, exit: $('dbg-exit').value,
+    results: [$('dbg-r1').value, $('dbg-r2').value, $('dbg-r3').value] };
+}
+
+function startRun(pick, seedStr, runNonce, replay) {
+  const rng = makeRng(seedStr);
+  const forces = currentForces();
+  const outcome = drawOutcome(rng, CONFIG, seedStr, forces);
+  const pres = derivePresentation(rng, outcome, forces);
+  // session C: quick is opt-in only (the 5-open auto-quick rule is gone);
+  // the default sequenced track is the 20-second 'standard' depth.
+  const quick = replay ? false : $('quick-toggle').checked;
+  runGame({ seed: seedStr, pick, nonce: runNonce, outcome, pres, quick, replay: !!replay });
+}
+
+function runGame(run) {
+  lastRun = run;
+  const o = run.outcome, seed = run.seed;
+  logEl.innerHTML = ''; $('stackrow').innerHTML = ''; $('receipt').classList.remove('show');
+  if (stackCtl) { stackCtl.timers.forEach(paneClear); stackCtl = null; }
+  S.bolts = 0; S.glyphs = []; S.pips = 3; S.done = false;
+  S.members = ['working…', 'working…', 'working…'];
+  renderStatus();
+
+  let seq = 0;
+  const cues = [];
+  const cue = (t, fn) => cues.push({ t, fn, seq: seq++ });
+  const say = (t, state, ctx) => cue(t, tt => put(tt, '“' + handlerLine(seed, state, ctx) + '”', 'handler', 3));
+  const burnPip = (t) => cue(t, tt => {
+    S.pips = Math.max(0, S.pips - 1); renderStatus();
+    if (S.pips === 1) put(tt, '· the temple is STIRRING.', 'alarm');
+    else if (S.pips === 2) put(tt, '· dust settles heavier.', 'dim', 2);
+    if (S.pips === 1) put(tt, '“' + handlerLine(seed, 'counter_critical') + '”', 'handler', 3);
+  });
+  const resetPips = (t) => cue(t, tt => {
+    const was = S.pips; S.pips = 3; renderStatus();
+    if (was < 3) { put(tt, '· the temple settles.', 'dim', 2); put(tt, '“' + handlerLine(seed, 'counter_reset') + '”', 'handler', 3); }
+  });
+  const rubGlyph = (num) => { if (S.glyphs.length < 3) S.glyphs.push(GLYPH_TXT[(num || 0) % 10]); };
+  const lockText = (t, i, rescued, offscreen) => cue(t, tt => {
+    S.members[i] = rescued ? 'through ✓ (pulled clear)' : 'through ✓';
+    S.bolts = Math.min(3, S.bolts + 1);
+    let line = SCENES[i].where + ' — THROUGH · bolt ' + S.bolts + '/3';
+    if (hasNumber(o.results[i])) { rubGlyph(run.pres.lockNumbers[i]); line += ' · glyph ' + S.glyphs[S.glyphs.length - 1] + ' ' + S.glyphs.length + '/3'; }
+    if (rescued) line += ' · late, after the save';
+    if (offscreen) line += ' · off screen';
+    put(tt, line, 'good');
+    renderStatus();
+  });
+  const loseText = (t, i, offscreen) => cue(t, tt => {
+    S.members[i] = 'HELD ✖';
+    put(tt, SCENES[i].where + ' — HELD · ' + TRAP_TXT[i] + (offscreen ? ' (off screen)' : ''), 'bad');
+    put(tt, '        trackers hold: bolt home, outline blank.', 'dim', 2);
+    renderStatus();
+  });
+
+  if (run.quick) {
+    /* the quick open, mirrored beat for beat (structure frozen; §5.7) */
+    cue(0, t => put(t, '— quick open. —', 'room'));
+    cue(600, t => {
+      o.results.forEach((r, i) => {
+        if (isIn(r)) { S.members[i] = 'through ✓'; put(t, SCENES[i].where + ' — THROUGH', 'good'); }
+        else { S.members[i] = 'HELD ✖'; put(t, SCENES[i].where + ' — HELD · ' + TRAP_TXT[i], 'bad'); }
+      });
+      renderStatus();
+    });
+    cue(1200, t => {
+      S.bolts = o.arrivals; renderStatus();
+      if (o.arrivals) put(t, o.arrivals + ' bolt' + (o.arrivals > 1 ? 's' : '') + ' slam back at once.', 'good');
+    });
+    cue(1600, t => { if (o.arrivals > 0) put(t, '— THE GREAT DOOR —', 'room'); });
+    if (o.arrivals === 0) {
+      cue(2000, t => put(t, 'the door stays shut. (quick-path retreat, frozen decision 35)', 'dim'));
+    } else {
+      cue(2000, t => put(t, 'the stone rolls. open.', 'good'));
+      cue(2450, t => put(t, 'through the opening: the reliquary.', 'dim', 2));
+      if (o.tier === 'lockbox') {
+        const numbered = o.results.map((r, i) => hasNumber(r) ? i : -1).filter(i => i >= 0);
+        const contributors = [...numbered, ...[0, 1, 2].filter(i => !hasNumber(o.results[i]))];
+        contributors.forEach((m, k) => cue(2500 + k * 90, t => { rubGlyph(run.pres.lockNumbers[m]); renderStatus(); put(t, 'glyph ' + S.glyphs[S.glyphs.length - 1] + ' · ' + S.glyphs.length + '/3', 'dim', 2); }));
+        cue(2850, t => put(t, 'THE RELIQUARY OPENS.', 'tier'));
+      }
+      cue(2600, t => put(t, '—— ' + TIER_LABEL[o.tier] + ' ——', 'tier'));
+    }
+    engine = { run, cues: cues.sort((a, b) => a.t - b.t || a.seq - b.seq), total: CONFIG.durations.quick,
+      boundaries: [0, CONFIG.durations.quick], elapsed: 0, last: null, cueIndex: 0, done: false, ff: false };
+    run.sched = null;
+  } else {
+    const sched = buildBeatList(o, (run.replay || $('fullshow-toggle').checked) ? 'full' : 'standard');
+    run.sched = sched;
+    const bMap = {}; sched.beats.forEach(b => { bMap[b.id] = b; });
+    const last = o.shown[o.shown.length - 1];
+    if ($('markers').checked) sched.beats.forEach(b => cues.push({ t: b.at, fn: t => put(t, '· beat ' + b.id + ' (' + b.dur + 'ms)', 'marker'), seq: -1000 + b.at / 100000 }));
+
+    cue(bMap.cold.at, t => put(t, '— at the mouth. the journal open on its ledge: three empty outlines. —', 'room'));
+    say(bMap.cold.at, 'cold_open');
+    cue(bMap.blueprint.at + bMap.blueprint.dur, t => { renderStatus(); put(t, '· the temple is settled.', 'dim', 2); });
+    o.offscreen.forEach(i => {
+      const t = bMap['report.' + i].at + 1;
+      if (isIn(o.results[i])) lockText(t, i, o.results[i] === 'downedThenRecovered', true);
+      else { loseText(t, i, true); burnPip(t); }
+    });
+
+    o.shown.forEach((i) => {
+      const b = bMap['enc.' + i];
+      const r = o.results[i];
+      const windowed = o.windowIdx === i;
+      const isDecider = o.decider === i;
+      const softfail = o.softFails.includes(i);
+      cue(b.at, t => put(t, '— ' + SCENES[i].where + ' —', 'room'));
+      say(b.at, 'encounter_start', { where: SCENES[i].where.toLowerCase() });
+
+      /* caption times use the graphical build's exact clock shaping */
+      const capAt = f => {
+        if (windowed) return f <= 0.55 ? b.at + (f / 0.58) * b.dur : null;
+        if (isDecider) {
+          if (f <= 0.38) return b.at + (f / 0.38) * b.dur;
+          const hb2 = bMap.hold;
+          return hb2.at + (0.6 + 0.4 * (f - 0.38) / 0.62) * hb2.dur;
+        }
+        if (softfail) {
+          if (f <= 0.2) return b.at + (f / 0.2) * 0.28 * b.dur;
+          if (f <= 0.36) return b.at + (0.36 + ((f - 0.2) / 0.16) * 0.2) * b.dur;
+          return b.at + (0.64 + ((f - 0.36) / 0.64) * 0.36) * b.dur;
+        }
+        return b.at + f * b.dur;
+      };
+      const caps = CAPTIONS[SCENES[i].id][(r === 'clean' || r === 'close') ? r : 'out'];
+      caps.forEach(([f, text]) => {
+        const t = capAt(f);
+        const tMax = isDecider ? bMap.hold.at + bMap.hold.dur * 0.95 : b.at + b.dur;
+        if (t !== null && t <= tMax) cue(t, tt => put(tt, '    ' + text, 'dim', 2));
+      });
+
+      if (softfail) {
+        // the stall moments read from the captions at standard density; the
+        // shouted markers join only at full, or they stack too fast to read
+        cue(b.at + b.dur * 0.28, t => put(t, '    CLOSE —', 'near', 3));
+        say(b.at + b.dur * 0.28, 'softfail_1');
+        cue(b.at + b.dur * 0.56, t => put(t, '    CLOSE AGAIN —', 'near', 3));
+        say(b.at + b.dur * 0.56, 'softfail_2');
+        if (isIn(r)) say(b.at + b.dur * 0.77, 'assist');
+      }
+      if (r === 'close' && !windowed) {
+        const joltT = isDecider ? bMap.hold.at + bMap.hold.dur * 0.78 : b.at + b.dur * (softfail ? 0.7 : 0.45);
+        cue(joltT, t => put(t, '    CLOSE CALL —', 'near', 3));
+      }
+      if (windowed) {
+        cue(b.at + b.dur * 0.9, t => { S.members[i] = 'TRAPPED …'; renderStatus(); put(t, 'TRAPPED — ' + SCENES[i].where + ' · ' + TRAP_TXT[i], 'alarm'); });
+        say(b.at + b.dur * 0.9, 'downed');
+      } else if (!isDecider) {
+        if (isIn(r)) lockText(b.at + b.dur - 30, i, r === 'downedThenRecovered');
+        else loseText(b.at + b.dur - 30, i);
+      }
+      const cb = bMap['counter.' + i];
+      if (cb) {
+        if (r === 'clean') resetPips(cb.at);
+        else if (r === 'out') burnPip(cb.at);
+        if (isIn(r)) cue(cb.at + cb.dur, t => put(t, '    ' + SCENES[i].guy + ' reaches the door ledge.', 'dim', 2));
+      }
+    });
+
+    /* the trapped window — the rescue clock, the late tracker write */
+    if (o.windowIdx !== null && o.shown.includes(o.windowIdx)) {
+      const i = o.windowIdx, wb = bMap['window.' + i];
+      const rec = o.windowKind === 'recovered';
+      const saveF = Math.max(0.35, Math.min(0.85, o.windowSaveAt / 3000));
+      const afterHold = wb.at >= bMap.hold.at + bMap.hold.dur - 1;
+      const t0 = afterHold ? bMap.hold.at : wb.at;
+      const tEnd = wb.at + Math.max(1, wb.dur);
+      const tSave = wb.at + wb.dur * saveF;
+      cue(t0, t => { S.members[i] = 'TRAPPED …'; renderStatus(); put(t, 'the rescue clock runs. trackers hold.', 'alarm'); });
+      // (the graphical build fires say('downed') here too, but its handler is
+      // silent — in text the line already landed at the trap moment, so once)
+      cue((t0 + tSave) / 2, t => put(t, '    …the clock drains. still held, still in sight.', 'dim', 2));
+      if (rec) {
+        cue(Math.max(t0 + 80, tSave - 250), t => put(t, SAVE_REACH[i], 'rescue'));
+        cue(tSave, t => put(t, 'GOT HIM — ' + SAVE_LAND[i], 'rescue'));
+        say(tSave, 'rescued');
+        lockText(Math.min(tEnd - wb.dur * 0.03, tSave + 600), i, true);   // the tracker updates LATE — the save
+      } else {
+        cue(wb.at + wb.dur * 0.8, t => put(t, '    the stone settles around him.', 'dim'));
+        say(wb.at + wb.dur * 0.8, 'lost');
+        cue(wb.at + wb.dur * 0.97, t => put(t, 'HELD FAST — he waits for the others.', 'bad'));
+        loseText(wb.at + wb.dur * 0.97 + 1, i);
+      }
+    }
+
+    /* the decider hold */
+    const hb = bMap.hold;
+    if (o.decider !== null) {
+      cue(hb.at, t => put(t, 'ONE TO GO —', 'room'));
+      say(hb.at, 'decider_hold', { stakes: stakesLine(o) });   // the stakes live in the handler line
+      if (o.windowIdx !== o.decider) {
+        const d = o.decider, r = o.results[d];
+        if (isIn(r)) lockText(hb.at + hb.dur * 0.97, d, r === 'downedThenRecovered');
+        else loseText(hb.at + hb.dur * 0.97, d);
+      }
+    }
+
+    if (o.tier === 'getaway') {
+      const tb = bMap.trip, ob = bMap['open.g'];
+      burnPip(tb.at);
+      cue(tb.at + 350, t => put(t, 'THE TEMPLE WAKES — out of time.', 'alarm'));
+      cue(ob.at, t => put(t, 'the door grinds open a crack anyway. they take what lies near it.', 'dim'));
+      cue(ob.at + ob.dur * 0.8, t => put(t, 'through the gap: the reliquary, out of reach today.', 'dim'));
+    } else {
+      const ab = bMap.approach;
+      const rLast = o.results[last];
+      if (o.windowIdx !== last) {
+        if (rLast === 'clean') resetPips(ab.at);
+        else if (rLast === 'out') burnPip(ab.at);
+      }
+      if (o.exit !== 'full') cue(ab.at + 2, t => put(t, 'THE TEMPLE WAKES — out of time. they run.', 'alarm'));
+      if (isIn(rLast)) cue(ab.at + ab.dur * 0.7, t => put(t, '    ' + SCENES[last].guy + ' reaches the door ledge.', 'dim', 2));
+      const takeAt = (o.windowIdx === last && o.shown.includes(last))
+        ? Math.max(700, ab.dur * 0.65) : Math.max(400, ab.dur * 0.5);
+      cue(ab.at + takeAt, t => put(t, '— THE GREAT DOOR · ' + S.bolts + ' bolt' + (S.bolts === 1 ? '' : 's') + ' · ' + S.glyphs.length + ' glyph' + (S.glyphs.length === 1 ? '' : 's') + ' —', 'room'));
+      if (bMap.signal) cue(bMap.signal.at, t => put(t, 'THE TEMPLE SLEEPS.', 'good'));
+
+      const db = bMap.door;
+      const anticMs = Math.min(800, db.dur * 0.4);
+      cue(db.at, t => put(t, 'nobody breathes.', 'dim'));
+      cue(db.at + anticMs, t => put(t, 'IMPACT — the stone rolls.', 'good'));
+      cue(db.at + db.dur, t => put(t, o.arrivals === 1 ? 'open a body’s width. the near shelves.'
+        : o.arrivals === 2 ? 'open halfway. the deeper shelves.'
+        : 'OPEN FULL — light down to the far end.', 'good'));
+      cue(db.at + db.dur * 0.8, t => put(t, 'through the opening: the reliquary.', 'dim'));
+      cue(db.at + db.dur * 0.82, t => put(t, '    artefact' + (o.arrivals > 1 ? 's' : '') + ' taken × ' + o.arrivals + '.', 'dim', 2));
+
+      const numberedIdx = o.results.map((r, i) => hasNumber(r) ? i : -1).filter(i => i >= 0);
+      if (bMap.locktry) {
+        const lt = bMap.locktry;
+        cue(lt.at, t => put(t, 'they read the inscription…', 'dim', 2));
+        cue(lt.at + lt.dur * 0.9, t => put(t, (3 - numberedIdx.length === 1 ? 'one glyph short.' : 'two glyphs short.') + ' sealed. they walk past it.', 'bad'));
+      }
+      if (bMap.lockfill) {
+        const lf = bMap.lockfill;
+        cue(lf.at, t => put(t, 'three glyphs, carried down clean.', 'dim', 2));
+        cue(lf.at + lf.dur * 0.75, t => put(t, 'the inscription completes. THE RELIQUARY OPENS.', 'tier'));
+      }
+      if (bMap.radio) {
+        const rb = bMap.radio;
+        const downs = [0, 1, 2].filter(i => !isIn(o.results[i]));
+        cue(rb.at, t => put(t, downs.length === 1 ? 'one glyph short. call it across.' : 'two glyphs short. call them across.', 'dim'));
+        downs.forEach((m, j) => {
+          const t0 = rb.at + 1500 + j * 1500;
+          cue(t0, t => put(t, '    a shout from ' + SCENES[m].guy + ', held where he is—', 'dim', 2));
+          cue(t0 + 900, t => { rubGlyph(run.pres.lockNumbers[m]); renderStatus(); put(t, '    —glyph ' + S.glyphs[S.glyphs.length - 1] + ' lands · ' + S.glyphs.length + '/3', 'good'); });
+        });
+        cue(rb.at + 1600 + downs.length * 1500, t => put(t, 'the last glyph lands. THE RELIQUARY OPENS.', 'tier'));
+      }
+    }
+
+    const boundaries = sched.beats.map(b => b.at).filter((v, i, a) => a.indexOf(v) === i).concat(sched.total);
+    engine = { run, cues: cues.sort((a, b) => a.t - b.t || a.seq - b.seq), total: sched.total,
+      boundaries, elapsed: 0, last: null, cueIndex: 0, done: false, ff: false };
+  }
+
+  if (speedFactor() === Infinity) { instantFinish(); return; }
+  scheduleTick();
+}
+
+/* rAF starvation guard, same as index.html: embedded preview panes can
+   report visibility 'hidden' and never fire requestAnimationFrame — and
+   hidden-page setTimeout is throttled to ~1/s — so the fallback clock is
+   a WEB WORKER 50ms ping, which escapes the hidden-page clamp. */
+let tickPending = false, tickRaf = 0, tickWatchdog = null;
+const tickWorker = (() => {
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(0)},50)'], { type: 'text/javascript' })));
+    w.onmessage = () => {
+      panePump();                       // stack-phase timers ride the same clock
+      if (!tickPending) return;
+      tickPending = false;
+      cancelAnimationFrame(tickRaf);
+      tick(performance.now());
+    };
+    return w;
+  } catch (e) { return null; }
+})();
+/* timers on the worker clock (hidden-page setTimeout is ~1/s) */
+const paneTimers = new Set();
+function paneTimeout(fn, ms) {
+  const rec = { due: performance.now() + ms, fn, done: false };
+  rec.id = setTimeout(() => paneFire(rec), ms);
+  paneTimers.add(rec);
+  return rec;
+}
+function paneFire(rec) { if (rec.done) return; rec.done = true; clearTimeout(rec.id); paneTimers.delete(rec); rec.fn(); }
+function paneClear(rec) { if (!rec || rec.done) return; rec.done = true; clearTimeout(rec.id); paneTimers.delete(rec); }
+function panePump() { const now = performance.now(); for (const rec of [...paneTimers]) if (now >= rec.due) paneFire(rec); }
+function scheduleTick() {
+  tickPending = true;
+  tickRaf = requestAnimationFrame(t => {
+    tickPending = false;
+    if (tickWatchdog) { clearTimeout(tickWatchdog); tickWatchdog = null; }
+    tick(t);
+  });
+  if (!tickWorker) {
+    if (tickWatchdog) clearTimeout(tickWatchdog);
+    tickWatchdog = setTimeout(() => {
+      if (!tickPending) return;
+      tickPending = false;
+      cancelAnimationFrame(tickRaf);
+      tick(performance.now());
+    }, 50);
+  }
+}
+
+function tick(ts) {
+  const e = engine;
+  if (!e || e.done) return;
+  if (e.last === null) e.last = ts;
+  const dt = Math.min(100, ts - e.last);
+  e.last = ts;
+  e.elapsed += dt * speedFactor() * (e.ff ? 3 : 1);
+  while (e.cueIndex < e.cues.length && e.cues[e.cueIndex].t <= e.elapsed) { const c = e.cues[e.cueIndex]; c.fn(c.t); e.cueIndex++; }
+  if (e.elapsed >= e.total) {
+    e.done = true;
+    if (e.run.quick) finishRun(); else beginStack(e.run);
+    return;
+  }
+  scheduleTick();
+}
+function instantFinish() {
+  const e = engine;
+  while (e.cueIndex < e.cues.length) { const c = e.cues[e.cueIndex]; c.fn(c.t); e.cueIndex++; }
+  e.done = true;
+  if (e.run.quick) finishRun(); else beginStack(e.run);
+}
+
+/* skip grammar, same as the graphical build: tap = next beat boundary,
+   hold = 3x; during the stack, stage taps land / turn-next / finish */
+let pressTimer = null, pressWasHold = false, pressActive = false;
+logEl.addEventListener('pointerdown', () => {
+  if (stackCtl && stackCtl.tap) { stackCtl.tap(); return; }
+  if (!engine || engine.done) return;
+  pressActive = true; pressWasHold = false;
+  pressTimer = setTimeout(() => { pressWasHold = true; if (engine) engine.ff = true; }, 260);
+});
+addEventListener('pointerup', () => {
+  if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  if (!pressActive) return;
+  pressActive = false;
+  if (!engine || engine.done) return;
+  engine.ff = false;
+  if (!pressWasHold) {
+    const next = engine.boundaries.filter(b => b > engine.elapsed + 1).sort((a, b) => a - b)[0];
+    if (next !== undefined) engine.elapsed = next;
+  }
+  pressWasHold = false;
+});
+addEventListener('keydown', ev => {
+  if (ev.code !== 'Space' && ev.code !== 'Enter') return;
+  if (/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) return;
+  ev.preventDefault();
+  if (stackCtl && stackCtl.tap) { stackCtl.tap(); return; }
+  if (!engine || engine.done) return;
+  const next = engine.boundaries.filter(b => b > engine.elapsed + 1).sort((a, b) => a - b)[0];
+  if (next !== undefined) engine.elapsed = next;
+});
+
+/* ============================== the cloth (stack), in text ============================== */
+function beginStack(run) {
+  const o = run.outcome, st = run.pres.stack;
+  const spd = speedFactor();
+  const ctl = { timers: [], dead: false, turned: new Set(), idleTimer: null, autoOn: false,
+    dealt: false, ending: false, emblemDone: false, banked: false, skipTaps: 0, clock: engine.total };
+  stackCtl = ctl;
+  const later = (ms, fn) => {
+    const h = paneTimeout(() => { if (!ctl.dead) { ctl.clock += ms; fn(); } }, spd === Infinity ? 0 : ms / spd);
+    ctl.timers.push(h);
+    return h;
+  };
+  put(ctl.clock, '— the cloth, in daylight. ' + st.len + ' items face-down. one catches the light. —', 'room');
+  put(ctl.clock, '    (tap items in any order; idle 3s auto-turns, ascending, the glint last.)', 'dim', 3);
+  const rowEl = $('stackrow');
+  rowEl.innerHTML = '';
+  const cards = [];
+  st.row.forEach((ai, pos) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = pos === st.glowRow ? '☼ ?' : '?';
+    if (pos === st.glowRow) b.className = 'glint';
+    b.addEventListener('click', ev => { ev.stopPropagation(); turn(ai, true); });
+    rowEl.appendChild(b);
+    cards[ai] = b;
+  });
+  const delayFor = it => o.tier === 'getaway' ? STACK_T_TXT.low
+    : it.rank === 'best' ? STACK_T_TXT.best : it.rank === 'step' ? STACK_T_TXT.step : STACK_T_TXT.low;
+  const armIdle = () => {
+    if (ctl.autoOn || ctl.dead) return;
+    if (ctl.idleTimer) paneClear(ctl.idleTimer);
+    ctl.idleTimer = later(STACK_T_TXT.idle, startAuto);
+  };
+  function startAuto() { if (ctl.autoOn || ctl.dead) return; ctl.autoOn = true; autoNext(); }
+  function autoNext() {
+    let next = -1;
+    for (let k = 0; k < st.len; k++) if (!ctl.turned.has(k)) { next = k; break; }
+    if (next < 0) return;
+    later(delayFor(st.items[next]), () => { turn(next, false); autoNext(); });
+  }
+  function turn(ai, byPlayer) {
+    if (ctl.dead || ctl.turned.has(ai)) return;
+    ctl.turned.add(ai);
+    const it = st.items[ai];
+    cards[ai].classList.add('turned');
+    cards[ai].classList.remove('glint');
+    cards[ai].textContent = fmtStake(it.value);
+    if (it.rank === 'best' && o.tier !== 'getaway') put(ctl.clock, '☼ turned: ' + it.name + ' — ' + fmtStake(it.value) + '  (the glinting one)', 'tier');
+    else put(ctl.clock, (byPlayer ? '  turned: ' : '  it turns: ') + it.name + ' — ' + fmtStake(it.value), it.rank === 'step' ? 'good' : '');
+    if (byPlayer && !ctl.autoOn) armIdle();
+    if (ctl.turned.size === st.len) {
+      ctl.ending = true;
+      if (ctl.idleTimer) paneClear(ctl.idleTimer);
+      later(o.tier === 'getaway' ? 350 : 500, complete);
+    }
+  }
+  function complete() {
+    if (o.tier !== 'getaway' && !ctl.emblemDone) {
+      ctl.emblemDone = true;
+      put(ctl.clock, '—— ' + TIER_LABEL[o.tier] + ' ——', 'tier');
+      put(ctl.clock, '“' + handlerLine(run.seed, 'tier_reveal') + '”', 'handler');
+    }
+    later(o.tier === 'getaway' ? 150 : 800, fly);
+  }
+  function finishAll() {
+    if (ctl.dead) return;
+    ctl.timers.forEach(paneClear); ctl.timers = [];
+    st.items.forEach((it, k) => { if (!ctl.turned.has(k)) { ctl.turned.add(k); cards[k].classList.add('turned'); cards[k].classList.remove('glint'); cards[k].textContent = fmtStake(it.value); put(ctl.clock, '  turned: ' + it.name + ' — ' + fmtStake(it.value), ''); } });
+    if (o.tier !== 'getaway' && !ctl.emblemDone) {
+      ctl.emblemDone = true;
+      put(ctl.clock, '—— ' + TIER_LABEL[o.tier] + ' ——', 'tier');
+    }
+    bankAndFinish();
+  }
+  function fly() {
+    put(ctl.clock, 'wrapped and carried up.', 'dim', 2);
+    bankAndFinish();
+  }
+  function bankAndFinish() {
+    if (!run.replay && !ctl.banked) { ctl.banked = true; collection += st.len; }
+    put(ctl.clock, 'COLLECTION ' + (run.replay ? 'unchanged (replay)' : '+' + st.len + ' → ' + collection), 'good');
+    ctl.dead = true; ctl.timers.forEach(paneClear);
+    stackCtl = null;
+    finishRun();
+  }
+  ctl.tap = () => {
+    if (ctl.dead) return;
+    if (ctl.ending) { finishAll(); return; }
+    ctl.skipTaps += 1;
+    if (!ctl.dealt) { ctl.dealt = true; armIdle(); return; }
+    if (ctl.skipTaps >= 2) { finishAll(); return; }
+    let next = -1;
+    for (let k = 0; k < st.len; k++) if (!ctl.turned.has(k)) { next = k; break; }
+    if (next >= 0) turn(next, true);
+  };
+  if (spd === Infinity) { finishAll(); return; }
+  later(80 + st.len * STACK_T_TXT.deal + 200, () => { ctl.dealt = true; armIdle(); });
+}
+const STACK_T_TXT = { idle: 3000, low: 400, step: 700, best: 950, deal: 70 };   // mirrors index.html STACK_T
+
+/* ============================== receipt ============================== */
+function finishRun() {
+  const run = lastRun, o = run.outcome;
+  if (!run.replay) { descents += 1; opens += 1; if (run.quick) collection += run.pres.stack.len; }
+  refreshCounters();
+  const pool = CONFIG.prizePool[o.tier];
+  const prize = pool[Math.floor(run.pres.prizeRoll * pool.length)];
+  let copy = (o.tier === 'lockbox' && o.lockboxMode === 'radioOut') ? TIER_COPY.lockboxRadio : TIER_COPY[o.tier];
+  const chips = o.results.map((r, i) => {
+    const g = GLYPH_TXT[run.pres.lockNumbers[i] % 10];
+    let label = r === 'out' ? 'HELD' : r === 'downedThenRecovered' ? 'THROUGH, PULLED CLEAR · glyph ' + g : r === 'close' ? 'THROUGH, CLOSE' : 'THROUGH · glyph ' + g;
+    if (r === 'out' && o.tier === 'lockbox' && o.lockboxMode === 'radioOut') label += ' · glyph ' + g + ' called across';
+    if (o.offscreen.includes(i)) label += ' · off screen';
+    return SCENES[i].where + ' — ' + label;
+  }).join('<br>');
+  const beats = run.sched
+    ? run.sched.beats.map(b => String(b.at).padStart(5) + '  ' + b.id.padEnd(12) + b.dur + 'ms').join('\n')
+      + '\ntotal ' + run.sched.total + 'ms · band [' + run.sched.floor + ', ' + run.sched.cap + ']'
+    : 'quick open · ' + CONFIG.durations.quick + 'ms';
+  $('receipt').innerHTML =
+      '<div class="ln tier">' + TIER_LABEL[o.tier] + '</div>'
+    + '<div><b>' + prize + '</b></div>'
+    + '<div class="hint">' + copy + '</div>'
+    + '<div class="hint">' + chips + '</div>'
+    + '<div class="hint">The prize was drawn and locked when you picked, before the first line printed. Nothing in the descent changed it.</div>'
+    + '<div class="hint">commit <code>' + commitHash + '</code></div>'
+    + '<input type="text" id="r-seed" spellcheck="false" value="">'
+    + '<div class="btns"><button id="btn-verify">Verify</button><button id="btn-replay">Replay this seed</button><button id="btn-copylog">Copy transcript</button><button id="btn-again">Open another</button> <span id="verdict"></span></div>'
+    + '<details><summary>seal &amp; beat table (pacing data)</summary><pre>'
+    + 'seed ' + run.seed + '\ntier ' + o.tier + (o.lockboxMode ? ' (' + o.lockboxMode + ')' : '') + ' · exit ' + o.exit + (run.quick ? ' (quick shown)' : '')
+    + '\nresults ' + o.results.join(' / ')
+    + '\norder ' + o.order.map(i => SCENES[i].id).join(' → ') + ' · decider ' + (o.decider === null ? 'none' : SCENES[o.decider].id)
+    + '\nwindow ' + (o.windowIdx === null ? 'none' : SCENES[o.windowIdx].id + ' → ' + o.windowKind + ' @' + o.windowSaveAt + 'ms')
+    + '\nstack L' + run.pres.stack.len + ' · values ' + run.pres.stack.items.map(it => it.value).join('/') + ' · glint slot ' + (run.pres.stack.glowRow + 1)
+    + '\n\n' + beats + '</pre></details>';
+  $('receipt').classList.add('show');
+  $('r-seed').value = serverSeed;
+  $('btn-verify').addEventListener('click', async () => {
+    const hash = await sha256Hex($('r-seed').value.trim());
+    const el = $('verdict');
+    el.textContent = hash === commitHash ? 'PASS' : 'FAIL';
+    el.className = hash === commitHash ? 'pass' : 'fail';
+  });
+  $('btn-replay').addEventListener('click', () => startRun(run.pick, run.seed, run.nonce, true));
+  $('btn-again').addEventListener('click', () => { nonce += 1; $('receipt').classList.remove('show'); });
+  $('btn-copylog').addEventListener('click', () => {
+    const text = [...logEl.querySelectorAll('.ln')].map(l => l.textContent).join('\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  });
+}
+
+/* ============================== wiring & init ============================== */
+document.querySelectorAll('.pick').forEach(btn => btn.addEventListener('click', () => {
+  nonce += 1;
+  startRun(btn.dataset.colour, serverSeed + ':' + btn.dataset.colour + ':' + nonce, nonce, false);
+}));
+(async function init() {
+  serverSeed = randomHex(32);
+  commitHash = await sha256Hex(serverSeed);
+  $('commit').textContent = commitHash;
+  refreshCounters();
+})();
+window.VaultTextDebug = { CONFIG, drawOutcome, derivePresentation, buildBeatList, makeRng, sha256Hex,
+  getEngine: () => engine, beginStack, finishRun };   // review tooling only, like VaultDebug in index.html
+</script>
+</body>
+</html>
