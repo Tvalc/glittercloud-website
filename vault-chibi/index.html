@@ -842,12 +842,39 @@
   #net-header { border-color: #6B5426; color: #FFD98A; }
   /* pick screen title treatment */
   #screen-pick h1 {
-    font-size: 44px; font-weight: 800; letter-spacing: .02em;
+    font-size: 58px; font-weight: 800; letter-spacing: .1em; margin-bottom: 2px;
+    background: linear-gradient(#FFE9AE, #E0A93E 70%, #B8792A);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,.5));
+  }
+  #screen-pick .tagline {
+    font-size: 13px; font-weight: 700; letter-spacing: .34em; color: #C9A05A;
+    margin-bottom: 10px;
+  }
+  #cast { margin: 4px 0 2px; }
+  .swatch .chip { box-shadow: inset 0 -4px 0 rgba(0,0,0,.3), inset 0 3px 0 rgba(255,255,255,.35); }
+
+  /* ---- the payoff screens (iteration 4: the jackpot must erupt) ---- */
+  #screen-reveal { position: relative; }
+  #screen-reveal::before {
+    content: ""; position: absolute; left: 50%; top: 40px; width: 620px; height: 420px;
+    transform: translateX(-50%); pointer-events: none;
+    background: radial-gradient(closest-side, rgba(255,217,138,.14), transparent 70%);
+  }
+  #prize-art { margin: 2px 0 0; }
+  #prize-art svg { width: 96px; height: 96px; display: block; margin: 0 auto;
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,.35)); }
+  .prize-card { padding: 26px 34px 22px; }
+  .prize-mult { margin-top: 2px; }
+  .prize-mult span {
+    font-size: 62px; font-weight: 800; line-height: 1.05;
     background: linear-gradient(#FFE9AE, #E0A93E 70%, #B8792A);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 3px 0 rgba(0,0,0,.45));
   }
-  .swatch .chip { box-shadow: inset 0 -4px 0 rgba(0,0,0,.3), inset 0 3px 0 rgba(255,255,255,.35); }
+  .prize-mult small { font-size: 12px; letter-spacing: .22em; color: var(--dim); }
+  .tier-label { font-size: 19px; letter-spacing: .3em; font-weight: 800; }
+  .prize-name { font-size: 24px; font-weight: 800; }
 </style>
 </head>
 <body>
@@ -866,7 +893,9 @@
 <main>
   <!-- 1 · pick -->
   <section id="screen-pick">
-    <h1>Pick your expedition.</h1>
+    <h1>THE TEMPLE</h1>
+    <div class="tagline">PICK YOUR EXPEDITION</div>
+    <div id="cast" aria-hidden="true"></div>
     <p class="sub">Every colour is exactly as lucky. Your choice picks the descent you watch, not the prize you get.</p>
     <div class="swatches">
       <button class="swatch" data-colour="crimson" type="button"><span class="chip"></span>Crimson</button>
@@ -937,6 +966,7 @@
   <section id="screen-reveal" hidden>
     <div class="prize-card">
       <div class="tier-label" id="tier-label"></div>
+      <div id="prize-art" aria-hidden="true"></div>
       <div class="prize-mult"><span id="prize-mult"></span> <small>the stake</small></div>
       <div class="prize-name" id="prize-name"></div>
       <div class="prize-copy" id="prize-copy"></div>
@@ -1925,6 +1955,35 @@ const LS = { quick: 'vaultjob.quickOpen', jobs: 'vaultjob.jobs', sound: 'vaultjo
   opens: 'vj.session.opens', fullshow: 'vj.fullShow', coll: 'vj.collection.items',
   net: 'vj.session.net' };
 
+/* prize illustrations (chibi fork, iteration 4): the reward wears a face.
+   One cute item drawing per tier, chunky ink outlines, same cel style as
+   the cast. Tier-generic on purpose — the NAME stays the sealed draw. */
+const PRIZE_ART = {
+  getaway: '<svg viewBox="-34 -34 68 68"><path d="M-22 10 q0 -26 22 -26 q10 0 16 6 l-7 9 q-5 -4 -9 -4 q-13 0 -13 15 z" fill="#C97F4A" stroke="#241708" stroke-width="2.4"/>'
+    + '<path d="M-22 10 q10 8 22 8 q8 0 14 -3 l-4 -9 q-6 2 -10 2 q-12 0 -18 -6 z" fill="#A8643A" stroke="#241708" stroke-width="2.4"/>'
+    + '<path d="M-10 -6 q6 -5 12 0 M-6 2 h10" stroke="#F2E2B8" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>',
+  floor: '<svg viewBox="-34 -34 68 68"><ellipse cx="0" cy="12" rx="20" ry="9" fill="#B8893A" stroke="#241708" stroke-width="2.4"/>'
+    + '<path d="M-20 10 q-2 -14 12 -16 l16 0 q10 2 12 10 l-8 3 q-3 -6 -8 -6 l-10 0 q-8 2 -6 9 z" fill="#D9A94A" stroke="#241708" stroke-width="2.4"/>'
+    + '<path d="M18 2 q7 -2 9 3 q-4 4 -9 2 z" fill="#D9A94A" stroke="#241708" stroke-width="2"/>'
+    + '<path d="M-16 -8 q0 -7 5 -10 q4 5 1 10 z" fill="#FF9A3C" stroke="#241708" stroke-width="2"/></svg>',
+  solid: '<svg viewBox="-34 -34 68 68"><rect x="-13" y="4" width="26" height="16" rx="3" fill="#8A93A6" stroke="#241708" stroke-width="2.4"/>'
+    + '<rect x="-10" y="-16" width="20" height="22" rx="6" fill="#AAB4C8" stroke="#241708" stroke-width="2.4"/>'
+    + '<circle cx="-4" cy="-8" r="2.4" fill="#241708"/><circle cx="4" cy="-8" r="2.4" fill="#241708"/>'
+    + '<path d="M-3 -2 h6" stroke="#241708" stroke-width="2" stroke-linecap="round"/>'
+    + '<path d="M-10 -16 q10 -8 20 0" fill="none" stroke="#241708" stroke-width="2.4"/></svg>',
+  grail: '<svg viewBox="-34 -34 68 68"><g stroke="#B8792A" stroke-width="2.6" stroke-linecap="round">'
+    + '<path d="M0 -30 v8 M0 22 v8 M-30 -4 h8 M22 -4 h8 M-21 -25 l6 6 M15 -19 l6 -6 M-21 17 l6 -6 M15 11 l6 6"/></g>'
+    + '<circle cx="0" cy="-4" r="17" fill="#FFCE55" stroke="#241708" stroke-width="2.6"/>'
+    + '<circle cx="0" cy="-4" r="11" fill="#FFE9AE" stroke="#B8792A" stroke-width="2"/>'
+    + '<circle cx="-3.5" cy="-6" r="1.8" fill="#241708"/><circle cx="3.5" cy="-6" r="1.8" fill="#241708"/>'
+    + '<path d="M-3 -1 q3 2.6 6 0" stroke="#241708" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>',
+  lockbox: '<svg viewBox="-34 -34 68 68"><path d="M-22 14 l0 -22 l10 9 l12 -17 l12 17 l10 -9 l0 22 z" fill="#FFCE55" stroke="#241708" stroke-width="2.6"/>'
+    + '<rect x="-22" y="14" width="44" height="9" rx="3" fill="#D9A94A" stroke="#241708" stroke-width="2.4"/>'
+    + '<circle cx="0" cy="6" r="4" fill="#E8446B" stroke="#241708" stroke-width="1.8"/>'
+    + '<circle cx="-14" cy="8" r="2.8" fill="#25D0E0" stroke="#241708" stroke-width="1.6"/>'
+    + '<circle cx="14" cy="8" r="2.8" fill="#6C5CE7" stroke="#241708" stroke-width="1.6"/></svg>',
+};
+
 /* the multiplier (Makko, 2026-08-27): the whole haul's value over the stake.
    Pure arithmetic on sealed values — deterministic, replay-identical. */
 function runTotal(pres) { return pres.stack.items.reduce((s, it) => s + it.value, 0); }
@@ -2202,7 +2261,7 @@ function figureMarkup(cls, fill, extra, species) {
   // mini door figure: a chibi head silhouette with live eyes (species by slot)
   if (species === 'mini0' || species === 'mini1' || species === 'mini2') {
     const k = +species.slice(4);
-    const tint = ['#F5A83C', '#6FD3E7', '#8E6BC7'][k];
+    const tint = ['#FFC061', '#8FE2F2', '#AC8BE0'][k];   // brighter at door scale (iteration 3)
     const feat = [
       '<path d="M-3.4 -19.6 q-1 -2.8 1.2 -3.6 M0 -20.4 q0 -3 2.2 -2.8 M3.4 -19.2 q1.4 -2.4 3 -1.4" stroke="#FFD44D" stroke-width="1.6" fill="none" stroke-linecap="round"/>',
       '<path d="M-6.8 -15 q-3 -0.8 -3.4 1.6 M-7 -12 q-2.8 0.4 -2.4 2.6 M6.8 -15 q3 -0.8 3.4 1.6 M7 -12 q2.8 0.4 2.4 2.6" stroke="#FF9FB8" stroke-width="1.5" fill="none" stroke-linecap="round"/>',
@@ -2221,7 +2280,21 @@ function figureMarkup(cls, fill, extra, species) {
     + '</g>';
 }
 function placeFig(el, x, y, rot) {
-  el.setAttribute('transform', 'translate(' + x + ' ' + y + ')' + (rot ? ' rotate(' + rot + ')' : ''));
+  // iteration 3: locomotion lean — the monster tips into its direction of
+  // travel so the engine's glide reads as hustling. Scene-passed rotations
+  // (held poses) win; the lean decays to upright when he stops.
+  let r = rot;
+  if (!r) {
+    const lx = el._cbx;
+    if (lx !== undefined) {
+      const dx = x - lx;
+      if (Math.abs(dx) > 0.05) el._cbLean = Math.max(-7, Math.min(7, dx * 1.6));
+      else el._cbLean = (el._cbLean || 0) * 0.82;
+      if (Math.abs(el._cbLean) > 0.3) r = el._cbLean;
+    }
+    el._cbx = x;
+  }
+  el.setAttribute('transform', 'translate(' + x + ' ' + y + ')' + (r ? ' rotate(' + (+r).toFixed(1) + ')' : ''));
 }
 
 /* ============================== scenes ==============================
@@ -2452,7 +2525,7 @@ function buildScene(kind, result, pres, crewHex) {
     let slots = '';
     for (let i = 0; i < 4; i++) {
       const x = 292 + (i % 2) * 22, y = 92 + Math.floor(i / 2) * 24;
-      slots += '<rect class="slot" x="' + x + '" y="' + y + '" width="18" height="20" rx="3" fill="none" stroke="#3A2E1C" stroke-width="1.5"/>';
+      slots += '<rect class="slot" x="' + x + '" y="' + y + '" width="18" height="20" rx="4" fill="#160E20" stroke="#5E4380" stroke-width="1.8"/>';
     }
     svg.innerHTML =
         '<defs><linearGradient id="cb-deep" x1="0" y1="0" x2="0" y2="1">'
@@ -4233,6 +4306,7 @@ function finishRun() {
 
   $('tier-label').textContent = TIER_LABEL[o.tier];
   $('tier-label').className = 'tier-label tier-' + o.tier;
+  $('prize-art').innerHTML = PRIZE_ART[o.tier] || '';   // the reward wears a face (iteration 4)
   const pool = CONFIG.prizePool[o.tier];
   $('prize-name').textContent = pool[Math.floor(run.pres.prizeRoll * pool.length)];
   $('prize-mult').textContent = fmtMult(runTotal(run.pres) / CONFIG.stake);   // the haul over the stake, every run incl. quick
@@ -4520,6 +4594,16 @@ $('dbg-tier').addEventListener('change', e => setDemoTier(e.target.value));
 /* ============================== init ============================== */
 (async function init() {
   buildHowTo();
+  // the cast lineup on the title screen (iteration 3): the three monsters
+  // stand under the logo, bobbing and blinking — the game leads with them
+  const cast = $('cast');
+  if (cast) {
+    cast.innerHTML = '<svg viewBox="0 0 340 78" style="width:min(360px,80vw);height:auto;display:block;margin:0 auto">'
+      + figureMarkup('c0', null, 'transform="translate(74 66)"', 'sunny')
+      + figureMarkup('c1', null, 'transform="translate(170 66)"', 'tide')
+      + figureMarkup('c2', null, 'transform="translate(266 66)"', 'ember')
+      + '</svg>';
+  }
   serverSeed = randomHex(32);
   nonce = 1;
   commitHash = await sha256Hex(serverSeed);
