@@ -79,8 +79,34 @@ backgrounds etc. match."
   receipt endcard === seal (7.3×); zero console errors. Visual sign-off
   pending the client's eyes (pane not compositing this session).
 
-Known next steps for this fork: illustrated card faces for the items, pick
-screen title treatment, walk-cycle legs, and (optionally) real raster
+## Fork session 4 — the hard-iteration loop (2026-08-27, "iterate until pro")
+
+Makko called out single-pass laziness; this session built a SELF-SERVE
+screenshot loop and iterated against real frames:
+- **The camera rig**: `?shot=1&tier=..&r1=..&t=8000` auto-starts a forced
+  run and pumps the engine's own tick() to any millisecond (virtual-time
+  budgets don't drive the worker/rAF clock), photographed via headless
+  Chrome CLI (`--headless=new --screenshot`). Review tooling only.
+- **Iteration 1 (shell + occlusion)**: framed game stage with vignette +
+  faint stone-grid texture; HUD counters as pills; gold gradient title;
+  trap occlusion fixed — foreground ground with a hole at the gap, so the
+  trapped monster hangs IN the hole gripping the ledge instead of floating
+  over a black box; the portcullis re-layered IN FRONT of the monster;
+  crew-marker token retired (the monster is the presence; the rescue drain
+  ring survives).
+- **Iteration 2 (rooms + door, from screenshots)**: the sun chamber's
+  floating pill-ledges became a broken CEILING — two heavy jagged stone
+  masses with daylight pouring through the hole; deeper wall tone; light
+  shaft brightened; fallen column simplified; doorway arch enlarged;
+  sun-plate and sunken wheel scaled up ~1.2x with bigger halos; bolt
+  housings railed into the guardian arch.
+- Verified BY LOOKING: headless frames confirm the acted faces switching
+  live (happy Solby at the door, worried faces under trouble), the held
+  pose reading as hanging-in-the-hole, the rescue moment, and the full-
+  frame door takeover with seated bolts and the cast's heads at the door.
+
+Known next steps for this fork: illustrated card faces for the items,
+walk-cycle legs, brighter door minis, and (optionally) real raster
 assets — CC0 sprite packs or client-supplied PNGs wire in via the same
 figureMarkup seam.
 

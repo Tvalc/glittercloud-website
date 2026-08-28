@@ -814,6 +814,40 @@
   /* worried faces on paused (lost/downed) monsters keep the sweat visible but still */
   .panel.lost .cb-sweat, .panel.downed .cb-sweat { animation-play-state: paused; }
   body.reduced .cb-sweat { animation: none; }
+
+  /* ---- the game shell (iteration 1: kill the prototype void) ---- */
+  main { max-width: 1180px; padding: 14px 14px 40px; }
+  #screen-run {
+    min-height: 560px; padding: 20px;
+    border-radius: 22px; border: 3px solid #4A3820;
+    background:
+      radial-gradient(120% 100% at 50% 0%, rgba(255,217,138,.06), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,220,150,.022) 0 2px, transparent 2px 34px),
+      repeating-linear-gradient(90deg, rgba(255,220,150,.022) 0 2px, transparent 2px 56px),
+      linear-gradient(#241A0C, #170F06);
+    box-shadow: inset 0 0 90px rgba(0,0,0,.55), 0 6px 0 rgba(0,0,0,.45);
+  }
+  #run-body { gap: 16px; }
+  .panel { min-height: 210px; }
+  /* the crew marker's token is retired — the monster IS the presence; only
+     the rescue drain ring survives, and only while it drains */
+  .marker .token, .marker .crackt { display: none !important; }
+  .marker { width: 40px; height: 40px; bottom: 4px; }
+  /* HUD pills */
+  header { padding: 10px 16px; }
+  #net-header, #coll-header, #jobs-header {
+    background: #171006; border: 2px solid #4A3820; border-radius: 999px;
+    padding: 3px 12px; font-size: 11.5px;
+  }
+  #net-header { border-color: #6B5426; color: #FFD98A; }
+  /* pick screen title treatment */
+  #screen-pick h1 {
+    font-size: 44px; font-weight: 800; letter-spacing: .02em;
+    background: linear-gradient(#FFE9AE, #E0A93E 70%, #B8792A);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,.45));
+  }
+  .swatch .chip { box-shadow: inset 0 -4px 0 rgba(0,0,0,.3), inset 0 3px 0 rgba(255,255,255,.35); }
 </style>
 </head>
 <body>
@@ -2210,7 +2244,7 @@ function buildScene(kind, result, pres, crewHex) {
        fractions as the heist roof scene; scenery only.) */
     svg.innerHTML =
         '<defs><linearGradient id="cb-roof" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="#584422"/><stop offset="45%" stop-color="#3B2C13"/><stop offset="100%" stop-color="#261B0A"/></linearGradient>'
+      + '<stop offset="0%" stop-color="#453314"/><stop offset="45%" stop-color="#33250E"/><stop offset="100%" stop-color="#221808"/></linearGradient>'
       + '<radialGradient id="cb-roofsun" cx="0.53" cy="0.15" r="0.7">'
       + '<stop offset="0%" stop-color="#FFE9AE" stop-opacity="0.35"/><stop offset="60%" stop-color="#FFE9AE" stop-opacity="0.08"/><stop offset="100%" stop-color="#FFE9AE" stop-opacity="0"/></radialGradient></defs>'
       + '<rect x="0" y="0" width="400" height="180" rx="10" fill="url(#cb-roof)"/>'
@@ -2228,35 +2262,43 @@ function buildScene(kind, result, pres, crewHex) {
       + '<rect x="0" y="' + FLOOR + '" width="400" height="30" fill="#2A1E0D"/>'
       + '<path d="M0 ' + FLOOR + ' h400" stroke="#7A5E30" stroke-width="2.5"/>'
       + '<path d="M30 ' + (FLOOR + 10) + ' h34 M120 ' + (FLOOR + 18) + ' h28 M300 ' + (FLOOR + 12) + ' h40" stroke="#3E2E14" stroke-width="2" stroke-linecap="round"/>'
-      + '<rect x="6" y="48" width="164" height="12" rx="5" fill="#4A3820" stroke="' + INK + '" stroke-width="1.8"/>'
-      + '<path d="M10 51 h156" stroke="#7A5E30" stroke-width="1.6"/>'
-      + '<rect x="260" y="48" width="134" height="12" rx="5" fill="#4A3820" stroke="' + INK + '" stroke-width="1.8"/>'
-      + '<path d="M264 51 h126" stroke="#7A5E30" stroke-width="1.6"/>'
-      + '<polygon points="168,56 262,56 300,' + FLOOR + ' 148,' + FLOOR + '" fill="#E8D9B0" opacity="0.10"/>'
-      + '<polygon points="188,56 236,56 262,' + FLOOR + ' 186,' + FLOOR + '" fill="#F2E6C2" opacity="0.10"/>'
+      // the broken CEILING: two heavy stone masses with jagged broken edges,
+      // daylight pouring through the hole between them (iteration 2 — the
+      // old thin slabs read as floating pills)
+      + '<path d="M0 0 h172 v40 l-10 8 l-12 -5 l-11 7 l-10 -4 v-46 z M0 0 v46 h0 z" fill="#3E2E14" stroke="' + INK + '" stroke-width="2"/>'
+      + '<path d="M400 0 h-142 v42 l9 6 l11 -5 l10 6 l9 -4 v-45 z" fill="#3E2E14" stroke="' + INK + '" stroke-width="2"/>'
+      + '<path d="M6 40 h158 M266 42 h128" stroke="#5E4826" stroke-width="2" opacity="0.7"/>'
+      + '<polygon points="172,44 258,44 300,' + FLOOR + ' 148,' + FLOOR + '" fill="#E8D9B0" opacity="0.16"/>'
+      + '<polygon points="192,44 238,44 264,' + FLOOR + ' 184,' + FLOOR + '" fill="#F2E6C2" opacity="0.16"/>'
       + '<g class="dust"><circle r="1.6" fill="#EFE3C2" opacity="0.7"/><circle r="1.2" fill="#EFE3C2" opacity="0.55"/><circle r="1.9" fill="#EFE3C2" opacity="0.5"/></g>'
       + '<path d="M168 56 q-4 18 3 34 M262 56 q6 14 -1 30 M262 56 q14 10 12 26" stroke="#4A5A34" stroke-width="1.6" fill="none" opacity="0.7"/>'
-      + '<g transform="translate(104 141)"><rect x="-34" y="-8" width="68" height="16" rx="8" fill="#2B2214" stroke="#4A3B24" stroke-width="1.5"/>'
-      + '<path d="M-22 -8 V8 M-8 -8 V8 M8 -8 V8 M22 -8 V8" stroke="#4A3B24" stroke-width="1"/>'
-      + '<path d="M-3 -3 h6 M-3 0 l6 3 M-3 -3 v6" stroke="#C9B98E" stroke-width="1.4" fill="none" opacity="0.8"/></g>'
+      + '<g transform="translate(96 143) rotate(-4)"><rect x="-30" y="-7" width="60" height="14" rx="7" fill="#332714" stroke="' + INK + '" stroke-width="1.8"/>'
+      + '<path d="M-30 -2 h60" stroke="#5E4826" stroke-width="1.4" opacity="0.7"/>'
+      + '<path d="M-4 -3 h8 M-4 0 l8 3" stroke="#C9B98E" stroke-width="1.5" fill="none" opacity="0.8"/></g>'
       // the goal halo (session E): the sun-plate is what he is walking toward
-      + '<g class="goalhalo"><circle cx="240" cy="132" r="24" fill="#F2E2B8" opacity="0.14"/>'
-      + '<circle cx="240" cy="132" r="19" fill="none" stroke="#F2E2B8" stroke-width="1.5" opacity="0.6"/></g>'
-      + '<g transform="translate(240 132)"><rect x="-18" y="14" width="36" height="7" rx="3" fill="#4A3820" stroke="' + INK + '" stroke-width="1.4"/>'
+      + '<g class="goalhalo"><circle cx="240" cy="130" r="28" fill="#F2E2B8" opacity="0.14"/>'
+      + '<circle cx="240" cy="130" r="23" fill="none" stroke="#F2E2B8" stroke-width="1.5" opacity="0.6"/></g>'
+      + '<g transform="translate(240 132) scale(1.2)"><rect x="-18" y="14" width="36" height="7" rx="3" fill="#4A3820" stroke="' + INK + '" stroke-width="1.4"/>'
       + '<g class="dial"><circle r="15" fill="#8A6524" stroke="' + INK + '" stroke-width="2"/>'
       + '<circle r="15" fill="none" stroke="#C08A3E" stroke-width="2.4"/>'
       + '<circle r="10" fill="#B8893A"/>'
       + '<path d="M0 -15 V-9 M0 9 V15 M-15 0 H-9 M9 0 H15 M-10 -10 l4 4 M10 -10 l-4 4" stroke="#5E4318" stroke-width="2" stroke-linecap="round"/>'
       + '<circle r="3.4" fill="#FFE9AE" stroke="' + INK + '" stroke-width="1"/>'
       + '<line x1="0" y1="0" x2="0" y2="-11" stroke="#FFE9AE" stroke-width="2.4" stroke-linecap="round"/></g></g>'
-      + '<path d="M352 ' + FLOOR + ' v-24 a16 16 0 0 1 32 0 v24 z" fill="#120C05" stroke="' + INK + '" stroke-width="2"/>'
-      + '<path d="M356 ' + FLOOR + ' v-21 a12 12 0 0 1 24 0 v21" fill="none" stroke="#7A5E30" stroke-width="1.4" opacity="0.6"/>'
+      + '<path d="M348 ' + FLOOR + ' v-32 a19 19 0 0 1 38 0 v32 z" fill="#120C05" stroke="' + INK + '" stroke-width="2.4"/>'
+      + '<path d="M353 ' + FLOOR + ' v-28 a14 14 0 0 1 28 0 v28" fill="none" stroke="#7A5E30" stroke-width="1.6" opacity="0.6"/>'
       + '<g class="gap" opacity="0"><rect x="168" y="' + (FLOOR - 1) + '" width="52" height="30" fill="#0B0805"/>'
       + '<line x1="168" y1="' + FLOOR + '" x2="168" y2="' + (FLOOR + 28) + '" stroke="#3A2E1C" stroke-width="2"/>'
       + '<line x1="220" y1="' + FLOOR + '" x2="220" y2="' + (FLOOR + 28) + '" stroke="#3A2E1C" stroke-width="2"/></g>'
       + '<rect class="slab" x="170" y="' + (FLOOR - 2) + '" width="48" height="5" rx="2" fill="#3A2E1C"/>'
       + '<path class="hands" d="M160 ' + (FLOOR + 6) + ' l8 -7 M176 ' + (FLOOR + 6) + ' l-8 -7" stroke="' + crewHex + '" stroke-width="2.5" fill="none" opacity="0" stroke-linecap="round"/>'
-      + figureMarkup('guy', crewHex, null, 'sunny');
+      + figureMarkup('guy', crewHex, null, 'sunny')
+      // foreground ground with a hole at the gap: anything below the floor
+      // is occluded EXCEPT inside the gap, so the trapped monster reads as
+      // hanging IN the hole gripping the ledge (chibi pass, iteration 1)
+      + '<rect x="0" y="' + (FLOOR + 1) + '" width="168" height="29" fill="#2A1E0D"/>'
+      + '<rect x="220" y="' + (FLOOR + 1) + '" width="180" height="29" fill="#2A1E0D"/>'
+      + '<path d="M0 ' + FLOOR + ' h168 M220 ' + FLOOR + ' h180" stroke="#7A5E30" stroke-width="2.5"/>';
     const guy = svg.querySelector('.guy');
     const dial = svg.querySelector('.dial');
     const gap = svg.querySelector('.gap');
@@ -2335,9 +2377,9 @@ function buildScene(kind, result, pres, crewHex) {
       + '<g transform="translate(148 108)"><path d="M-8 -10 h16 M-8 -4 l16 6 M-8 -10 v14" stroke="#C9B98E" stroke-width="1.6" fill="none" opacity="0.7"/>'
       + '<path d="M-12 6 q6 -14 10 -22 M4 8 q8 -10 8 -20" stroke="#4A5A34" stroke-width="1.8" fill="none" opacity="0.8"/></g>'
       // the goal halo (session E): the sunken wheel is the room's goal
-      + '<g class="goalhalo"><circle cx="200" cy="140" r="24" fill="#F2E2B8" opacity="0.14"/>'
-      + '<circle cx="200" cy="140" r="19" fill="none" stroke="#F2E2B8" stroke-width="1.5" opacity="0.6"/></g>'
-      + '<g class="wheelg" transform="translate(200 140)"><circle r="17" fill="none" stroke="' + INK + '" stroke-width="5"/>'
+      + '<g class="goalhalo"><circle cx="200" cy="138" r="28" fill="#F2E2B8" opacity="0.14"/>'
+      + '<circle cx="200" cy="138" r="23" fill="none" stroke="#F2E2B8" stroke-width="1.5" opacity="0.6"/></g>'
+      + '<g class="wheelg" transform="translate(200 140) scale(1.15)"><circle r="17" fill="none" stroke="' + INK + '" stroke-width="5"/>'
       + '<circle r="17" fill="none" stroke="#C08A3E" stroke-width="3.2"/>'
       + '<g class="wheel"><line x1="-16" y1="0" x2="16" y2="0" stroke="#C08A3E" stroke-width="3"/>'
       + '<line x1="0" y1="-16" x2="0" y2="16" stroke="#C08A3E" stroke-width="3"/>'
@@ -2345,16 +2387,19 @@ function buildScene(kind, result, pres, crewHex) {
       + '<circle r="3.6" fill="#FFE9AE" stroke="' + INK + '" stroke-width="1"/></g></g>'
       + '<rect x="256" y="60" width="5" height="90" fill="#2B2214"/><rect x="284" y="60" width="5" height="90" fill="#2B2214"/>'
       + '<rect x="254" y="52" width="38" height="8" rx="2" fill="#2B2214"/>'
-      + '<g class="gate" transform="translate(0 -58)">'
-      + '<line x1="263" y1="70" x2="263" y2="150" stroke="#6B5A3C" stroke-width="2.5"/>'
-      + '<line x1="270" y1="70" x2="270" y2="150" stroke="#6B5A3C" stroke-width="2.5"/>'
-      + '<line x1="277" y1="70" x2="277" y2="150" stroke="#6B5A3C" stroke-width="2.5"/>'
-      + '<line x1="260" y1="78" x2="282" y2="78" stroke="#6B5A3C" stroke-width="2"/>'
-      + '<line x1="260" y1="112" x2="282" y2="112" stroke="#6B5A3C" stroke-width="2"/>'
-      + '<path d="M263 150 l3.5 6 M270 150 l0 6 M277 150 l-3.5 6" stroke="#6B5A3C" stroke-width="2"/></g>'
-      + '<path d="M352 96 a18 26 0 0 1 30 0 l0 54 l-30 0 Z" fill="#0B0805" stroke="#3A2E1C" stroke-width="1.5"/>'
+      + '<path d="M352 96 a18 26 0 0 1 30 0 l0 54 l-30 0 Z" fill="#0B0805" stroke="' + INK + '" stroke-width="2"/>'
       + figureMarkup('guy', crewHex, null, 'tide')
-      + '<rect class="waterfront" x="10" y="139" width="380" height="12" fill="#2A4A40" opacity="0.4"/>'
+      // the gate drops IN FRONT of the monster (chibi pass, iteration 1:
+      // the bigger sprite was covering the bars — "cut off behind the
+      // gate" needs the gate on top), chunky bars
+      + '<g class="gate" transform="translate(0 -58)">'
+      + '<line x1="263" y1="70" x2="263" y2="150" stroke="#8A6B3E" stroke-width="3.5"/>'
+      + '<line x1="270" y1="70" x2="270" y2="150" stroke="#8A6B3E" stroke-width="3.5"/>'
+      + '<line x1="277" y1="70" x2="277" y2="150" stroke="#8A6B3E" stroke-width="3.5"/>'
+      + '<line x1="259" y1="78" x2="283" y2="78" stroke="#6B5230" stroke-width="2.6"/>'
+      + '<line x1="259" y1="112" x2="283" y2="112" stroke="#6B5230" stroke-width="2.6"/>'
+      + '<path d="M263 150 l3.5 6 M270 150 l0 6 M277 150 l-3.5 6" stroke="#8A6B3E" stroke-width="2.6"/></g>'
+      + '<rect class="waterfront" x="10" y="139" width="380" height="12" fill="#2A4A40" opacity="0.55"/>'
       + '<path class="surface" d="M10 139 q20 -2.5 40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0" stroke="#7FBFA8" stroke-width="1.2" fill="none" opacity="0.35"/>';
     const guy = svg.querySelector('.guy');
     const wheel = svg.querySelector('.wheel');
@@ -2574,7 +2619,8 @@ function buildVaultScene(outcome, crewHex) {
   let bolts = '';
   for (let k = 0; k < 3; k++) {
     const y = 44 + k * 40;
-    bolts += '<rect class="bolt-frame f' + k + '" x="85" y="' + (y - 5) + '" width="48" height="10" rx="5" fill="#171006" stroke="' + INK + '" stroke-width="2"/>'
+    bolts += '<path d="M133 ' + y + ' h30" stroke="#4A3820" stroke-width="4"/>'
+      + '<rect class="bolt-frame f' + k + '" x="85" y="' + (y - 5) + '" width="48" height="10" rx="5" fill="#171006" stroke="' + INK + '" stroke-width="2"/>'
       + '<rect class="bolt-rod b' + k + '" x="88" y="' + (y - 3) + '" width="26" height="6" rx="3" fill="#8A6524" stroke="' + INK + '" stroke-width="1"/>';
   }
   svg.innerHTML =
@@ -4501,6 +4547,30 @@ $('dbg-tier').addEventListener('change', e => setDemoTier(e.target.value));
   }, null, 1) + '\nmanifest slots: ' + Object.keys(MANIFEST).length
     + '\nsession opens: ' + sessionOpens;
   showScreen('pick');
+
+  // ?shot= — review tooling (like VaultDebug): auto-start a forced run so a
+  // headless-browser screenshot loop can photograph any moment of the show.
+  // e.g. ?shot=1&tier=grail&exit=full&r1=out&spd=1x  — never for players.
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('shot')) {
+    if (qs.get('tier')) $('dbg-tier').value = qs.get('tier');
+    if (qs.get('exit')) $('dbg-exit').value = qs.get('exit');
+    if (qs.get('r1')) $('dbg-r1').value = qs.get('r1');
+    if (qs.get('r2')) $('dbg-r2').value = qs.get('r2');
+    if (qs.get('r3')) $('dbg-r3').value = qs.get('r3');
+    if (qs.get('spd')) { const s = $('dbg-speed'); if (s) { s.value = qs.get('spd'); s.dispatchEvent(new Event('change', { bubbles: true })); } }
+    $('quick-toggle').checked = qs.get('quick') === '1';
+    $('fullshow-toggle').checked = qs.get('full') === '1';
+    document.querySelector('.swatch').click();
+    // &t=8000 — pump the engine's own tick() to that run-time so a headless
+    // screenshot can photograph any beat (virtual-time budgets don't drive
+    // the worker/rAF clock)
+    const tTarget = parseInt(qs.get('t') || '0', 10);
+    if (tTarget > 0) setTimeout(() => {
+      let ts = performance.now();
+      for (let a = 0; a < tTarget; a += 50) { ts += 50; try { tick(ts); } catch (e) {} }
+    }, 500);
+  }
 })();
 
 // exposed for review tooling only; nothing in the app reads this
