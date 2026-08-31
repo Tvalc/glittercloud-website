@@ -479,6 +479,42 @@ const VAULT_FLOOR_Y = 0.80;
    always has it in frame. */
 const DOOR_X = 2818, DOOR_H = 78;
 
+/* THE RARITY LADDER, IN WOW'S COLOURS.
+   WoW rather than Pokemon because the ladder asked for IS WoW's - common,
+   uncommon, rare, epic, legendary are its exact words and its exact order, and
+   the colours that go with them are probably the most widely recognised
+   quality scale in games. Grail sits on top as WoW's artifact gold.
+
+   The bands are NOT new numbers. They are the same thresholds the tier table
+   has always used - 10, 20, 40, 70 - so the rarity is a second reading of a
+   result the economy already decided rather than a second opinion about it.
+   Nothing here can change a payout; it renames one. GRAIL is the exception
+   that is not a band at all: it is the vault, and the vault is all three home.
+
+   One honest wrinkle: legendary orange sits close to TIBBO and to the temple's
+   gold. It reads because the finale puts the card on a dark stage of its own,
+   but it is the weakest separation on the ladder. */
+const RARITY = [
+  { at: 70, name: 'LEGENDARY', hex: '#FF8000', glow: '#FFC46B' },
+  { at: 40, name: 'EPIC',      hex: '#A335EE', glow: '#D9A6FF' },
+  { at: 20, name: 'RARE',      hex: '#0070DD', glow: '#7FC4FF' },
+  { at: 10, name: 'UNCOMMON',  hex: '#1EFF00', glow: '#B4FFA0' },
+  { at: 0,  name: 'COMMON',    hex: '#B8B8B8', glow: '#EDEDED' },
+];
+const GRAIL = { name: 'GRAIL', hex: '#E6CC80', glow: '#FFF3C8' };
+function rarityOf(W) {
+  if (W.vaulted) return GRAIL;
+  for (const r of RARITY) if (W.total >= r.at) return r;
+  return RARITY[RARITY.length - 1];
+}
+
+/* the finale's beats, in seconds from the start of the phase */
+const T_IN = 1.7;      // the haul flies into the pot
+const T_MULT = 2.5;    // the pot takes the multiplier and flares
+const T_OUT = 3.9;     // it comes back out and fills the card
+const T_HOLD = 5.6;    // the card is locked and read
+const TALLY_S = T_HOLD;
+
 /* what the haul is worth. PLACEHOLDER bands - in Phase 1 the tier is SEALED
    and the coin layout is derived from it, so that what you watch him collect
    reconciles to a number committed before the first frame. */
@@ -1300,9 +1336,17 @@ function runEnding(W, dt) {
         W.events.push({ t: +W.simT.toFixed(3), kind: 'vault-open',
           tier: W.tier.name, total: W.total });
       } else {
-        W.phase = 'done';
-        W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out', tier: W.tier.name, total: W.total });
+        W.phase = 'tally'; W.phaseT = 0;
       }
+    }
+    return;
+  }
+  if (W.phase === 'tally') {
+    if (W.phaseT >= TALLY_S) {
+      W.tallied = true;
+      W.phase = 'done';
+      W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out',
+        tier: W.tier.name, total: W.total, rarity: rarityOf(W).name });
     }
     return;
   }
@@ -1310,10 +1354,7 @@ function runEnding(W, dt) {
     /* One length, because only one kind of run gets down here now. Nothing is
        decided in this room - it is a timer over a result already fixed. */
     const hold = VAULT_S;
-    if (W.phaseT >= hold) {
-      W.phase = 'done';
-      W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out', tier: W.tier.name, total: W.total });
-    }
+    if (W.phaseT >= hold) { W.phase = 'tally'; W.phaseT = 0; }
   }
 }
 
@@ -1327,13 +1368,227 @@ function runEnding(W, dt) {
    RELIQUARY on his own - beats-698864 pays 75 with one body home. So the old
    gate let a solo finish into a room that is supposed to mean the whole crew
    got out. All three, or the door stays shut. */
+/* ========================== THE CLOSE ==================================
+   Every run ends here, vault or no vault. It is one continuous move rather
+   than four cuts: the haul flies up into the pot, the multiplier lands on it,
+   the whole lot comes back out and fills a card, and the card locks at a
+   rarity.
+
+   The rarity is READ OFF a number that was settled before the first frame -
+   see RARITY. Nothing in this sequence rolls anything, and the count you watch
+   climb ends on exactly the total the chest already paid. The only thing that
+   is not a restatement is GRAIL, and even that is not a new roll: it is
+   whether the vault opened, which is whether all three got out.
+
+   Everything is a pure function of phaseT, like the vault rain, so it replays
+   identically and needs no stored state. */
+function drawTally(W) {
+  const t = W.phase === 'tally' ? W.phaseT : TALLY_S;   // 'done' holds the end
+  const rar = rarityOf(W);
+  const mult = Math.max(1, W.total && W.coinsGot ? Math.round(W.total / W.coinsGot) : 1);
+  const cxm = cv.width * 0.5;
+  const ease = function (u) { return u <= 0 ? 0 : u >= 1 ? 1 : 1 - Math.pow(1 - u, 3); };
+  const seg = function (a, b) { return Math.max(0, Math.min(1, (t - a) / (b - a))); };
+
+  /* A STAGE, NOT A FILTER. The difference matters and it is not pedantry: a
+     flat wash over a scene reads as something wrong with the picture, which is
+     exactly what the old 58% scrim looked like over the vault. This is a warm
+     radial that leaves the room bright at the edges and darkens toward the
+     middle, so it reads as a light being brought up on the pot rather than as
+     a sheet being pulled over the game. */
+  const stage = seg(0, 0.5);
+  const bg = cx.createRadialGradient(cxm, cv.height * 0.52, cv.height * 0.10,
+    cxm, cv.height * 0.52, cv.height * 1.10);
+  bg.addColorStop(0, 'rgba(18,9,2,' + (0.86 * stage).toFixed(3) + ')');
+  bg.addColorStop(1, 'rgba(18,9,2,' + (0.34 * stage).toFixed(3) + ')');
+  cx.fillStyle = bg; cx.fillRect(0, 0, cv.width, cv.height);
+
+  /* ---------------------------------------------------------- the pot */
+  /* the pot sits ON the floor line the cast stands on, and is sized to leave
+     the upper half of the frame entirely to the card - the card is the payoff
+     and it was being crowded off the top of the canvas by a pot that wanted
+     nearly a third of the height */
+  const potY = cv.height * 0.80;
+  const potH = cv.height * 0.26;
+  const charge = seg(T_IN, T_MULT);
+  const emptied = seg(T_MULT, T_MULT + 0.35);
+  const potIm = ART.pot;
+  cx.save();
+  /* it shudders as the multiplier goes in, and settles once it has emptied */
+  const shake = charge * (1 - emptied) * 3.4;
+  cx.translate(((W.simT * 71) % 2 - 1) * shake, ((W.simT * 113) % 2 - 1) * shake * 0.7);
+  if (ok(potIm)) {
+    const pw = potH * potIm.naturalWidth / potIm.naturalHeight;
+    if (charge > 0) {                              // it glows as it fills
+      const g = cx.createRadialGradient(cxm, potY - potH * 0.42, 2,
+        cxm, potY - potH * 0.42, potH * (0.7 + charge * 0.5));
+      g.addColorStop(0, 'rgba(255,232,150,' + (0.62 * charge * (1 - emptied * 0.8)).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,200,90,0)');
+      cx.fillStyle = g;
+      cx.fillRect(cxm - pw, potY - potH * 1.7, pw * 2, potH * 2.2);
+    }
+    cx.drawImage(potIm, cxm - pw / 2, potY - potH, pw, potH);
+  } else {
+    cx.fillStyle = '#6B4A1E';
+    cx.fillRect(cxm - potH * 0.45, potY - potH * 0.8, potH * 0.9, potH * 0.8);
+  }
+  cx.restore();
+
+  /* ------------------------------------------------- the haul goes in */
+  const cim = ART.coinSpin;
+  const spinCell = function (i, k) {
+    return ((i * 3 + Math.floor(k) % SPINCELLS) % SPINCELLS + SPINCELLS) % SPINCELLS;
+  };
+  const csz = cv.height * 0.075;
+  if (ok(cim)) {
+    const cw = cim.naturalWidth / SPINCELLS, chh = cim.naturalHeight;
+    const dwC = csz * cw / chh;
+    const nIn = Math.min(44, Math.max(1, W.coinsGot | 0));
+    for (let i = 0; i < nIn; i++) {
+      const st = (i / nIn) * (T_IN * 0.72);
+      const u = ease(Math.min(1, Math.max(0, (t - st) / 0.62)));
+      if (u <= 0 || u >= 1) continue;
+      /* they come up off the floor from spread positions and arc into the
+         mouth of the pot - an arc rather than a straight line, because a
+         straight line between two points is the one path that does not look
+         like something was thrown */
+      const h = ((i * 73) % 101) / 100;
+      const x0 = cv.width * (0.06 + 0.88 * h), y0 = cv.height * 1.02;
+      const x1 = cxm, y1 = potY - potH * 0.86;
+      const x = x0 + (x1 - x0) * u;
+      const y = y0 + (y1 - y0) * u - Math.sin(u * Math.PI) * cv.height * 0.30;
+      cx.drawImage(cim, spinCell(i, t * 26) * cw, 0, cw, chh,
+        x - dwC / 2, y - csz / 2, dwC, csz);
+    }
+  }
+
+  /* ---------------------------------------------- the card, filling up */
+  /* sized off the gap ABOVE the pot rather than off the canvas width, so the
+     two can never collide however the pot is scaled */
+  const cardH = cv.height * 0.44, cardW = cardH / 1.42;
+  const cardX = cxm - cardW / 2, cardY = cv.height * 0.035;
+  const outU = seg(T_MULT, T_OUT);
+  const showCard = seg(T_MULT - 0.25, T_MULT + 0.25);
+  if (showCard > 0) {
+    cx.save();
+    cx.globalAlpha = showCard;
+    /* THE SILHOUETTE FIRST, THEN THE COLOUR. The card exists as an empty dark
+       shape before anything fills it, so the fill has something to happen TO -
+       a card that fades in already coloured has no moment in it. */
+    const r = cardW * 0.09;
+    const round = function () {
+      cx.beginPath();
+      if (cx.roundRect) cx.roundRect(cardX, cardY, cardW, cardH, r);
+      else cx.rect(cardX, cardY, cardW, cardH);
+    };
+    round(); cx.fillStyle = 'rgba(10,7,4,.92)'; cx.fill();
+
+    /* the fill climbs from the bottom as the coins arrive */
+    cx.save(); round(); cx.clip();
+    const fh = cardH * outU;
+    const fg = cx.createLinearGradient(0, cardY + cardH - fh, 0, cardY + cardH);
+    fg.addColorStop(0, rar.glow);
+    fg.addColorStop(1, rar.hex);
+    cx.fillStyle = fg;
+    cx.fillRect(cardX, cardY + cardH - fh, cardW, fh);
+    /* a bright meniscus on the rising surface so it reads as liquid */
+    if (outU > 0.02 && outU < 0.995) {
+      cx.fillStyle = 'rgba(255,255,255,.85)';
+      cx.fillRect(cardX, cardY + cardH - fh - 2, cardW, 3);
+    }
+    cx.restore();
+
+    /* the frame, and once it is full an outer glow in the rarity's own colour
+       so the whole card announces which one it landed on from across the room */
+    if (outU >= 1) {
+      cx.save();
+      cx.globalCompositeOperation = 'lighter';
+      cx.shadowColor = rar.hex;
+      cx.shadowBlur = cardW * 0.55;
+      round();
+      cx.lineWidth = Math.max(2, cardW * 0.03);
+      cx.strokeStyle = rar.glow;
+      cx.stroke(); cx.stroke();
+      cx.restore();
+    }
+    round();
+    cx.lineWidth = Math.max(2, cardW * 0.035);
+    cx.strokeStyle = outU >= 1 ? rar.glow : 'rgba(120,96,60,.9)';
+    cx.stroke();
+    cx.restore();
+  }
+
+  /* --------------------------------------- and the coins that fill it */
+  if (ok(cim) && outU > 0) {
+    const cw = cim.naturalWidth / SPINCELLS, chh = cim.naturalHeight;
+    const dwC = csz * cw / chh;
+    const nOut = Math.min(60, Math.max(1, W.total | 0));
+    for (let i = 0; i < nOut; i++) {
+      const st = T_MULT + (i / nOut) * (T_OUT - T_MULT) * 0.82;
+      const u = ease(Math.min(1, Math.max(0, (t - st) / 0.55)));
+      if (u <= 0 || u >= 1) continue;
+      const h = ((i * 97) % 89) / 88;
+      const x0 = cxm, y0 = potY - potH * 0.86;
+      const x1 = cardX + cardW * (0.12 + 0.76 * h), y1 = cardY + cardH * 0.9;
+      const x = x0 + (x1 - x0) * u;
+      const y = y0 + (y1 - y0) * u - Math.sin(u * Math.PI) * cv.height * 0.22;
+      cx.drawImage(cim, spinCell(i, t * 30) * cw, 0, cw, chh,
+        x - dwC / 2, y - csz / 2, dwC, csz);
+    }
+  }
+
+  /* ------------------------------------------------------- the numbers */
+  cx.save();
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.lineJoin = 'round';
+  const stamp = function (txt, x, y, size, fill) {
+    cx.font = '800 ' + size + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
+    cx.strokeStyle = 'rgba(10,6,2,.92)'; cx.lineWidth = size * 0.22;
+    cx.strokeText(txt, x, y); cx.fillStyle = fill; cx.fillText(txt, x, y);
+  };
+  /* coins x multiplier, counting in as they land, then resolving to the total */
+  const inU = Math.min(1, t / (T_IN * 0.86));
+  const rawShown = Math.round((W.coinsGot | 0) * inU);
+  const ty = potY + cv.height * 0.10;
+  if (t < T_MULT) {
+    stamp(rawShown + (mult > 1 ? '  x' + mult : ''), cxm, ty,
+      Math.round(cv.height * 0.085), '#FFE9A8');
+  } else {
+    const pop = 1 + Math.max(0, 1 - seg(T_MULT, T_MULT + 0.4)) * 0.5;
+    stamp(String(W.total), cxm, ty, Math.round(cv.height * 0.085 * pop), '#FFF3C8');
+  }
+  /* and the rarity, once the card is full */
+  const nameU = seg(T_OUT, T_OUT + 0.35);
+  if (nameU > 0) {
+    /* ON the card, not under it. Under it the word sat across the pot, and a
+       card's quality belongs on its face anyway. It is shrunk to fit rather
+       than trusted to - LEGENDARY is nine characters on a narrow card. */
+    cx.globalAlpha = nameU;
+    let ns = Math.round(cv.height * 0.070 * (1 + (1 - nameU) * 0.4));
+    cx.font = '800 ' + ns + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
+    while (ns > 8 && cx.measureText(rar.name).width > cardW * 0.86) {
+      ns -= 1;
+      cx.font = '800 ' + ns + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
+    }
+    stamp(rar.name, cxm, cardY + cardH * 0.5, ns, '#FFFFFF');
+    cx.globalAlpha = 1;
+  }
+  cx.restore();
+}
+
 /* Is the vault on screen right now? Once a run has gone down there it STAYS
    down there - the round does not cut back up to the chest for its last few
    seconds. That return trip was doing two bad things at once: it threw away
    the best shot in the game to show an empty room, and it put the cast back on
    the cheer loop at the chest, which is where the twitch was being seen. */
 function inVault(W) {
-  return W.phase === 'vault' || (W.phase === 'done' && W.vaulted);
+  return W.phase === 'vault'
+    || ((W.phase === 'tally' || W.phase === 'done') && W.vaulted);
+}
+/* the finale owns the screen: no scrim, and not the old payout card either -
+   the card it draws IS the payout card now */
+function inFinale(W) {
+  return W.phase === 'tally' || W.tallied || inVault(W);
 }
 function vaultComing(W) {
   return W.party.length === 3 && aliveParty(W).length === 3;
@@ -1433,10 +1688,57 @@ function drawVault(W) {
   const floorY = cv.height * VAULT_FLOOR_Y;
   const figH = cv.height * 0.42;   // bigger than they run at: this shot is about them
   const step = cv.width / (crew.length + 1);
+
+  /* MAKE ROOM FOR THE POT - BY MOVING, NOT BY CUTTING.
+     The line-up puts a body dead centre and the finale lands the pot in the
+     same place, so somebody was standing inside it. The fix is not to shuffle
+     the layout behind a cut: they are on screen the whole time, so a body that
+     changes place between two frames has teleported, and the eye reads that as
+     a glitch even when it cannot say why.
+
+     So whoever is standing in the middle SKIPS out of the way when the pot
+     arrives. They keep celebrating while they do it - the catch cycle plus a
+     hop arc, which is a jig - and they arrive before the first coin lands.
+     The band is worked out from the pot's own width rather than guessed, so
+     this keeps working if the pot art is ever swapped for a wider one. */
+  const potHalf = (cv.height * 0.30) * (ok(ART.pot)
+    ? ART.pot.naturalWidth / ART.pot.naturalHeight : 1) * 0.5;
+  const figHalf = figH * 0.34;
+  const clearTo = potHalf + figHalf + cv.width * 0.02;   // how far out is far enough
+  const tallyT = W.phase === 'tally' ? W.phaseT : (W.tallied ? TALLY_S : -1);
+  const moveU = tallyT < 0 ? 0
+    : Math.min(1, Math.max(0, tallyT / 0.85));
+  const eased = 1 - Math.pow(1 - moveU, 3);
+
   cx.globalAlpha = fadeIn;
   for (let i = 0; i < crew.length; i++) {
     const r = crew[i];
-    const cxp = step * (i + 1);
+    const home = step * (i + 1);
+    /* only bodies actually in the pot's way move, and they move to the nearer
+       side so nobody crosses the room to get out of a small gap */
+    /* THE WHOLE LINE RE-LAYS, NOT JUST THE ONE IN THE WAY. Moving only the
+       middle body cleared the pot and put it straight on top of its neighbour:
+       three figures are about 148px wide each and the pot is another 148, and
+       at even spacing across 980 there is simply nowhere beside a neighbour to
+       stand. So the line splits either side of the pot and each half spreads
+       across the room it has. Order is preserved, so nobody crosses anybody -
+       they open out like a curtain rather than swapping places. */
+    const lo = figHalf + 6, hi = cv.width - figHalf - 6;
+    const leftEnd = cv.width / 2 - clearTo, rightStart = cv.width / 2 + clearTo;
+    const nLeft = Math.ceil(crew.length / 2);
+    let away;
+    if (i < nLeft) {
+      away = nLeft === 1 ? (lo + leftEnd) / 2
+        : lo + (leftEnd - lo) * (i / (nLeft - 1));
+    } else {
+      const j = i - nLeft, nRight = crew.length - nLeft;
+      away = nRight === 1 ? (rightStart + hi) / 2
+        : rightStart + (hi - rightStart) * (j / (nRight - 1));
+    }
+    const moving = away !== home && eased < 1;
+    const cxp = home + (away - home) * eased;
+    /* the hop, so the move is a jig and not a slide */
+    const hop = moving ? Math.abs(Math.sin(eased * Math.PI * 3)) * figH * 0.07 : 0;
     const strip = ART[r.id + 'Catch'], cells = CATCHCELLS;
     /* a small stagger so three bodies are never in lockstep, which is what
        makes a line-up read as a crowd rather than as one sprite repeated */
@@ -1456,21 +1758,24 @@ function drawVault(W) {
          The contact shadow below stays. That is not a filter, it is the reason
          they look like they are standing on the paving. */
       /* their shadow, so they are standing on the paving not hovering over it */
-      cx.fillStyle = 'rgba(40,22,4,.42)';
+      cx.fillStyle = 'rgba(40,22,4,' + (0.42 * (1 - hop / (figH * 0.07) * 0.35)) + ')';
       cx.beginPath();
-      cx.ellipse(cxp, floorY - 2, dw * 0.30, dh * 0.045, 0, 0, 6.2832);
+      cx.ellipse(cxp, floorY - 2, dw * 0.30 * (1 - hop / figH), dh * 0.045, 0, 0, 6.2832);
       cx.fill();
       cx.save();
-      /* every plate faces left; the two on the left of the room turn inward */
-      if (i < crew.length / 2) {
+      /* every plate faces left. Standing still they turn inward; while skipping
+         clear they face the way they are actually going, because a body moving
+         one way and looking the other is the thing that reads as a slide. */
+      const faceLeft = moving ? (away < home) : (i < crew.length / 2);
+      if (!faceLeft) {
         cx.translate(cxp, 0); cx.scale(-1, 1); cx.translate(-cxp, 0);
       }
       cx.drawImage(strip, cell * cw, 0, cw, chh,
-        cxp - dw / 2, floorY - dh + dh * stancePad(strip, cells), dw, dh);
+        cxp - dw / 2, floorY - dh - hop + dh * stancePad(strip, cells), dw, dh);
       cx.restore();
     } else {
       cx.fillStyle = r.hex;
-      cx.fillRect(cxp - 10, floorY - 34, 20, 34);
+      cx.fillRect(cxp - 10, floorY - 34 - hop, 20, 34);
     }
   }
   cx.globalAlpha = 1;
@@ -1528,7 +1833,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=39';
+const ART_V = '?v=42';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
@@ -1539,6 +1844,7 @@ function loadArt() {
     vault: 'tp-vault.jpg',
     doorShut: 'tp-door-shut.png', doorOpen: 'tp-door-open.png',
     coinSpin: 'tp-coin-spin.png', goldPile: 'tp-gold-pile.png',
+    pot: 'tp-pot.png',
     tibboCatch: 'tp-tibbo-catch.png', moskaCatch: 'tp-moska-catch.png',
     corliCatch: 'tp-corli-catch.png',
     /* THE CAST, CUT OUT OF FOOTAGE. Each of these strips is frames lifted from
@@ -2556,6 +2862,7 @@ function draw(W) {
      vignette - the same move the main temple already makes over its far layer
      - so the room stays rich but the bodies read against it. */
   if (inVault(W)) drawVault(W);
+  if (W.phase === 'tally' || W.tallied) drawTally(W);
 
   /* ============================ THE CHROME ==============================
      Drawn in SCREEN space, outside the shaken play plane. Everything here is
@@ -2611,7 +2918,7 @@ function draw(W) {
      anything I had put in drawVault, and removing things from drawVault could
      never have fixed it. The scrim exists to sink a busy temple behind the
      payout card; the vault does not show that card, so it has nothing to sink. */
-  if (W.phase !== 'run' && !inVault(W)) {
+  if (W.phase !== 'run' && !inFinale(W)) {
     const su = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
     cx.save();
     cx.globalAlpha = (1 - Math.pow(1 - su, 3)) * 0.58;
@@ -2717,7 +3024,7 @@ function draw(W) {
      number covers the thing it is describing, and on the left third it sat
      squarely on top of whoever was standing there. The room gets the screen to
      itself, then the card lands on the way out. */
-  if (W.phase !== 'run' && !inVault(W)) {
+  if (W.phase !== 'run' && !inFinale(W)) {
     const shown = Math.min(W.banked, W.total);
     const done = W.phase === 'open' || W.phase === 'done';
     const inU = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
