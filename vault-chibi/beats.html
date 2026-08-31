@@ -450,7 +450,7 @@ const HIGH_COINS = [380, 980, 1080, 2570, 2640];
    a cue set 38 units before a cluster puts the top of the arc through it. */
 const HIGH_LEAD = 38;
 
-/* THE VAULT OPENS FOR THE TOP TIERS AND FOR NOTHING ELSE.
+/* THE VAULT OPENS WHEN THE WHOLE CREW GETS OUT, AND FOR NOTHING ELSE.
    Worth being exact about what this room is, because it would be very easy to
    build it as a lie: the vault does NOT decide anything and cannot pay out a
    single coin. The haul was sealed before the run started, the count already
@@ -460,10 +460,9 @@ const HIGH_LEAD = 38;
    already decided rather than a second draw. Anything else would change the
    economy, which is not ours to touch.
 
-   Two tiers qualify rather than one. A room this good that only fires on the
-   very top result is a room almost nobody sees; SANCTUM gets a shorter visit,
-   RELIQUARY gets the full one. */
-const VAULT_TIERS = { RELIQUARY: 1, SANCTUM: 1 };
+   The gate is all three home - see vaultComing. This is rare on purpose, and
+   it is rarer than the tier bands are: a run can pay top-tier with one
+   survivor, and that no longer buys a ticket. */
 const VAULT_S = 6.0;            // how long the chamber holds before the endcard
 /* where the paving meets the back wall in tp-vault.jpg, measured off the
    plate rather than guessed: the strongest horizontal edge in its lower half */
@@ -1285,9 +1284,9 @@ function runEnding(W, dt) {
     return;
   }
   if (W.phase === 'vault') {
-    /* RELIQUARY gets the long look, SANCTUM a shorter one. Nothing is decided
-       here - this is a timer over a result that is already fixed. */
-    const hold = W.tier.name === 'RELIQUARY' ? VAULT_S : VAULT_S * 0.66;
+    /* One length, because only one kind of run gets down here now. Nothing is
+       decided in this room - it is a timer over a result already fixed. */
+    const hold = VAULT_S;
     if (W.phaseT >= hold) {
       W.phase = 'done';
       W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out', tier: W.tier.name, total: W.total });
@@ -1297,9 +1296,16 @@ function runEnding(W, dt) {
 
 /* Does this run end downstairs? One place to ask, because the door, the phase
    change and the room all have to agree - and a door that opens onto a vault
-   that never arrives is worse than no door at all. */
+   that never arrives is worse than no door at all.
+
+   THE RULE IS THE HEADCOUNT, NOT THE TIER. It used to be "a top-two tier with
+   anybody left standing", which was wrong in a way the tier names hide: the
+   tier is a band on the TOTAL, and a lone survivor riding a multiplier reaches
+   RELIQUARY on his own - beats-698864 pays 75 with one body home. So the old
+   gate let a solo finish into a room that is supposed to mean the whole crew
+   got out. All three, or the door stays shut. */
 function vaultComing(W) {
-  return !!(W.tier && VAULT_TIERS[W.tier.name] && aliveParty(W).length);
+  return W.party.length === 3 && aliveParty(W).length === 3;
 }
 
 /* THE VAULT, PAINTED. Only the survivors are in the room: the ones security
@@ -1364,7 +1370,7 @@ function drawVault(W) {
      same seed. The spread comes out of a hash of the index instead, which
      looks scattered and is not. */
   const rainTotal = Math.max(0, W.total | 0);
-  const hold = W.tier && W.tier.name === 'RELIQUARY' ? VAULT_S : VAULT_S * 0.66;
+  const hold = VAULT_S;
   const FALL = 0.85;                       // how long one coin is in the air
   const window = Math.max(0.6, hold * 0.72 - FALL);
   const gap = rainTotal > 1 ? window / (rainTotal - 1) : 0;
@@ -1491,7 +1497,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=36';
+const ART_V = '?v=37';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
@@ -2980,7 +2986,7 @@ function forceOutcome(test, label, btn) {
     const tier = b.getAttribute('data-tier'), want = b.getAttribute('data-want');
     if (tier) return forceOutcome(function (r) { return r.tier === tier; }, tier, b);
     if (want === 'vault') return forceOutcome(
-      function (r) { return !!VAULT_TIERS[r.tier] && r.partyFinal > 0; }, 'vault', b);
+      function (r) { return r.partyFinal === 3; }, 'vault', b);
     /* THREE means three. `partyFinal === partyTotal` also matched a party of
        two that both got home, which is a different picture entirely. */
     if (want === 'all3') return forceOutcome(
