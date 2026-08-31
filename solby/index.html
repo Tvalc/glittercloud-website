@@ -79,6 +79,25 @@
     }
     button.on { color: #fff4a8; filter: saturate(1.2) brightness(1.08); }
     button.ghost { color: #fff9e8; filter: saturate(0.95) brightness(1.02); }
+    .speed-controls {
+      position: absolute; top: 14px; right: 14px; z-index: 18;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .speed-controls button {
+      min-width: 62px; padding: 7px 10px 13px;
+      font-size: 12px; opacity: 0.82;
+    }
+    .speed-controls button.on {
+      opacity: 1; color: #fff7a8;
+      transform: translateY(-1px);
+    }
+    @media (max-width: 720px) {
+      .speed-controls { top: 8px; right: 8px; gap: 2px; }
+      .speed-controls button {
+        min-width: 44px; padding: 5px 5px 9px;
+        font-size: 9px; letter-spacing: -0.03em;
+      }
+    }
     .seed-in {
       border: 0; border-radius: 18px; padding: 8px 22px 16px;
       min-width: 168px; max-width: 220px;
@@ -125,6 +144,12 @@
     .stage.pseudo-fullscreen .fullscreen-exit {
       display: inline-flex;
     }
+    .stage:fullscreen .speed-controls,
+    .stage:-webkit-full-screen .speed-controls,
+    .stage.pseudo-fullscreen .speed-controls {
+      top: max(62px, calc(env(safe-area-inset-top) + 54px));
+      right: max(12px, env(safe-area-inset-right));
+    }
     #log {
       display: none; width: min(1280px, 100%); margin: 10px 0 0;
       min-height: 6em; padding: 10px 12px; background: #5a2b1f; color: #fff9e8;
@@ -144,6 +169,11 @@
       <div class="tag" id="seedline"></div>
     </div>
     <canvas id="game" width="1280" height="720" tabindex="0"></canvas>
+    <div class="speed-controls" role="group" aria-label="Playback speed">
+      <button class="on" data-speed="1" aria-label="1x playback speed" aria-pressed="true">▶ 1X</button>
+      <button data-speed="2" aria-label="2x playback speed" aria-pressed="false">▶▶ 2X</button>
+      <button data-speed="5" aria-label="5x playback speed" aria-pressed="false">▶▶▶ 5X</button>
+    </div>
     <div class="bar">
       <button id="btn-drv" class="on">AUTOPLAY</button>
       <button id="btn-key">YOU PLAY</button>
@@ -709,6 +739,7 @@
   let endingCameraLock = null;
   let acc = 0, lastStamp = 0;
   let paused = false;
+  let playbackRate = 1;
   let interact = 0;
   let debug = false;
   const puffs = [];
@@ -3004,7 +3035,7 @@
     let dt = (stamp - lastStamp) / 1000;
     lastStamp = stamp;
     if (dt > 0.08) dt = 0.08;
-    acc += dt;
+    acc += dt * playbackRate;
     while (acc >= FIXED) {
       step(FIXED);
       acc -= FIXED;
@@ -3015,6 +3046,7 @@
 
   function bindKey(e, down) {
     const k = e.key;
+    if (down && (k === "1" || k === "2" || k === "5")) setPlaybackSpeed(Number(k));
     if (k === "ArrowLeft" || k === "a" || k === "A") keys.left = down;
     if (k === "ArrowRight" || k === "d" || k === "D") keys.right = down;
     if (k === "ArrowUp" || k === "w" || k === "W" || k === " " || k === "Spacebar") {
@@ -3040,6 +3072,18 @@
     tagline.textContent = mode === "driver"
       ? "A robot is playing. Same seed, same run."
       : "Your hands. Physics still owns the jump.";
+  }
+
+  function setPlaybackSpeed(next) {
+    const speed = Number(next);
+    if (speed !== 1 && speed !== 2 && speed !== 5) return;
+    playbackRate = speed;
+    document.querySelectorAll("[data-speed]").forEach(function (button) {
+      const active = Number(button.dataset.speed) === playbackRate;
+      button.classList.toggle("on", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    canvas.focus();
   }
 
   function fullscreenElement() {
@@ -3140,6 +3184,9 @@
 
   btnKey.addEventListener("click", function () { setMode("keyboard"); canvas.focus(); });
   btnDrv.addEventListener("click", function () { setMode("driver"); canvas.focus(); });
+  document.querySelectorAll("[data-speed]").forEach(function (button) {
+    button.addEventListener("click", function () { setPlaybackSpeed(button.dataset.speed); });
+  });
   btnFullscreen.addEventListener("click", enterFullscreen);
   btnFullscreenExit.addEventListener("click", exitFullscreen);
   document.addEventListener("fullscreenchange", syncFullscreenControls);
@@ -3204,7 +3251,7 @@
     getState: function () {
       const lead = party[0] || {};
       return {
-        mode: mode, t: simTime, seed: SEED, seal: activeSeal, testEnding: testEndingTarget,
+        mode: mode, speed: playbackRate, t: simTime, seed: SEED, seal: activeSeal, testEnding: testEndingTarget,
         x: lead.x, y: lead.y, vx: lead.vx, vy: lead.vy,
         pose: lead.pose, onGround: lead.onGround,
         runPhase: lead.runPhase, idlePhase: lead.idlePhase,
@@ -3229,6 +3276,7 @@
       };
     },
     setMode: setMode,
+    setSpeed: setPlaybackSpeed,
     reset: resetRun,
     pause: function (v) { paused = !!v; },
     hold: function (next) {
