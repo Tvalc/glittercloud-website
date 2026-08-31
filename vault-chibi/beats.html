@@ -1350,6 +1350,45 @@ function drawVault(W) {
   cx.closePath(); cx.fillStyle = sh; cx.fill();
   cx.restore();
 
+  /* THE RAIN IS THE PAYOUT, COUNTED OUT.
+     Exactly W.total coins fall - not a coin more, and none of them is worth
+     anything, because the number was settled before the run started and paid
+     at the chest. What this buys is not arithmetic, it is scale: a big win was
+     previously a digit changing on a panel, and it is now three characters
+     with their arms up getting buried.
+
+     Every coin is a pure function of its index and W.phaseT, with no stored
+     state and nothing random in it. That is not tidiness for its own sake -
+     the whole build is replay-identical, so a rain seeded off Math.random
+     would be the one thing on screen that differed between two runs of the
+     same seed. The spread comes out of a hash of the index instead, which
+     looks scattered and is not. */
+  const rainTotal = Math.max(0, W.total | 0);
+  const hold = W.tier && W.tier.name === 'RELIQUARY' ? VAULT_S : VAULT_S * 0.66;
+  const FALL = 0.85;                       // how long one coin is in the air
+  const window = Math.max(0.6, hold * 0.72 - FALL);
+  const gap = rainTotal > 1 ? window / (rainTotal - 1) : 0;
+  let landed = 0;
+
+  /* THE PILE, growing under them. Drawn BEFORE the cast so they stand in
+     front of the hoard rather than behind it. */
+  if (ok(ART.goldPile) && rainTotal > 0) {
+    for (let i = 0; i < rainTotal; i++) {
+      if (W.phaseT - i * gap > FALL) landed++;
+    }
+    const frac = landed / rainTotal;
+    if (frac > 0.04) {
+      const stage = frac < 0.30 ? 0 : frac < 0.62 ? 1 : frac < 0.88 ? 2 : 3;
+      const pim = ART.goldPile;
+      const pw = pim.naturalWidth / PILECELLS, ph = pim.naturalHeight;
+      const dh = cv.height * (0.16 + 0.13 * stage), dw = dh * pw / ph;
+      cx.globalAlpha = fadeIn;
+      cx.drawImage(pim, stage * pw, 0, pw, ph,
+        cv.width / 2 - dw / 2, cv.height * VAULT_FLOOR_Y - dh + 2, dw, dh);
+      cx.globalAlpha = 1;
+    }
+  }
+
   /* THE PARTY, LINED UP ON THE PAVING. Drawn in screen space at a fixed size,
      bigger than they run at - this is the one moment in the round that is
      entirely about looking at them. */
@@ -1399,6 +1438,33 @@ function drawVault(W) {
     }
   }
   cx.globalAlpha = 1;
+
+  /* THE COINS, IN FRONT OF EVERYTHING. Drawn last so they fall past the cast
+     rather than behind them, which is what makes the room feel like it is
+     raining rather than like it has a picture of rain on the back wall. */
+  if (ok(ART.coinSpin) && rainTotal > 0) {
+    const cim = ART.coinSpin;
+    const cw = cim.naturalWidth / SPINCELLS, chh = cim.naturalHeight;
+    const size = cv.height * 0.085;
+    const dwC = size * cw / chh;
+    cx.globalAlpha = fadeIn;
+    for (let i = 0; i < rainTotal; i++) {
+      const age = W.phaseT - i * gap;
+      if (age < 0 || age > FALL) continue;
+      const u = age / FALL;
+      /* scattered by a hash of the index, so it looks random and replays the
+         same; kept off the extreme edges where the frame would clip them */
+      const h1 = ((i * 73) % 101) / 100;
+      const h2 = ((i * 149) % 97) / 96;
+      const x = cv.width * (0.07 + 0.86 * h1);
+      /* gravity, not a linear drop - a coin that falls at constant speed reads
+         as a sprite being moved rather than as a thing with weight */
+      const y = -size + (floorY + size * 0.2) * (u * u);
+      const cell = ((i * 3 + Math.floor(age * 20 + h2 * 8)) % SPINCELLS + SPINCELLS) % SPINCELLS;
+      cx.drawImage(cim, cell * cw, 0, cw, chh, x - dwC / 2, y, dwC, size);
+    }
+    cx.globalAlpha = 1;
+  }
 }
 
 /* -------------------------------- camera ---------------------------------- */
@@ -1426,7 +1492,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=34';
+const ART_V = '?v=35';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
@@ -1436,6 +1502,7 @@ function loadArt() {
     uiPanel: 'tp-ui-panel.png', uiCard: 'tp-ui-card.png',
     vault: 'tp-vault.jpg',
     doorShut: 'tp-door-shut.png', doorOpen: 'tp-door-open.png',
+    coinSpin: 'tp-coin-spin.png', goldPile: 'tp-gold-pile.png',
     tibboCatch: 'tp-tibbo-catch.png', moskaCatch: 'tp-moska-catch.png',
     corliCatch: 'tp-corli-catch.png',
     /* THE CAST, CUT OUT OF FOOTAGE. Each of these strips is frames lifted from
@@ -1650,6 +1717,8 @@ const CAUGHTCELLS = 6;
    clips cut to four measure 29-63%. Same finding as the run and the breath -
    match the cell count to the motion that is actually in the footage. */
 const CATCHCELLS = 4;
+const SPINCELLS = 8;     // one full turn of the coin
+const PILECELLS = 4;     // scatter, mound, heap, hoard
 /* Ground distance per run cell. The strip went from six cells to eight over
    the same stride, so the distance each cell covers has to shrink in step or
    the cadence changes and the feet skate: 78 units per cycle, unchanged. */
