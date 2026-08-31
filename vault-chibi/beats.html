@@ -1408,17 +1408,16 @@ function drawVault(W) {
       const cw = strip.naturalWidth / cells, chh = strip.naturalHeight;
       const dh = figH, dw = dh * cw / chh;
       const cell = ((Math.floor(t) % cells) + cells) % cells;
-      /* A POOL OF SHADE, NOT A FILTER. This is what replaced the full-screen
-         scrim: a soft dark ellipse standing each body off the wall behind it,
-         reaching high enough to sit behind the torso where the contrast is
-         actually needed. It costs the room nothing - the gold either side of
-         them stays at full brightness. */
-      const pool = cx.createRadialGradient(cxp, floorY - dh * 0.34, dh * 0.04,
-        cxp, floorY - dh * 0.34, dh * 0.62);
-      pool.addColorStop(0, 'rgba(28,14,2,.46)');
-      pool.addColorStop(1, 'rgba(28,14,2,0)');
-      cx.fillStyle = pool;
-      cx.fillRect(cxp - dh * 0.7, floorY - dh * 1.1, dh * 1.4, dh * 1.2);
+      /* NOTHING IS LAID OVER THE ROOM. There was a pool of shade behind each
+         body here, meant as a local answer to the full-screen scrim before it.
+         It was not local enough: at 46% over a radius of two thirds of a
+         figure's height, three of them cover most of the frame and add back
+         exactly the dark wash they were supposed to replace. The cast has a
+         thick black ink outline and three hues nothing else in the room uses -
+         that is what makes them read, and it does not need help.
+
+         The contact shadow below stays. That is not a filter, it is the reason
+         they look like they are standing on the paving. */
       /* their shadow, so they are standing on the paving not hovering over it */
       cx.fillStyle = 'rgba(40,22,4,.42)';
       cx.beginPath();
@@ -1492,7 +1491,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=35';
+const ART_V = '?v=36';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
@@ -1704,8 +1703,16 @@ const RUNCELLS = 8;
 const CHEER = {
   tibbo: { cells: 8, fps: 10.7 },   // 18 source frames
   moska: { cells: 5, fps: 8.6 },    // 14
-  corli: { cells: 8, fps: 6.4 },    // 30 - the slow, big one
+  corli: { cells: 6, fps: 6.9 },    // 21
 };
+/* CORLI was re-cut a second time, and the first fix was only half of it. The
+   speed was wrong - 1.9x too fast - but so was the WINDOW: her old eight cells
+   spanned a whole performance, cheer through to arms-down-standing, so looping
+   it snapped her from a rest pose back to a full celebration once a cycle. The
+   deltas never caught it because they were even the whole way round; a reset
+   like that is a content problem, not a pixel-difference one. These six come
+   out of a stretch where she is celebrating continuously, so there is nothing
+   to snap back FROM. */
 function cheerOf(id) { return CHEER[id] || { cells: 8, fps: 10.0 }; }
 /* Five, not six: the strip was shot with an anticipation crouch at the front
    and the sim has no anticipation - a jump here begins the instant it is
