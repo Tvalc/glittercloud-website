@@ -234,6 +234,7 @@
   const TRANSITION_LIFE = 2.4;
   const TRANSITION_SWAP = 1.2;
   const VAULT_LIFE = 14;
+  const TALLY_LIFE = 3.2;
   const VAULT_SPAWN = 0.032;
   const VAULT_WAVE = 8;
   const VAULT_CAP = 96;
@@ -699,7 +700,7 @@
   let confetti = [];
   let vaultCaught = 0;
   let didVault = false;
-  let cardShow = { fill: 0, rarity: "COMMON", hex: "#f0ebe3", flies: [], age: 0 };
+  let cardShow = { fill: 0, rarity: "COMMON", hex: "#f0ebe3", flies: [], age: 0, total: 0, tiers: [RARITY[0]] };
   let show = { phase: "run", age: 0 };
   let beatHold = 0;
   let banner = { title: "", sub: "", age: 8, life: 0 };
@@ -804,7 +805,7 @@
     confetti = [];
     vaultCaught = 0;
     didVault = false;
-    cardShow = { fill: 0, rarity: "COMMON", hex: "#f0ebe3", flies: [], age: 0 };
+    cardShow = { fill: 0, rarity: "COMMON", hex: "#f0ebe3", flies: [], age: 0, total: 0, tiers: [RARITY[0]] };
     show = { phase: "run", age: 0 };
     beatHold = 0;
     banner = { title: "", sub: "", age: 8, life: 0 };
@@ -1272,35 +1273,49 @@
     }
   }
 
+  function cardTransferLayout() {
+    const w = 220;
+    const h = 312;
+    return {
+      sourceX: W * 0.26,
+      sourceY: H * 0.5,
+      cardX: W * 0.7 - w / 2,
+      cardY: H * 0.5 - h / 2 + 28,
+      w: w,
+      h: h,
+    };
+  }
+
   function beginCards() {
-    const rank = rarityFor(potTotal());
-    cardShow = { fill: 0, rarity: rank.name, hex: rank.hex, flies: [], age: 0 };
-    for (let i = stormCoins.length - 1; i >= 0; i--) {
-      const c = stormCoins[i];
-      if (c.got) continue;
-      cardShow.flies.push({
-        x: c.x,
-        y: c.y,
-        tx: W * (0.28 + (i % 3) * 0.22),
-        ty: H - 168,
-        age: 0,
-        life: 0.55 + (i % 5) * 0.06,
-      });
-    }
+    const total = potTotal();
+    const tiers = RARITY.filter(function (rank) { return rank.at <= total; });
+    const first = tiers[0] || RARITY[0];
+    const layout = cardTransferLayout();
+    cardShow = {
+      fill: 0,
+      rarity: first.name,
+      hex: first.hex,
+      flies: [],
+      age: 0,
+      total: total,
+      tiers: tiers.length ? tiers : [RARITY[0]],
+    };
     stormCoins = [];
-    const extra = Math.min(48, 12 + Math.floor(potTotal() / 20));
-    for (let i = 0; i < extra; i++) {
+    const count = Math.min(72, 30 + cardShow.tiers.length * 7);
+    for (let i = 0; i < count; i++) {
+      const row = i % 9;
+      const band = Math.floor(i / 9);
       cardShow.flies.push({
-        x: CHEST.x - 200 + (i % 10) * 40,
-        y: LOW_Y - 80 - (i % 7) * 18,
-        tx: W * (0.28 + (i % 3) * 0.22),
-        ty: H - 168,
-        age: -i * 0.03,
-        life: 0.6,
+        x: layout.sourceX + (row - 4) * 7,
+        y: layout.sourceY + ((band % 3) - 1) * 10,
+        tx: layout.cardX + layout.w * (0.3 + ((i * 7) % 11) / 27),
+        ty: layout.cardY + layout.h * (0.22 + ((i * 5) % 17) / 27),
+        age: -i * 0.04,
+        life: 0.68 + (i % 5) * 0.045,
       });
     }
     if (!seenBeat.cards) {
-      flashBeat("THE HAUL", "Coins become cards. Watch the color climb.");
+      flashBeat("THE CARD", "THE FINAL COIN HAUL FILLS ONE CARD. WATCH THE RARITY CLIMB.");
       seenBeat.cards = true;
     }
   }
@@ -1314,10 +1329,12 @@
       f.age += dt;
       if (f.age > f.life) landed += 1;
     }
-    const target = Math.min(1, potTotal() / RARITY[RARITY.length - 1].at);
-    const u = Math.min(1, 0.12 + landed / Math.max(1, cardShow.flies.length));
-    cardShow.fill += (Math.min(target, u) - cardShow.fill) * Math.min(1, dt * 3.2);
-    const rank = rarityFor(potTotal() * cardShow.fill);
+    const target = Math.min(1, landed / Math.max(1, cardShow.flies.length));
+    cardShow.fill += (target - cardShow.fill) * Math.min(1, dt * 5);
+    if (cardShow.age > 4.25) cardShow.fill = 1;
+    const tiers = cardShow.tiers || [RARITY[0]];
+    const tierIndex = Math.min(tiers.length - 1, Math.floor(cardShow.fill * tiers.length));
+    const rank = tiers[tierIndex];
     cardShow.rarity = rank.name;
     cardShow.hex = rank.hex;
   }
@@ -2203,14 +2220,14 @@
       beginTally();
     }
     if (show.phase === "vault" && show.age > VAULT_LIFE) {
-      show.phase = "cards";
-      show.age = 0;
-      beginCards();
-    }
-    if (show.phase === "cards" && show.age > 4.4) {
       show.phase = "tally";
       show.age = 0;
       beginTally();
+    }
+    if (show.phase === "tally" && show.age > TALLY_LIFE) {
+      show.phase = "cards";
+      show.age = 0;
+      beginCards();
     }
   }
 
@@ -2744,6 +2761,7 @@
   }
 
   function drawCoinHud() {
+    if (show.phase === "tally" || show.phase === "cards") return;
     const label = String(coinCount);
     const sz = fitUiSize(label, 72, 20, 13);
     const tw = measureUi(label, sz);
@@ -2785,43 +2803,76 @@
     c.clearRect(0, 0, cw, ch);
     c.drawImage(img, 0, 0, cw, ch);
     c.globalCompositeOperation = "source-atop";
-    const rank = rarityFor(potTotal() * fill);
     const inset = Math.round(Math.min(cw, ch) * 0.12);
-    c.fillStyle = rank.hex;
-    c.globalAlpha = 0.18 + fill * 0.7;
+    c.fillStyle = hex;
+    c.globalAlpha = 0.24 + fill * 0.7;
     c.fillRect(inset, inset + (ch - inset * 2) * (1 - fill), cw - inset * 2, (ch - inset * 2) * fill + 2);
+    c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
+    ctx.save();
+    ctx.shadowColor = hex;
+    ctx.shadowBlur = 8 + fill * 26;
     ctx.drawImage(cardScratch, x, y, w, h);
-    const coins = Math.round(fill * 8);
-    for (let i = 0; i < coins; i++) {
-      drawAsset("coin", x + w / 2 - 10, y + h - 28 - i * 14, 20, 20);
+    ctx.restore();
+    if (fill > 0.02 && fill < 0.995) {
+      const fillY = y + h * 0.12 + h * 0.76 * (1 - fill);
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.strokeStyle = "#fff8c7";
+      ctx.lineWidth = 4;
+      ctx.shadowColor = hex;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.18, fillY);
+      ctx.lineTo(x + w * 0.82, fillY);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
   function drawCardHud() {
     if (show.phase !== "cards") return;
-    const n = Math.max(1, scoreRun().arrived || party.length);
-    const cw = 118;
-    const ch = 168;
-    const gap = 22;
-    const total = n * cw + (n - 1) * gap;
-    const x0 = W / 2 - total / 2;
-    const y = H - ch - 28;
-    for (let i = 0; i < n; i++) {
-      drawRarityCard(x0 + i * (cw + gap), y, cw, ch, cardShow.hex, cardShow.fill);
+    const layout = cardTransferLayout();
+    const settleRaw = Math.min(1, Math.max(0, (cardShow.age - 4.25) / 0.9));
+    const settle = settleRaw * settleRaw * (3 - 2 * settleRaw);
+    const finalX = W / 2 - layout.w / 2;
+    const cardX = layout.cardX + (finalX - layout.cardX) * settle;
+    const sourceAlpha = 1 - settle;
+    const sourceW = 470;
+    const sourceH = 184;
+    const sourceX = layout.sourceX - sourceW / 2;
+    const sourceY = layout.sourceY - sourceH / 2;
+    const remaining = Math.max(0, Math.round(cardShow.total * (1 - cardShow.fill)));
+    if (sourceAlpha > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = sourceAlpha;
+      drawAsset("hudPlate", sourceX, sourceY, sourceW, sourceH);
+      strokeFit("FINAL COIN HAUL", layout.sourceX, sourceY + 46, sourceW - 70, 19, "#fff6e4", "center", 13, "800", "#2a1608");
+      drawAsset("coin", layout.sourceX - 112, sourceY + 69, 46, 46);
+      strokeFit(remaining + " COINS", layout.sourceX + 24, sourceY + 108, sourceW - 150, 36, "#ffffff", "center", 20, "900", "#073f4a");
+      strokeFit("OF " + cardShow.total + " FLOWING INTO THE CARD", layout.sourceX, sourceY + 145, sourceW - 74, 14, "#ffe08a", "center", 10, "800", "#2a1608");
+      ctx.restore();
     }
-    drawAsset("bannerPlate", W / 2 - 210, y - 78, 420, 70);
-    strokeFit(cardShow.rarity, W / 2, y - 36, 360, 22, cardShow.hex, "center", 14, "800", "#1a1208");
+    drawRarityCard(cardX, layout.cardY, layout.w, layout.h, cardShow.hex, cardShow.fill);
+    const bannerW = 380;
+    drawAsset("bannerPlate", cardX + layout.w / 2 - bannerW / 2, layout.cardY - 82, bannerW, 72);
+    strokeFit(cardShow.rarity + " CARD", cardX + layout.w / 2, layout.cardY - 38, bannerW - 64, 24, cardShow.hex, "center", 14, "900", "#1a1208");
+    if (settle > 0.72) {
+      ctx.save();
+      ctx.globalAlpha = (settle - 0.72) / 0.28;
+      strokeFit(cardShow.total + " COINS ABSORBED", W / 2, layout.cardY + layout.h + 38, 440, 18, "#fff6e4", "center", 12, "800", "#2a1608");
+      ctx.restore();
+    }
     ctx.textAlign = "left";
     cardShow.flies.forEach(function (f) {
       if (f.age < 0) return;
       const u = Math.min(1, Math.max(0, f.age / f.life));
       if (u >= 1) return;
       const e = 1 - Math.pow(1 - u, 3);
-      const sx = (f.x - camX) * viewZ;
-      const sy = (f.y - camY) * viewZ;
-      const x = sx + (f.tx - sx) * e;
-      const y2 = sy + (f.ty - sy) * e;
-      drawAsset("coin", x - 8, y2 - 8, 16, 16);
+      const x = f.x + (f.tx - f.x) * e;
+      const y2 = f.y + (f.ty - f.y) * e - Math.sin(u * Math.PI) * 54;
+      const size = 16 + Math.sin(u * Math.PI) * 7;
+      drawAsset("coin", x - size / 2, y2 - size / 2, size, size);
     });
   }
 
@@ -2832,7 +2883,6 @@
     const extra = [];
     if (sc.storm) extra.push("STORM +" + sc.storm);
     if (sc.vault) extra.push("VAULT +" + sc.vault);
-    if (sc.rarity && sc.vault) extra.push(sc.rarity);
     const line2 = extra.join("   ");
     const w = 520;
     const h = line2 ? 168 : 148;
@@ -2939,11 +2989,14 @@
       lines.forEach(function (line, i) { ctx.fillText(line, 164, 36 + i * 20); });
     }
 
-    drawPartyHud();
-    drawCoinHud();
-    drawStormHud();
-    drawCardHud();
-    drawTallyHud();
+    if (show.phase === "cards") {
+      drawCardHud();
+    } else {
+      drawPartyHud();
+      drawCoinHud();
+      drawStormHud();
+      drawTallyHud();
+    }
   }
 
   function frame(stamp) {
@@ -3169,7 +3222,7 @@
         bats: bats.map(function (b) { return { x: b.x, y: b.y, lane: b.lane }; }),
         coins: coinCount,
         storm: { caught: stormCaught, live: liveRain(), age: show.phase === "storm" ? show.age : 0 },
-        vault: { caught: vaultCaught, rarity: rarityFor(potTotal()).name, fill: cardShow.fill, min: VAULT_MIN },
+        vault: { caught: vaultCaught, rarity: rarityFor(potTotal()).name, cardRarity: cardShow.rarity, cardTotal: cardShow.total, fill: cardShow.fill, min: VAULT_MIN },
         show: show.phase,
         score: scoreRun(),
         over: show.phase === "tally" ? (scoreRun().arrived ? "clear" : "caught") : false,
