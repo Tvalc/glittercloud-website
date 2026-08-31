@@ -1,0 +1,2981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THE TEMPLE — the three beats</title>
+<style>
+  :root { color-scheme: dark; }
+  html,body { margin:0; background:#12161c; color:#cfd8e3;
+    font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  #wrap { max-width:1010px; margin:12px auto; padding:0 12px; }
+  h1 { font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:#e8b563; margin:0 0 9px; }
+  canvas { display:block; width:100%; max-width:980px; height:auto; background:#7CC3F0;
+    border:1px solid #2a3340; border-radius:4px; }
+  #beatbar { display:flex; gap:8px; margin:8px 0; }
+  .bt { flex:1; padding:6px 9px; background:#171d25; border:1px solid #262f3b;
+    border-radius:4px; font-size:12px; }
+  .bt.live { border-color:#e8b563; background:#221c12; }
+  .bt.done { border-color:#3d5a45; }
+  .bt b { display:block; color:#7f8fa3; font-weight:400; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; }
+  .bt span { color:#e6edf5; }
+  .good { color:#5fd08a; } .bad { color:#d0655f; } .mid { color:#e8b563; }
+  #hud { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
+    gap:3px 12px; margin:8px 0; padding:7px 10px; background:#171d25;
+    border:1px solid #262f3b; border-radius:4px; font-size:12px; }
+  #hud b { color:#7f8fa3; font-weight:400; }
+  #keys { margin:7px 0; color:#8a97a8; font-size:12px; }
+  kbd { background:#232c37; border:1px solid #354152; border-bottom-width:2px;
+    border-radius:3px; padding:1px 5px; color:#dbe4ef; }
+  button { background:#232c37; color:#dbe4ef; border:1px solid #3a4759;
+    border-radius:3px; padding:4px 10px; font:inherit; font-size:12px; cursor:pointer; }
+  button:hover { background:#2c3846; }
+  #log { white-space:pre; max-height:200px; overflow:auto; background:#0f1319;
+    border:1px solid #262f3b; border-radius:4px; padding:8px 10px; margin-top:8px;
+    font-size:11.5px; color:#9db0c6; }
+  /* FORCING AN OUTCOME MEANS FINDING A SEED, NOT OVERRIDING ONE. See the
+     handler below for why. */
+  #force { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;
+    align-items:center; font-size:11.5px; color:#9db0c6; }
+  #force b { color:#e8a33d; letter-spacing:.06em; text-transform:uppercase; }
+  #force-note { color:#7f93a8; font-family:ui-monospace,Menlo,monospace; }
+  #force button.hunting { opacity:.55; }
+
+  /* ------------------------------- FULL SCREEN -------------------------
+     Two mechanisms, because one of them does not exist on the device this
+     most needs to work on. Desktop and Android get the real Fullscreen API.
+     iPhone Safari has never supported it for anything but <video>, so there
+     is a CSS fallback that pins the canvas over the viewport and hides the
+     page around it - which on a phone is visually the same thing.
+     The canvas is 980x430, so in both modes it is sized to the SMALLER of
+     the viewport width and the width that height allows, which fills the
+     screen without ever stretching the picture. */
+  /* THE PHONE'S OWN ZOOM IS NOT OURS TO TRIGGER.
+     Reported as "the screen breaks and zooms in weirdly when hitting the
+     boxes", and nothing in the game does it: SCALE is a constant, the canvas
+     stays 980x430, and a frame-by-frame check found no transform leak and no
+     save/restore imbalance. What is actually happening is a DOUBLE TAP. The
+     boxes are the moment you instinctively tap at, there is no touch control
+     to absorb it, and a double tap on a page with no touch-action is a browser
+     zoom gesture.
+
+     `manipulation` is the right level rather than `none`: it turns off the
+     double-tap-to-zoom and the 300ms click delay that comes with it, while
+     LEAVING pinch-zoom alone. Killing pinch as well - which is what
+     user-scalable=no would do - would fix the same bug by taking zoom away
+     from anyone who needs it to read the thing. */
+  #cv {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+  }
+  #cv:fullscreen, #cv:-webkit-full-screen {
+    position:fixed; inset:0; margin:auto;
+    width:min(100vw, calc(100vh * 980 / 430));
+    height:auto; max-height:100vh; background:#0B0F14;
+  }
+  #cv::backdrop { background:#080B10; }
+  body.blownup { overflow:hidden; background:#080B10; }
+  body.blownup #wrap > *:not(#cv) { display:none; }
+  body.blownup #wrap { max-width:none; margin:0; padding:0; }
+  body.blownup #cv {
+    position:fixed; inset:0; margin:auto; z-index:50;
+    width:min(100vw, calc(100vh * 980 / 430));
+    height:auto; max-width:none; max-height:100vh;
+  }
+  #btn-fs.on { background:#3d5570; border-color:#5b7896; }
+  /* THE WAY BACK OUT. In the CSS fallback the whole page around the canvas is
+     hidden, which hides the button that got you here - and the device that
+     needs the fallback is a phone, with no Escape key. This one lives outside
+     #wrap so the hide rule cannot reach it. Real fullscreen does not need it:
+     only the fullscreen element renders, and the system gesture exits. */
+  #btn-fsx { display:none; }
+  body.blownup #btn-fsx {
+    display:block; position:fixed; top:10px; right:10px; z-index:60;
+    padding:9px 14px; font-size:13px; opacity:.75;
+  }
+  body.blownup #btn-fsx:hover { opacity:1; }
+</style>
+</head>
+<body>
+<button id="btn-fsx" aria-label="exit full screen">&times; exit</button>
+<div id="wrap">
+  <h1>The three beats</h1>
+  <canvas id="cv" width="980" height="430"></canvas>
+  <div id="beatbar">
+    <div class="bt" id="bt0"><b>1 &middot; the first enemy</b><span>&mdash;</span></div>
+    <div class="bt" id="bt1"><b>2 &middot; the two boxes</b><span>&mdash;</span></div>
+    <div class="bt" id="bt2"><b>3 &middot; the trap</b><span>&mdash;</span></div>
+  </div>
+  <div id="hud">
+    <div><b>party</b> <span id="h-party">&mdash;</span></div>
+    <div><b>leader</b> <span id="h-lead">&mdash;</span></div>
+    <div><b>anim</b> <span id="h-anim">&mdash;</span></div>
+    <div><b>x</b> <span id="h-x">&mdash;</span></div>
+    <div><b>vy</b> <span id="h-vy">&mdash;</span></div>
+    <div><b>t</b> <span id="h-t">&mdash;</span></div>
+    <div><b>coins</b> <span id="h-coins">&mdash;</span></div>
+    <div><b>seed</b> <span id="h-seed">&mdash;</span></div>
+    <div><b>status</b> <span id="h-st">&mdash;</span></div>
+  </div>
+  <div id="keys">
+    <kbd>&larr;</kbd><kbd>&rarr;</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp;
+    <kbd>D</kbd> driver &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>P</kbd> pause &nbsp;
+    <kbd>F</kbd> full screen &nbsp;
+    <button id="btn-fs">full screen</button>
+    <button id="btn-rst">restart</button>
+    <button id="btn-roll">new seed</button>
+    <button id="btn-dump">dump</button>
+  </div>
+  <div id="force">
+    <b>force outcome</b>
+    <button data-tier="RETREAT">RETREAT</button>
+    <button data-tier="THRESHOLD">THRESHOLD</button>
+    <button data-tier="CHAMBER">CHAMBER</button>
+    <button data-tier="SANCTUM">SANCTUM</button>
+    <button data-tier="RELIQUARY">RELIQUARY</button>
+    &nbsp;
+    <button data-want="vault">vault opens</button>
+    <button data-want="all3">all 3 home</button>
+    <button data-want="wipe">wipe</button>
+    <span id="force-note">&mdash;</span>
+  </div>
+  <div id="log"></div>
+</div>
+<script>
+'use strict';
+window.__consoleErrors = [];
+addEventListener('error', function (e) { window.__consoleErrors.push(String((e && e.message) || e)); });
+addEventListener('unhandledrejection', function (e) { window.__consoleErrors.push('rejection: ' + String(e && e.reason)); });
+(function () {
+  const ce = console.error;
+  console.error = function () {
+    window.__consoleErrors.push(Array.prototype.join.call(arguments, ' '));
+    return ce.apply(console, arguments);
+  };
+})();
+
+/* ============================================================================
+   THE TEMPLE - THE THREE BEATS
+   Same physics core as phase0.html (snapshot: phase0-core.html), restructured
+   to Makko's beat design: FEWER, CLEARER challenges, each one a single
+   question a viewer can hold in their head.
+
+     BEAT 1  the first enemy   - one runner. Does he land on it, or does it
+                                 get him? With a party of one it is everything.
+     BEAT 2  two ? boxes       - character (best) / power-up / nothing /
+                                 enemy (worst). This is where the party grows.
+     BEAT 3  the trap          - resolved PER MEMBER, one at a time. Two of
+                                 two? One of two? Neither?
+
+   The line of bodies is the scoreboard; there is no number on the stage.
+
+   WHY THE SEQUENCING WORKS BY ITSELF: every party member is a full physics
+   body running the SAME cue list, so they reach the trap staggered by their
+   spacing and resolve one after another. Nothing about that is staged.
+
+   Elimination is staged per the GDD - grey, still, held in frame, never hurt.
+   ========================================================================== */
+
+/* ------------------------------ seeded rng ------------------------------- */
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+function mulberry32(a) {
+  return function () {
+    let t = (a += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), 1 | t);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const makeRng = s => mulberry32(xmur3(s)());
+
+const QS = new URLSearchParams(location.search);
+let SEED = QS.get('seed') || 'beats-001';
+
+/* ----------------------------- physics tuning ----------------------------
+   Unchanged from the proven core. apex 71.2, airtime 0.508s, reach 88.1. */
+const G_UP = 1900, G_DOWN = 2600, JUMP_MIN = 415, JUMP_MAX = 520;
+const RUN_MAX = 138, RUN_ACC = 430, SKID = 1500, FRICTION = 820, AIR_ACC = 300;
+const MAX_FALL = 620, COYOTE = 0.090, BUFFER = 0.110, CUT = 0.45;
+const STOMP_UP = 300, STEP_UP = 7;
+const BODY_W = 18, BODY_H = 26, STEP = 1 / 120;
+const FLOOR_Y = 150, PIT_Y = 178, BLOCK_H = 17, SOFFIT = 88, BLOCK_W = 20;
+const WALK_W = 20, WALK_H = 22, WALK_SPEED = 34;
+const COIN_R = 6;
+/* ------------------------------ the cast --------------------------------- */
+/* Three mascots built for this game and nothing else. The palettes are not
+   decoration: every plate is cut out of video shot against a chroma field, so
+   each of them is painted as far from a key colour as the wheel allows and
+   carries no white, cream or beige anywhere - a cream belly is a hole in the
+   sprite. Orange, indigo and coral also happen to be three hues nobody
+   confuses at thirty pixels, which is the other job. */
+const CAST = [
+  { id: 'tibbo', hex: '#E8762B', dark: '#8A3C10' },   // jerboa, springy
+  { id: 'moska', hex: '#5A4CA8', dark: '#2B2360' },   // toad, heavy
+  { id: 'corli', hex: '#E8546B', dark: '#8A2438' },   // pangolin, quick
+];
+
+/* ------------------------------- the level -------------------------------
+   FEWER, CLEARER. Long clear run-ups so each beat is visible well before it
+   arrives, and almost nothing between them competing for attention. The old
+   level put a jump every 80 units; this one has three events and room to
+   breathe around each. */
+const BEAT1_X = 620;          // the first enemy waits around here
+const BEAT2_X = 1180;         // the two boxes
+/* THE MIDDLE TRAP IS 60 WIDE, NOT 74. At 74 he cleared it with 2 units of
+   overlap on the far lip and then had 66 units to re-accelerate before the
+   next hole - which is not a margin, it is a coin flip. Every hole on the
+   middle road is 60 now, with at least 120 units of ground between them. */
+const TRAP_X0 = 2150, TRAP_X1 = 2210;   // in open air, after the deck ends
+
+/* ========================= THE THREE LANES ==============================
+   The level forks after the boxes. One geometry, three plans:
+
+     FORK      a hole in the main ground at 1400-1452
+     UPPER     a ramp of plinths up to a deck at y=96, its own gap at 1740
+     MIDDLE    the main ground, its own trap at 1900
+     LOWER     a sunken floor at y=214 under the ground, its own gap at 1690
+
+   The upper runner is already on the deck when the fork arrives. The middle
+   runner jumps it. The lower runner does not press, and drops through. Each
+   lane carries a different trap at a different x, so beat 3 resolves as three
+   separate questions in sequence rather than one. */
+/* Everything sits AFTER the boxes (which end at 1304), because the party is
+   not known until they are open - assigning lanes any earlier meant the split
+   always saw a party of one. The three traps are staggered in x so beat 3
+   resolves as three questions in sequence: low, then middle, then high. */
+/* THE DECK IS A CEILING OVER THE MIDDLE LANE, and that is the constraint the
+   whole layout has to respect. A middle runner's jump apex puts his head at
+   y=53; the deck's underside is 112. So anywhere the deck is overhead he
+   physically cannot jump - he bonks it and drops into whatever he was trying
+   to clear. The fix is layout, not code: the deck only spans stretches where
+   the middle road is unbroken, and every middle-lane hole sits before it
+   starts or after it ends. */
+const FORK_X0 = 1400, FORK_X1 = 1452;     // before the deck: everyone can jump
+/* the tunnel needs headroom for a stomp: 90 units between its floor and the
+   ground's underside, so he can rise the 22 he needs to get on a guardian's
+   head without bonking the roof of the world */
+const UP_Y = 96, LOW_Y = 250;
+const UP_MOUNT = 1560;                     // he climbs on AFTER clearing the fork
+/* THE DECK'S GAP SITS DIRECTLY OVER THE MIDDLE TRAP. Stacked like this, each
+   road meets its own hazard at the same moment: the middle runner's jump arc
+   rises through the deck's gap instead of bonking its underside, and an upper
+   runner who misses drops through both and lands in the middle trap. Anywhere
+   else and one lane's hole is a hole every lane has to solve. */
+/* The deck's gap has to be WIDER than a full jump arc (~76 units above the
+   deck's underside), because the middle runner's leap has to pass through it -
+   he cannot make a short hop, the deck is only 12 units over his head. And the
+   upper runner has to clear that same gap on an 88-unit reach. 70 satisfies
+   both with 18 units of margin; at 80 he was clearing it by 8 and missing. */
+/* THE DECK'S GAP AND THE GROUND PIT CANNOT BE THE SAME OPENING. Stacking them
+   needs a gap wide enough for the middle runner's whole arc (~85 units, since
+   he cannot hop under a ceiling 12 units over his head) AND narrow enough for
+   the upper runner to clear on an 88-unit reach. Three units of margin is not
+   a design. So the deck carries its own gap early and then ENDS, and the pit
+   comes after it in open air where everyone can jump. Each road still owns one
+   hazard - a gap up high, a guardian below, a pit in the middle - and the pit
+   doubles as the shared last obstacle for whoever is back on the ground. */
+const UP_DECK = [[UP_MOUNT, 1780, UP_Y], [1850, 2000, UP_Y]];
+const UP_PIT  = [1780, 1850];              // the high road's own gap, 70 wide
+/* THE SUNKEN ROAD'S CHALLENGE IS A STOMP, NOT A GAP - because it has a
+   CEILING. The ground slab overhead means the lower runner has only enough
+   headroom for a small hop, nowhere near the 71-unit apex a 66-wide gap needs;
+   he bonked the underside of the world and dropped straight in. Landing on a
+   guardian only asks him to clear 22 units, which fits, and it gives the three
+   roads three genuinely different problems: a gap up top, a pit in the middle,
+   a guardian down below. */
+const LOW_RUN = [[1396, 2400, LOW_Y], [2390, 2466, LOW_Y - 54]];
+const LOW_FOE = 1760;                      // the guardian in the tunnel
+const MERGE_X = 2560;
+const CHEST_X = 2700, CHEST_W = 46, CHEST_H = 34;
+const GOAL_X = CHEST_X - 26;
+const OPEN_S = 1.9;
+const LEVEL_W = 2940;
+
+const PROFILE = [
+  { x0: -60,  x1: 820,  top: 150 },                       // the long opening run
+  { x0: 820,  x1: 872,  top: 128, pipe: 1 },              // one pipe, to keep it a platformer
+  { x0: 872,  x1: FORK_X0, top: 150 },                    // the run through the boxes
+  { x0: FORK_X0, x1: FORK_X1, top: null, id: 'FORK' },    // THE FORK: the lane choice
+  { x0: FORK_X1, x1: TRAP_X0, top: 150 },                 // under the deck: unbroken
+  { x0: TRAP_X0, x1: TRAP_X1, top: null, id: 'TRAP' },    // the middle road's own trap,
+  { x0: TRAP_X1, x1: 2410, top: 150 },
+  { x0: 2410, x1: 2470, top: null, id: 'MERGE' },         // where the sunken road climbs out
+  { x0: 2470, x1: 2880, top: 150 },                       // the run home
+];
+
+/* two boxes, far enough apart that each is its own moment */
+const BOX_XS = [BEAT2_X, BEAT2_X + 104];
+
+/* --------------------------- THE SEALED DRAW -----------------------------
+   PLACEHOLDER. In Phase 1 these come from the real sealed region
+   (drawOutcome -> derivePresentation), which is off-limits and unmodified.
+   Everything here is a pure function of the seed, so a replay is identical.
+
+   The ranking Makko set, best to worst:
+       character  (the party grows)  >  power-up  >  nothing  >  enemy
+   Weighted so the good outcomes stay rare enough to be worth hoping for. */
+const BOX_TABLE = [
+  { k: 'character', w: 0.26 },
+  { k: 'powerup',   w: 0.24 },
+  { k: 'nothing',   w: 0.32 },
+  { k: 'enemy',     w: 0.18 },
+];
+function drawBeats(seed) {
+  const rng = makeRng(seed + '#beats');
+  const pick = function () {
+    let r = rng(), acc = 0;
+    for (const e of BOX_TABLE) { acc += e.w; if (r < acc) return e.k; }
+    return 'nothing';
+  };
+  return {
+    /* BEAT 1: does the one runner you have get over the first enemy? */
+    enemy: rng() < 0.62 ? 'clear' : 'out',
+    /* BEAT 2: two independent draws */
+    boxes: [pick(), pick()],
+    /* BEAT 3: one verdict per member slot, used in party order. Drawn up
+       front so the run is fully decided before the first frame. */
+    trap: [rng() < 0.66, rng() < 0.60, rng() < 0.55].map(function (b) { return b ? 'clear' : 'out'; }),
+    /* DOES HE GO FOR THE HIGH COINS? One decision per cluster, seeded. This is
+       what gives the haul a second axis: before it, anyone who finished
+       collected every coin in the level and the payout moved only with the
+       multiplier. A cluster he skips he runs straight underneath. */
+    reach: HIGH_COINS.map(function () { return rng() < 0.55; }),
+  };
+}
+
+/* ------------------------------- solids ---------------------------------- */
+function buildSolids(blocks) {
+  const S = [];
+  for (const s of PROFILE) {
+    /* THE GROUND IS A SLAB, NOT A COLUMN. It used to run from its surface all
+       the way to y=320, which left no room for a lane underneath - the sunken
+       road was literally inside the ground solid. Both the ground and the pit
+       floors are thin now, and the bedrock at 300 still catches anything that
+       falls past everything else. */
+    if (s.top === null) {
+      /* THE FORK AND THE MERGE ARE PASSAGES, NOT TRAPS. Every `top: null`
+         segment used to get a pit floor, which meant the hole the lower runner
+         is SUPPOSED to drop through caught and eliminated him the moment he
+         used it - and eliminated the middle runner too, on a draw that said he
+         should clear. A passage has no floor; you fall through it to the lane
+         below. */
+      if (s.id !== 'FORK' && s.id !== 'MERGE') {
+        S.push({ x0: s.x0 + 4, x1: s.x1 - 4, y0: PIT_Y, y1: PIT_Y + 8, kind: 'pitfloor', id: s.id });
+      }
+    }
+    else S.push({ x0: s.x0, x1: s.x1, y0: s.top, y1: s.top + 10,
+      kind: s.pipe ? 'pipe' : (s.top < FLOOR_Y ? 'ledge' : 'ground') });
+  }
+  /* the fork: a hole punched in the main ground. Everyone meets it; what
+     they do about it is what puts them in a lane. */
+  
+  for (const r of UP_DECK) S.push({ x0: r[0], x1: r[1], y0: r[2], y1: r[2] + 16, kind: 'deck' });
+  for (const r of LOW_RUN) S.push({ x0: r[0], x1: r[1], y0: r[2], y1: r[2] + 18, kind: 'lowfloor' });
+
+  for (const b of blocks) S.push(b.solid);
+  S.push({ x0: 2880, x1: 2920, y0: 60, y1: 320, kind: 'wall' });
+  S.push({ x0: -80, x1: 2980, y0: 300, y1: 340, kind: 'bedrock' });
+  return S;
+}
+function buildBlocks() {
+  return BOX_XS.map(function (x, i) {
+    return { x: x, i: i, q: true, spent: false, bump: 0, opened: false,
+      solid: { x0: x, x1: x + BLOCK_W, y0: SOFFIT - BLOCK_H, y1: SOFFIT, kind: 'block' } };
+  });
+}
+/* COINS ARE THE STAKE. Every run ends at the chest, and what opens it is what
+   he picked up on the way - so the coins are not decoration any more, they are
+   the thing the ending is made of. Spread across all three beats so a run that
+   dies early has visibly less to spend than one that goes the distance.
+   The arc over the trap still reads the jump line, which is what coins are for
+   in 1-1; it just also happens to be the richest run of them in the level. */
+function buildCoins() {
+  const out = [];
+  const row = function (x, n, y, step) {
+    for (let i = 0; i < n; i++) out.push({ x: x + i * (step || 19), y: y, taken: false, pop: 0 });
+  };
+  /* RUNNING HEIGHT IS 130, NOT 112. His box is y 124..150 standing, so a coin
+     centred at 112 spans 106..118 and sits entirely above his head - he could
+     only ever catch one mid-jump. Four of twenty-four were being collected.
+     Anything meant to be picked up on the run sits at 130; anything meant to
+     reward a jump sits high, on the line of that jump. */
+  /* GROUND COINS, at running height, taken by anyone who gets that far.
+     These are the "how far did you get" half of the haul. */
+  row(300, 3, 130);                       // before the first enemy
+  row(700, 3, 130);                       // after it, if he got through
+  row(BEAT2_X + 160, 3, 130);             // out of the boxes
+  row(1600, 3, 130);                      // the long run to the trap
+  row(2450, 3, 130);                      // the run home
+  /* THE ARC OVER THE TRAP. He is jumping it anyway, so these come with a
+     cleared trap and are lost with a failed one. */
+  for (let i = 0; i < 5; i++) {
+    const u = i / 4;
+    out.push({ x: (TRAP_X0 + TRAP_X1) / 2 + (u - 0.5) * 86,
+      y: 128 - Math.sin(u * Math.PI) * 30, taken: false, pop: 0, arc: 1 });
+  }
+  /* HIGH CLUSTERS - the "how did you do" half. They sit at head height plus a
+     jump, so they cost a decision, and the driver does NOT take every one.
+     Makko: "the character should be able to jump and get coins, but shouldn't
+     jump and get them every time." */
+  for (const c of HIGH_COINS) {
+    for (let i = 0; i < 3; i++) {
+      out.push({ x: c - 19 + i * 19, y: 90, taken: false, pop: 0, high: 1 });
+    }
+  }
+  return out;
+}
+
+/* Centres of the jump-only clusters. Kept clear of all three beats so going
+   for coins never competes with a decision that matters. */
+/* clusters moved clear of the fork and the lane pits */
+/* ...except two of them were not clear of anything. 1180 IS BEAT2_X - the
+   first ? box's own x - so that cluster was drawn straight through the box,
+   and 2680 sat inside the chest at 2700. Both moved into genuinely empty
+   stretches; `assertNoCoinOverlap` below keeps them there. */
+const HIGH_COINS = [380, 980, 1080, 2570, 2640];
+/* His apex is 71 units up, reached 0.274s and 37.8 units after the press - so
+   a cue set 38 units before a cluster puts the top of the arc through it. */
+const HIGH_LEAD = 38;
+
+/* THE VAULT OPENS FOR THE TOP TIERS AND FOR NOTHING ELSE.
+   Worth being exact about what this room is, because it would be very easy to
+   build it as a lie: the vault does NOT decide anything and cannot pay out a
+   single coin. The haul was sealed before the run started, the count already
+   happened at the chest, and W.total is final by the time anybody gets down
+   here. The room is a DELIVERY channel - the same number, told in a bigger
+   space, the way a slot's bonus round is a way of showing you a win it has
+   already decided rather than a second draw. Anything else would change the
+   economy, which is not ours to touch.
+
+   Two tiers qualify rather than one. A room this good that only fires on the
+   very top result is a room almost nobody sees; SANCTUM gets a shorter visit,
+   RELIQUARY gets the full one. */
+const VAULT_TIERS = { RELIQUARY: 1, SANCTUM: 1 };
+const VAULT_S = 6.0;            // how long the chamber holds before the endcard
+/* where the paving meets the back wall in tp-vault.jpg, measured off the
+   plate rather than guessed: the strongest horizontal edge in its lower half */
+const VAULT_FLOOR_U = 0.84;
+/* and where that line should sit on screen, which is what decides how much
+   room the party has to stand in */
+const VAULT_FLOOR_Y = 0.80;
+/* THE DOOR YOU MOSTLY DO NOT OPEN.
+   It stands just past the chest on EVERY run and it is shut on most of them,
+   which is the entire point: a room you are only ever shown when you get in is
+   a room with nothing at stake. Seeing the thing stay closed is what makes it
+   worth something when it grinds apart. It sits at 2818 with the level ending
+   at 2940, so the end-of-run camera - which clamps at LEVEL_W minus the view -
+   always has it in frame. */
+const DOOR_X = 2818, DOOR_H = 78;
+
+/* what the haul is worth. PLACEHOLDER bands - in Phase 1 the tier is SEALED
+   and the coin layout is derived from it, so that what you watch him collect
+   reconciles to a number committed before the first frame. */
+/* Calibrated against the haul the level actually produces, measured rather
+   than guessed: 4 if he dies at the first enemy, ~11 at the boxes, ~20 at the
+   trap, 28 for a solo finish, 56 for two home, 84 for all three. */
+const TIERS = [
+  { at: 70, name: 'RELIQUARY', hex: '#F4C430' },   // all three home
+  { at: 40, name: 'SANCTUM',   hex: '#E8446B' },   // two home
+  { at: 20, name: 'CHAMBER',   hex: '#6C5CE7' },   // one home, or died at the trap
+  { at: 10, name: 'THRESHOLD', hex: '#3FB56B' },   // got past the first enemy
+  { at: 0,  name: 'RETREAT',   hex: '#5A6B7A' },   // took what he could on the way out
+];
+/* nothing may be laid on top of anything else. The clusters are hand-placed,
+   so the only thing stopping a future edit from putting one back through a box
+   is a check that fails loudly when it does. */
+function assertNoCoinOverlap(coins, blocks) {
+  const bad = [];
+  for (const c of coins) {
+    for (const b of blocks) {
+      if (c.x + COIN_R > b.solid.x0 - 4 && c.x - COIN_R < b.solid.x1 + 4
+       && c.y + COIN_R > b.solid.y0 - 4 && c.y - COIN_R < b.solid.y1 + 4)
+        bad.push({ what: 'block', x: Math.round(c.x), y: Math.round(c.y) });
+    }
+    if (c.x + COIN_R > CHEST_X - CHEST_W / 2 - 6 && c.x - COIN_R < CHEST_X + CHEST_W / 2 + 6
+     && c.y + COIN_R > FLOOR_Y - CHEST_H - 6)
+      bad.push({ what: 'chest', x: Math.round(c.x), y: Math.round(c.y) });
+  }
+  if (bad.length) console.error('[beats] coins overlapping level furniture:', bad);
+  return bad;
+}
+
+function tierOf(total) {
+  for (const t of TIERS) if (total >= t.at) return t;
+  return TIERS[TIERS.length - 1];
+}
+
+/* ------------------------------ the bodies -------------------------------
+   Every party member is a FULL PHYSICS BODY with its own driver. Nothing
+   about the line is a formation: they trail because they entered the level at
+   different points, and they resolve the trap one at a time because they
+   reach it at different times. */
+let bodyUid = 0;
+function makeBody(castIdx, x) {
+  const c = CAST[castIdx % CAST.length];
+  return {
+    uid: ++bodyUid, cast: castIdx, id: c.id, hex: c.hex, dark: c.dark,
+    x: x, y: FLOOR_Y - BODY_H, vx: 0, vy: 0,
+    onGround: false, coyote: 0, buffered: -1, jumpHeld: false,
+    sinceLand: 99, anim: 'idle', face: 1, skid: false,
+    out: false, outWhy: null, outT: 0, flash: 0, stun: 0,
+    driver: null,
+  };
+}
+
+/* ---------------------------- the input driver ---------------------------
+   Unchanged in kind: it returns three booleans and holds no reference to the
+   body. `fumble` is the set of cue ids this body will get WRONG - the press
+   comes late, or for the enemy it never comes at all. That is the entire
+   mechanism by which the sealed draw reaches the simulation. */
+const LIP_LEAD = 12;
+function riseLead(h) {
+  const disc = JUMP_MAX * JUMP_MAX - 2 * G_UP * h;
+  if (disc <= 0) return 999;
+  return RUN_MAX * ((JUMP_MAX - Math.sqrt(disc)) / G_UP) + 15;
+}
+/* One plan per lane. The differences are small and they are all decisions
+   about WHEN TO PRESS - never about where a body is. */
+function buildPlan(reach, lane) {
+  const raw = [];
+  for (let i = 0; i < PROFILE.length; i++) {
+    const s = PROFILE[i], prev = PROFILE[i - 1];
+    if (s.top === null) {
+      /* THE FORK IS THE LANE CHOICE. The upper runner is on the deck by now
+         and never meets it; the lower runner deliberately does NOT press and
+         drops through it; only the middle runner jumps it. The middle trap is
+         likewise the middle lane's problem alone. */
+      /* every hole from the fork onwards belongs to the MIDDLE lane. The
+         upper runner is on the deck above them; the lower runner is beneath
+         them, and the one he does not jump is the fork itself - which is
+         exactly how he gets down there. */
+      /* every hole from the fork onwards belongs to the MIDDLE lane. The
+         upper runner gets his own FORK cue below (he is still on the ground
+         at that point); the lower runner is beneath the rest of them, and the
+         one he does NOT jump is the fork - which is how he gets down there. */
+      /* the fork and the middle trap belong to the middle road. The MERGE is
+         different: by then all three roads are back on the ground, so every
+         lane needs that cue - except the lower runner, who climbs out through
+         it. */
+      /* The FORK belongs to the middle road (the upper runner gets his own
+         cue below; the lower runner's whole point is NOT jumping it). The pit
+         and the merge come after every road is back on the ground, so both are
+         shared - except that the lower runner climbs OUT through the merge. */
+      if (s.id === 'FORK') { if (lane !== 'mid') continue; }
+      else if (s.id === 'MERGE') { if (lane === 'low') continue; }
+      else if (lane === 'low') continue;
+      raw.push({ id: s.id, atX: s.x0 - LIP_LEAD, clearX: s.x0 });
+    }
+    else if (prev && prev.top !== null && s.top < prev.top - 5) {
+      raw.push({ id: 'rise@' + s.x0, atX: s.x0 - riseLead(prev.top - s.top), clearY: s.top });
+    }
+  }
+  /* BEAT 2 needs him to jump INTO the boxes, so the plan has to say so.
+     His head rises 36 units (floor 124 -> soffit 88) at t=0.0813s, in which
+     he covers 11.2 units - so the press goes in 12 units before the box's
+     near edge. `once` because a bonk has no "cleared" state to test. */
+  for (let i = 0; i < BOX_XS.length; i++) {
+    raw.push({ id: 'BOX' + i, atX: BOX_XS[i] - 12, once: true });
+  }
+  /* a cue for each cluster he decided to go for; the rest he runs under */
+  for (let i = 0; i < HIGH_COINS.length; i++) {
+    if (reach && reach[i]) raw.push({ id: 'COIN' + i, atX: HIGH_COINS[i] - HIGH_LEAD, once: true });
+  }
+  if (lane === 'up') {
+    /* he is on the GROUND until the deck starts, so he jumps the fork like
+       everyone else, then mounts, then clears the deck's own gap */
+    raw.push({ id: 'FORK', atX: FORK_X0 - LIP_LEAD, clearX: FORK_X0 });
+    raw.push({ id: 'deck', atX: UP_MOUNT - riseLead(FLOOR_Y - UP_Y), clearY: UP_Y });
+    raw.push({ id: 'TRAP-UP', atX: UP_PIT[0] - LIP_LEAD, clearX: UP_PIT[0] });
+  }
+  if (lane === 'low') {
+    /* the sunken gap, then two steps back up to the merge */
+    /* the guardian is handled by the reactive stomp rule, same as any other.
+       All he needs planned is the climb back out at the merge. */
+    raw.push({ id: 'lowout1', atX: LOW_RUN[1][0] - riseLead(LOW_Y - LOW_RUN[1][2]), clearY: LOW_RUN[1][2] });
+    raw.push({ id: 'lowout2', atX: LOW_RUN[1][1] - riseLead(LOW_RUN[1][2] - FLOOR_Y), clearY: FLOOR_Y });
+  }
+  return raw.sort(function (a, b) { return a.atX - b.atX; });
+}
+const LATE_MS = 300;   // comfortably past COYOTE (90ms = 12.4 units at speed)
+
+/* `lowCeil` is set for the sunken lane, where the main ground slab is a roof
+   64 units over his head and a full jump does not fit under it. */
+function makeDriver(plan, fumble, lowCeil) {
+  const mk = function () {
+    return plan.map(function (p) {
+      return { id: p.id, atX: p.atX, clearX: p.clearX, clearY: p.clearY, once: p.once,
+        lateMs: fumble[p.id] ? LATE_MS : 0, fired: false, pressAt: null, releaseAt: null };
+    });
+  };
+  let armed = mk(), reactFrom = -1, reactUntil = -1;
+  const cleared = function (a, x, feetY) {
+    if (a.clearX !== undefined) return x >= a.clearX - 4;
+    if (a.clearY !== undefined) return feetY <= a.clearY + 2;
+    return false;
+  };
+  return {
+    log: [],
+    reset: function () { armed = mk(); reactFrom = -1; reactUntil = -1; this.log.length = 0; },
+    poll: function (simT, x, feetY, onGround, enemies) {
+      const out = { left: false, right: x < GOAL_X - 2, jump: false };
+      let holeClose = false;
+      for (const a of armed) {
+        const inWin = x >= a.atX && x <= a.atX + 46;
+        if (inWin && !a.fired) {
+          a.fired = true;
+          a.pressAt = simT + a.lateMs / 1000;
+          a.releaseAt = a.pressAt + 0.34;
+          this.log.push({ id: a.id, atX: +x.toFixed(1), idealT: +simT.toFixed(3),
+            pressT: +a.pressAt.toFixed(3), lateMs: a.lateMs });
+        } else if (inWin && a.fired && !a.once && onGround && simT > a.releaseAt + 0.14
+                   && !cleared(a, x, feetY)) {
+          a.pressAt = simT; a.releaseAt = simT + 0.34;      // he is still short: try again
+        }
+        if (a.pressAt !== null && simT >= a.pressAt && simT < a.releaseAt) out.jump = true;
+        if (!a.fired && a.clearX !== undefined) {
+          const near = a.atX - x;
+          if (near < 70 && near > -10) holeClose = true;    // a hole outranks an enemy
+        }
+      }
+      /* jump AT an enemy. Generous band, re-arms on landing, held past apex -
+         all three of those were bugs before they were features. A body told to
+         fumble this enemy simply never presses. */
+      if (!holeClose && onGround && simT > reactUntil && enemies) {
+        /* NEAREST FIRST. This used to break on the first eligible enemy in
+           array order, which is spawn order, not distance - so a far one could
+           claim the decision while a near one closed in. */
+        let best = null, bestD = 1e9;
+        for (const e of enemies) {
+          if (e.dead || fumble[e.id]) continue;
+          /* ONLY ENEMIES ON HIS OWN LEVEL. Without this the guardian down in
+             the tunnel made a runner up on the ground jump - and that jump
+             carried him clean over the fork, so the lower lane was never
+             entered at all. A creature 80 units below you is not a reason to
+             leap. */
+          if (Math.abs((e.y + WALK_H) - feetY) > 42) continue;
+          const d = e.x - x;
+          if (d > 20 && d < bestD) { bestD = d; best = e; }
+        }
+        {
+          const d = bestD;
+          /* During a 0.508s jump he covers 70 units and the enemy closes 17,
+             so the gap shuts by ~87. Firing at ~87 puts him on its head;
+             firing below ~77 carries him clean over it and past. Firing much
+             above 97 lands him just SHORT - inside touching distance, on the
+             ground - which is the one outcome to avoid, so the band stops
+             there and he waits a few frames longer. */
+          /* THE BAND NOW MATCHES THE MEASUREMENT ABOVE INSTEAD OF CONTRADICTING
+             IT. It ran (20, 97), which straddles both failure modes the comment
+             describes: fire near 93 and he lands SHORT, right in touching
+             distance on the ground; the 0.34s re-arm then fires again at d~24,
+             four units before contact, with no time to leave the floor. That is
+             exactly how the tunnel guardian was killing low-lane runners whose
+             sealed verdict was "clear" - the sim overruling the draw. Firing on
+             the first step below 88 lands the press at ~87, the value measured
+             as putting him on its head, and the floor at 40 refuses a jump that
+             cannot physically clear in time rather than faking one. */
+          /* A STOMP UNDER A CEILING IS A DIFFERENT JUMP, AND THE DISTANCE TO
+             FIRE IT FROM IS DIFFERENT TOO.
+
+             In the open he holds 0.34s for the full 71-unit arc, whose feet
+             come back down to head height 0.468s later; closing at 138+34 that
+             is 80 units of ground, so he presses at ~88 and lands on it.
+
+             In the tunnel that same press BONKS. The roof is 64 above his head,
+             the arc wants 71, so he clipped it near apex, dropped early and
+             arrived beside the guardian with his feet at 245 against a head at
+             228 - which is precisely how low-lane runners were dying on seeds
+             whose sealed verdict said "clear". Holding 0.12s instead lets CUT
+             trim the arc to ~48, which fits under the roof with room and is
+             still more than twice the 22 he needs to get on top; that shorter
+             flight lasts 0.335s and so closes only ~58, which is why it has to
+             be fired late, at ~66, rather than at 88. */
+          const hold = lowCeil ? 0.12 : 0.34;
+          const near = lowCeil ? 34 : 40, far = lowCeil ? 70 : 88;
+          if (best && d > near && d < far) { reactFrom = simT; reactUntil = simT + hold; }
+        }
+      }
+      if (reactFrom >= 0 && simT >= reactFrom && simT < reactUntil) out.jump = true;
+      return out;
+    },
+  };
+}
+
+/* ------------------------------- collision -------------------------------- */
+function overlaps(ax0, ax1, ay0, ay1, s) {
+  return ax1 > s.x0 && ax0 < s.x1 && ay1 > s.y0 && ay0 < s.y1;
+}
+
+function stepBody(W, r, dt) {
+  if (r.out) { r.vx = 0; r.vy = 0; r.anim = 'out'; return; }
+  const inp = r.input;
+
+  const want = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+  r.skid = false;
+  if (want !== 0) {
+    const reversing = r.onGround && r.vx * want < -1;
+    const acc = !r.onGround ? AIR_ACC : (reversing ? SKID : RUN_ACC);
+    if (reversing) r.skid = true;
+    r.vx += want * acc * dt;
+    if (r.vx > RUN_MAX) r.vx = RUN_MAX;
+    if (r.vx < -RUN_MAX) r.vx = -RUN_MAX;
+    r.face = want;
+  } else if (r.onGround) {
+    const d = FRICTION * dt;
+    r.vx = r.vx > 0 ? Math.max(0, r.vx - d) : Math.min(0, r.vx + d);
+  }
+
+  if (inp.jump && !r.jumpHeld) r.buffered = 0;
+  r.jumpHeld = inp.jump;
+  if (r.buffered >= 0) r.buffered += dt;
+  if (r.buffered >= 0 && r.buffered <= BUFFER && r.coyote > 0) {
+    const speed = Math.min(1, Math.abs(r.vx) / RUN_MAX);
+    r.vy = -(JUMP_MIN + (JUMP_MAX - JUMP_MIN) * speed);
+    r.onGround = false; r.coyote = 0; r.buffered = -1;
+    W.events.push({ t: +W.simT.toFixed(3), kind: 'jump', who: r.id, x: +r.x.toFixed(1) });
+  }
+  if (r.buffered > BUFFER) r.buffered = -1;
+  if (!inp.jump && r.vy < 0) r.vy *= Math.pow(CUT, dt * 60);
+
+  r.vy += (r.vy < 0 ? G_UP : G_DOWN) * dt;
+  if (r.vy > MAX_FALL) r.vy = MAX_FALL;
+
+  r.x += r.vx * dt;
+  for (const s of W.solids) {
+    if (!overlaps(r.x, r.x + BODY_W, r.y, r.y + BODY_H, s)) continue;
+    const lip = (r.y + BODY_H) - s.y0;
+    if (lip > 0 && lip <= STEP_UP && (r.onGround || r.coyote > 0) && r.vy >= 0) {
+      r.y = s.y0 - BODY_H; continue;
+    }
+    if (r.vx > 0) { r.x = s.x0 - BODY_W; r.vx = 0; }
+    else if (r.vx < 0) { r.x = s.x1; r.vx = 0; }
+  }
+  if (r.x < -70) { r.x = -70; r.vx = 0; }
+
+  const wasGround = r.onGround;
+  r.onGround = false;
+  r.y += r.vy * dt;
+  for (const s of W.solids) {
+    if (!overlaps(r.x, r.x + BODY_W, r.y, r.y + BODY_H, s)) continue;
+    if (r.vy > 0) {
+      r.y = s.y0 - BODY_H; r.vy = 0; r.onGround = true;
+      /* FALLING OFF THE HIGH ROAD IS ITS OWN FAILURE. There is no pit under
+         the deck's gap - a hole there would be a hole the middle runner had
+         to jump under a ceiling, which he cannot. So for an upper runner,
+         landing back on the main ground anywhere along the deck's span IS the
+         miss: he came off the high road. Past the deck's end it is just how
+         he rejoins the party. */
+      if (!r.out && r.lane === 'up' && s.kind === 'ground'
+          && r.x > UP_MOUNT && r.x < UP_DECK[1][1] - 10) {
+        eliminate(W, r, 'fell from the high road @x' + Math.round(r.x));
+      }
+      if (s.kind === 'pitfloor' && !r.out) {
+        /* held bodies spread along the pit floor instead of stacking. The
+           party line IS the scoreboard - if two are in the hole you have to
+           be able to count two. */
+        const already = W.party.filter(function (b) { return b.out && b.heldIn === s.id; }).length;
+        r.heldIn = s.id;
+        r.x = Math.min(s.x1 - BODY_W - 2, s.x0 + 4 + already * (BODY_W + 7));
+        eliminate(W, r, 'the trap [' + (s.id || '?') + ' @x' + Math.round(r.x) + ']');
+      }
+    } else if (r.vy < 0) {
+      r.y = s.y1; r.vy = 0;
+      if (s.kind === 'block') bonk(W, s, r);
+    }
+  }
+  if (r.onGround) { r.coyote = COYOTE; if (!wasGround) r.sinceLand = 0; }
+  else r.coyote = Math.max(0, r.coyote - dt);
+  r.sinceLand += dt;
+  if (r.flash > 0) r.flash = Math.max(0, r.flash - dt);
+  /* a stumble reads only if it INTERRUPTS him - without this he absorbs the
+     hit mid-stride and the viewer sees nothing but the counter tick down */
+  if (r.stun > 0) { r.stun = Math.max(0, r.stun - dt); }
+
+  /* ENEMIES RESOLVE LIKE ONE-WAY PLATFORMS, with a SWEPT test.
+     A full jump carries him 71 units up and the enemy is 22 tall, so he is
+     ABOVE it for all but the last 0.045s of the arc - an AABB overlap check
+     gave a window about four hundredths of a second wide and he simply flew
+     over, landed beside it and got caught on the ground. Sweeping "were his
+     feet above its head last step, and are they at or below it now?" makes
+     landing on one as reliable as landing on a platform, which is what it is. */
+  for (const e of W.enemies) {
+    if (e.dead) continue;
+    if (!(r.x + BODY_W > e.x && r.x < e.x + WALK_W)) continue;   // horizontal only
+    const feet = r.y + BODY_H, prevFeet = feet - r.vy * dt;
+    if (r.vy > 0 && prevFeet <= e.y + 4 && feet >= e.y) {
+      e.dead = 1; e.deadT = 0.6;
+      r.y = e.y - BODY_H; r.vy = -STOMP_UP;
+      W.events.push({ t: +W.simT.toFixed(3), kind: 'stomp', who: r.id, enemy: e.id, x: +r.x.toFixed(1) });
+      if (e.beat === 1) settleBeat(W, 0, 'clear');
+      continue;
+    }
+    if (feet <= e.y + 4) continue;                               // still flying over
+
+    /* ONLY A SEALED ENEMY MAY ELIMINATE. Beat 1's foe is authorised by
+       draw.enemy and the tunnel guardian by draw.trap[idx]; the thing that
+       comes out of a ? box is authorised by NOTHING. It was killing party
+       members on seeds whose sealed verdict was clear on every count - the
+       sim contradicting the draw, which is the one thing it may never do.
+       It stumbles you instead: knocked back, stunned, and it takes coins on
+       the way past. That keeps 'enemy' strictly worse than 'nothing' (which
+       costs zero) while leaving who lives and who dies entirely to the draw. */
+    if (e.kind === 'fly') {
+      /* ONLY THE DIVE KILLS. Brushing past it while it is hovering overhead is
+         not an attack and must not read as one; the strike is the thing the
+         viewer watched being wound up, so the strike is the thing that lands.
+         The sealed draw already said an enemy came out of that box - this is
+         what that outcome costs, and beat 3 still governs whoever is left. */
+      if (e.ph !== 'dive' || (e.hitT || 0) > 0) continue;
+      e.hitT = 9; e.ph = 'spent';
+      W.shake = Math.max(W.shake || 0, 8);
+      W.spawnFx.push({ x: r.x, y: r.y, t: 0.6, kind: 'bad' });
+      eliminate(W, r, 'the thing out of the box');
+      continue;
+    }
+    if (e.beat === 2) {
+      if ((e.hitT || 0) > 0) continue;
+      e.hitT = 0.8;
+      const lost = Math.min(W.coinsGot, 3);
+      W.coinsGot -= lost;
+      W.coinPulse = 0.28;
+      r.vy = -180; r.x = e.x - BODY_W - 2; r.flash = 0.5; r.stun = 0.42;
+      W.shake = Math.max(W.shake || 0, 5);
+      W.spawnFx.push({ x: r.x, y: r.y, t: 0.6, kind: 'bad' });
+      if (lost) W.floats.push({ x: r.x + BODY_W / 2, y: r.y - 6, t: 0.9,
+        txt: '-' + lost, hex: '#FF8A6A' });
+      W.events.push({ t: +W.simT.toFixed(3), kind: 'stumble', who: r.id,
+        enemy: e.id, lost: lost });
+      continue;
+    }
+    eliminate(W, r, 'the first enemy');
+    if (e.beat === 1) settleBeat(W, 0, 'out');
+  }
+
+  for (const c of W.coins) {
+    if (c.taken) continue;
+    if (r.x + BODY_W > c.x - COIN_R && r.x < c.x + COIN_R
+     && r.y + BODY_H > c.y - COIN_R && r.y < c.y + COIN_R) {
+      c.taken = true; c.pop = 0.4; W.coinsGot++; W.coinPulse = 0.28;
+    }
+  }
+
+  r.anim = (!r.onGround && r.vy < -12) ? 'jump-up'
+    : (!r.onGround && r.vy > 12) ? 'jump-down'
+    : (r.sinceLand < 0.13) ? 'land'
+    : r.skid ? 'skid'
+    : (r.onGround && Math.abs(r.vx) > 8) ? 'run' : 'idle';
+}
+
+/* --------------------------- beats and outcomes --------------------------- */
+function eliminate(W, r, why) {
+  if (r.out) return;
+  r.out = true; r.outWhy = why; r.vx = 0; r.vy = 0; r.anim = 'out';
+  /* stamped so the caught strip can play ONCE from the moment it happened and
+     then hold on its last frame, rather than looping a shrug forever */
+  r.outT = W.simT;
+  W.events.push({ t: +W.simT.toFixed(3), kind: 'out', who: r.id, why: why, lane: r.lane || '-', x: +r.x.toFixed(0) });
+}
+function settleBeat(W, i, verdict) {
+  if (W.beats[i].done) return;
+  W.beats[i].done = true; W.beats[i].verdict = verdict;
+  W.events.push({ t: +W.simT.toFixed(3), kind: 'beat' + (i + 1), verdict: verdict });
+}
+
+/* BEAT 2: a box is struck. What comes out is the seeded draw, and the four
+   outcomes are deliberately different SHAPES on screen. */
+function bonk(W, solid, by) {
+  const b = W.blocks.find(function (x) { return x.solid === solid; });
+  if (!b || b.opened) return;
+  b.opened = true; b.spent = true; b.bump = 1;
+  const kind = W.draw.boxes[b.i];
+  b.gave = kind;
+  W.events.push({ t: +W.simT.toFixed(3), kind: 'box', box: b.i, gave: kind });
+
+  if (kind === 'character') {
+    W.multPulse = 0.6;
+    const idx = W.party.length % CAST.length;
+    const nb = makeBody(idx, b.x - 6);
+    nb.y = SOFFIT - BLOCK_H - BODY_H - 4;
+    nb.vy = -140;
+    nb.driver = makeDriver(W.plan, W.fumbleFor(W.party.length, 'mid'));
+    W.party.push(nb);
+    W.spawnFx.push({ x: b.x + BLOCK_W / 2, y: SOFFIT - 30, t: 0.7, kind: 'char' });
+  } else if (kind === 'powerup') {
+    /* THE STAR FLIES TO WHOEVER BONKED THE BOX. Left to fall under gravity it
+       needed 0.58s to reach running height and landed 80 units BEHIND him. */
+    W.pickups.push({ x: b.x + BLOCK_W / 2, y: SOFFIT - BLOCK_H - 10,
+      x0: b.x + BLOCK_W / 2, y0: SOFFIT - BLOCK_H - 10, u: 0, to: by, taken: false });
+  } else if (kind === 'nothing') {
+    W.spawnFx.push({ x: b.x + BLOCK_W / 2, y: SOFFIT - 18, t: 0.5, kind: 'puff' });
+  } else if (kind === 'enemy') {
+    /* THE WORST BOX OUTCOME IS AN ATTACK, NOT A VERDICT.
+       It used to drop a walker on the party's heads that killed on touch the
+       instant it landed - Makko: "the enemy auto kills when it comes out of
+       the box, it should pop out, attack the player and kill them." A kill
+       nobody watched happen is a number changing, not a beat. This is a
+       flying bug that plays the whole thing out: it bursts up out of the box,
+       hovers over the party while it picks a target, rears back and flashes
+       twice as a telegraph, and only then dives. The dive is the only phase
+       that connects, so the danger is on screen for about a second and a half
+       before it lands, and a runner who happens to jump into it stomps it
+       instead - the reactive rule treats it like any other enemy once it
+       comes down to his level. */
+    const e = { id: 'boxfoe' + b.i, beat: 2, kind: 'fly', ph: 'rise', t: 0,
+      x: b.x + BLOCK_W / 2 - WALK_W / 2, y: SOFFIT - BLOCK_H - 6,
+      y0: SOFFIT - BLOCK_H - 6, vy: 0, dead: 0, deadT: 0, dir: -1,
+      falling: false, hitT: 0, tgt: null, dx: 0, dy: 0 };
+    W.enemies.push(e);
+    W.spawnFx.push({ x: b.x + BLOCK_W / 2, y: SOFFIT - 26, t: 0.5, kind: 'bad' });
+  }
+}
+
+/* THE FLYING BUG'S ATTACK, as a state machine on its own accumulated clock so
+   a replayed seed produces the identical strike. It never reads the runner's
+   velocity - only a position, once, at the moment it commits - so it stays an
+   autonomous hazard rather than a homing missile the runner cannot lose. */
+const FLY_RISE = 0.55, FLY_HOVER = 1.25, FLY_TELL = 1.85;
+function driveFlyer(W, e, dt) {
+  e.t += dt;
+  const alive = aliveParty(W);
+  if (e.ph !== 'dive' && e.ph !== 'spent') {
+    /* it shadows whoever is nearest ahead of it, staying above head height */
+    let best = null, bd = 1e9;
+    for (const b of alive) {
+      const d = Math.abs(b.x - e.x);
+      if (d < bd) { bd = d; best = b; }
+    }
+    e.tgt = best;
+  }
+  if (e.t < FLY_RISE) {
+    e.ph = 'rise';
+    const u = e.t / FLY_RISE;
+    e.y = e.y0 - 26 * (1 - Math.pow(1 - u, 3)) + Math.sin(e.t * 26) * 1.4;
+  } else if (e.t < FLY_HOVER) {
+    e.ph = 'hover';
+    /* drifts to sit just ahead of its target, bobbing on its wingbeat */
+    if (e.tgt) e.x += ((e.tgt.x + 54) - e.x) * Math.min(1, dt * 2.6);
+    e.y = e.y0 - 26 + Math.sin(e.t * 22) * 2.6;
+  } else if (e.t < FLY_TELL) {
+    e.ph = 'tell';
+    /* rears UP and BACK - the wind-up that makes the dive readable */
+    const u = (e.t - FLY_HOVER) / (FLY_TELL - FLY_HOVER);
+    e.x += 16 * dt;
+    e.y = e.y0 - 26 - 14 * Math.sin(u * Math.PI * 0.8) + Math.sin(e.t * 30) * 1.6;
+  } else {
+    if (e.ph !== 'dive' && e.ph !== 'spent') {
+      /* COMMIT. It aims at where the target IS, once, and then it is ballistic
+         - so a runner who keeps moving can be missed, which is what makes the
+         near-miss possible and the hit feel earned. */
+      e.ph = 'dive';
+      const t0 = e.tgt || alive[0];
+      const aimX = t0 ? t0.x + BODY_W / 2 : e.x - 60;
+      const aimY = t0 ? t0.y + BODY_H / 2 : FLOOR_Y - 12;
+      const L = Math.max(1, Math.hypot(aimX - e.x, aimY - e.y));
+      e.dx = (aimX - e.x) / L * 330;
+      e.dy = (aimY - e.y) / L * 330;
+      W.shake = Math.max(W.shake || 0, 3);
+    }
+    if (e.ph === 'dive') {
+      e.x += e.dx * dt; e.y += e.dy * dt;
+      e.dy += 240 * dt;                                   // it keeps falling
+      if (e.y > FLOOR_Y - WALK_H) {                       // it hit the ground
+        e.y = FLOOR_Y - WALK_H; e.ph = 'spent';
+        W.spawnFx.push({ x: e.x, y: e.y, t: 0.4, kind: 'bad' });
+        W.shake = Math.max(W.shake || 0, 4);
+      }
+    } else {
+      e.x -= WALK_SPEED * 0.7 * dt;                       // it skulks off
+      e.y = FLOOR_Y - WALK_H;
+    }
+  }
+}
+
+/* ---------------------------- enemies (autonomous) ------------------------
+   They walk left at a constant speed on their own clock. No runner term. */
+function driveEnemies(W, dt) {
+  for (const e of W.enemies) {
+    if (e.hitT) e.hitT = Math.max(0, e.hitT - dt);
+    if (e.dead) { e.deadT = Math.max(0, e.deadT - dt); continue; }
+    if (e.kind === 'fly') { driveFlyer(W, e, dt); continue; }
+    if (e.falling) {
+      e.vy += G_DOWN * dt; e.y += e.vy * dt;
+      if (e.y >= FLOOR_Y - WALK_H) { e.y = FLOOR_Y - WALK_H; e.falling = false; e.vy = 0; }
+    } else {
+      e.x -= WALK_SPEED * dt;
+      /* a lane guardian keeps to its own stretch: it walks left and wraps, so
+         it is somewhere in the tunnel whenever a runner arrives, however long
+         the run took to get there */
+      if (e.minX !== undefined && e.x < e.minX) e.x = e.maxX;
+      e.y = (e.floor || FLOOR_Y) - WALK_H;
+    }
+  }
+}
+
+/* --------------------------------- world ---------------------------------- */
+function makeWorld(seed) {
+  bodyUid = 0;
+  const blocks = buildBlocks();
+  const draw = drawBeats(seed);
+  const plan = buildPlan(draw.reach, 'mid');
+  const W = {
+    seed: seed, simT: 0, draw: draw, plan: plan,
+    blocks: blocks, coins: (function () {
+      const cs = buildCoins(); assertNoCoinOverlap(cs, blocks); return cs;
+    })(), solids: buildSolids(blocks),
+    enemies: [], pickups: [], spawnFx: [], floats: [], party: [],
+    cam: { x: 0, sm: 0 }, events: [],
+    beats: [ { done: false, verdict: null }, { done: false, verdict: null },
+             { done: false, verdict: null } ],
+    lanesSet: false, trapSeen: 0, finished: false, endT: 0, openU: 0, paused: false, driverOn: true,
+    coinsGot: 0, stars: 0, multPulse: 0, coinPulse: 0,
+    shake: 0, sparks: [], burst: 0, hudPop: 0,
+    phase: 'run', phaseT: 0, flyers: [], banked: 0,
+    spent: 0, mult: 1, total: 0, tier: null, nextFly: 0,
+  };
+  /* the sealed trap verdict names whichever trap that body's LANE will meet,
+     so "member 1 goes out at the trap" means the upper gap if he is upstairs
+     and the sunken gap if he is down. */
+  /* the sealed verdict names ONLY the hazard that body's own road will meet,
+     so "member 1 goes out at the trap" is the deck's gap if he is up top, the
+     guardian if he is in the tunnel, and the pit if he is in the middle. */
+  W.fumbleFor = function (idx, lane) {
+    const f = {};
+    if (idx === 0 && draw.enemy === 'out') f['beat1foe'] = true;
+    if (draw.trap[idx] === 'out') {
+      if (lane === 'up') f['TRAP-UP'] = true;
+      else if (lane === 'low') f['lowfoe'] = true;
+      else f['TRAP'] = true;
+    }
+    return f;
+  };
+  const lead = makeBody(0, 40);
+  lead.driver = makeDriver(plan, W.fumbleFor(0, 'mid'));
+  W.party.push(lead);
+  W.enemies.push({ id: 'beat1foe', beat: 1, x: BEAT1_X + 150, y: FLOOR_Y - WALK_H,
+    dead: 0, deadT: 0, dir: -1, falling: false });
+  /* the sunken road's guardian: beat 3 for whoever takes the low lane */
+  W.enemies.push({ id: 'lowfoe', beat: 3, lane: 'low', x: LOW_FOE, y: LOW_Y - WALK_H,
+    dead: 0, deadT: 0, dir: -1, falling: false, floor: LOW_Y,
+    minX: 1620, maxX: 1980 });
+  return W;
+}
+
+function aliveParty(W) { return W.party.filter(function (b) { return !b.out; }); }
+function leaderOf(W) {
+  const a = aliveParty(W);
+  if (!a.length) return W.party[0];
+  return a.reduce(function (p, c) { return c.x > p.x ? c : p; });
+}
+
+function advance(W) {
+  W.simT += STEP;
+  driveEnemies(W, STEP);
+  const live = W.enemies.filter(function (e) { return !e.dead; });
+  for (const b of W.party) {
+    if (b.out) continue;
+    b.input = W.driverOn
+      ? b.driver.poll(W.simT, b.x, b.y + BODY_H, b.onGround, live)
+      : (b === leaderOf(W) ? humanInput()
+         : b.driver.poll(W.simT, b.x, b.y + BODY_H, b.onGround, live));
+    stepBody(W, b, STEP);
+  }
+  for (const p of W.pickups) {
+    if (p.taken) continue;
+    /* it hangs for a beat so you SEE what came out, then flies to him */
+    p.u = Math.min(1, p.u + STEP / 0.62);
+    const tgt = (p.to && !p.to.out) ? p.to : aliveParty(W)[0];
+    if (tgt) {
+      const e = p.u < 0.28 ? 0 : (p.u - 0.28) / 0.72;
+      const es = e * e * (3 - 2 * e);
+      p.x = p.x0 + (tgt.x + BODY_W / 2 - p.x0) * es;
+      p.y = p.y0 + (tgt.y + BODY_H / 2 - p.y0) * es - Math.sin(es * Math.PI) * 16;
+    }
+    for (const b of aliveParty(W)) {
+      if (p.u >= 0.98 || (b.x + BODY_W > p.x - 10 && b.x < p.x + 10
+          && b.y + BODY_H > p.y - 10 && b.y < p.y + 10)) {
+        /* A STAR IS A MULTIPLIER, not a shield: a character gives you a body
+           AND a multiplier, a star gives just the multiplier, which is why
+           one outranks the other. */
+        p.taken = true; b.flash = 0.5; W.stars++; W.multPulse = 0.6;
+        W.events.push({ t: +W.simT.toFixed(3), kind: 'star', who: b.id, stars: W.stars });
+        break;
+      }
+    }
+  }
+  for (const f of W.spawnFx) f.t = Math.max(0, f.t - STEP);
+  for (const f of W.floats) f.t = Math.max(0, f.t - STEP);
+  if (W.shake > 0 && W.phase !== 'lock') W.shake = Math.max(0, W.shake - STEP * 9);
+  if (W.burst > 0) W.burst = Math.max(0, W.burst - STEP * 2.2);
+  if (W.hudPop > 0) W.hudPop = Math.max(0, W.hudPop - STEP * 3.4);
+  for (const k of W.sparks) {
+    k.t -= STEP; k.vy += 300 * STEP; k.x += k.vx * STEP; k.y += k.vy * STEP;
+  }
+  W.sparks = W.sparks.filter(function (k) { return k.t > 0; });
+  if (W.multPulse > 0) W.multPulse = Math.max(0, W.multPulse - STEP);
+  if (W.coinPulse > 0) W.coinPulse = Math.max(0, W.coinPulse - STEP);
+  for (const b of W.blocks) if (b.bump > 0) b.bump = Math.max(0, b.bump - STEP * 3.4);
+  for (const c of W.coins) if (c.pop > 0) c.pop = Math.max(0, c.pop - STEP);
+
+  if (!W.beats[0].done) {
+    const foe = W.enemies.find(function (e) { return e.beat === 1; });
+    const L0 = leaderOf(W);
+    if (foe && (foe.dead || L0.x > foe.x + 90)) settleBeat(W, 0, 'clear');
+    if (aliveParty(W).length === 0) settleBeat(W, 0, 'out');
+  }
+  /* ============================ LANE ASSIGNMENT ==========================
+     Done once, on approach, and it only swaps each body's PLAN - nobody is
+     moved. One runner keeps the middle; two split high and low; three take all
+     three. From here the fork sorts them out by itself: the upper runner is
+     already on the deck, the middle one jumps the hole, the lower one does not
+     press and drops through. */
+  if (!W.lanesSet && W.beats[1].done && leaderOf(W).x > BOX_XS[BOX_XS.length - 1] + 26) {
+    W.lanesSet = true;
+    const alive = aliveParty(W);
+    const pick = alive.length >= 3 ? ['up', 'mid', 'low']
+               : alive.length === 2 ? ['up', 'low']
+               : ['mid'];
+    alive.forEach(function (b, k) {
+      b.lane = pick[k % pick.length];
+      b.driver = makeDriver(buildPlan(W.draw.reach, b.lane),
+        W.fumbleFor(W.party.indexOf(b), b.lane), b.lane === 'low');
+    });
+    W.events.push({ t: +W.simT.toFixed(3), kind: 'lanes',
+      lanes: alive.map(function (b) { return b.id + ':' + b.lane; }).join(' ') });
+  }
+  if (!W.beats[1].done) {
+    const L2 = leaderOf(W);
+    if (L2.x > BOX_XS[BOX_XS.length - 1] + 70 || aliveParty(W).length === 0) {
+      const opened = W.blocks.filter(function (b) { return b.opened; });
+      const RANK = { character: 0, powerup: 1, nothing: 2, enemy: 3 };
+      settleBeat(W, 1, opened.length
+        ? opened.map(function (b) { return b.gave; })
+            .sort(function (a, c) { return RANK[a] - RANK[c]; }).join(' + ')
+        : 'never opened');
+    }
+  }
+  if (!W.beats[2].done) {
+    const past = W.party.filter(function (b) { return b.out || b.x > MERGE_X + 20; });
+    if (W.party.length && past.length === W.party.length) {
+      const made = aliveParty(W).length, total = W.party.length;
+      settleBeat(W, 2, made + ' of ' + total);
+    }
+  }
+
+  const L = leaderOf(W);
+  if (W.phase === 'run') {
+    if (!L.out && L.x >= GOAL_X) { W.finished = true; startEnding(W, 'arrived'); }
+    else if (aliveParty(W).length === 0) { W.wiped = true; startEnding(W, 'wiped'); }
+  } else {
+    runEnding(W, STEP);
+  }
+}
+
+/* -------------------------------- the ending ------------------------------
+   EVERY RUN OPENS THE CHEST. What differs is what he has to spend on it: the
+   coins he picked up, times the party and the stars that made it.
+
+       coins  x  (survivors + stars, never less than 1)  =  the haul */
+function liveMult(W) { return Math.max(1, aliveParty(W).length + W.stars); }
+function startEnding(W, how) {
+  W.phase = 'gather'; W.phaseT = 0; W.how = how;
+  W.mult = liveMult(W);
+  W.total = W.coinsGot * W.mult;
+  W.tier = tierOf(W.total);
+  W.events.push({ t: +W.simT.toFixed(3), kind: 'ending', how: how,
+    coins: W.coinsGot, mult: W.mult, total: W.total, tier: W.tier.name });
+}
+const LOCK_S = 0.55;
+function runEnding(W, dt) {
+  W.phaseT += dt;
+  /* survivors keep walking to their slot for the whole ending - they were
+     freezing mid-stride on top of the chest, which stacked both coin streams
+     on one spot and hid one body behind the other. */
+  for (const b of aliveParty(W)) {
+    if (b.slot === undefined) b.slot = W.party.indexOf(b);
+    const want = CHEST_X - CHEST_W / 2 - 42 - b.slot * 27;
+    b.input = { left: b.x > want + 2, right: b.x < want - 2, jump: false };
+    stepBody(W, b, dt);
+  }
+  if (W.phase === 'gather') {
+    if (W.phaseT > (W.how === 'wiped' ? 1.9 : 1.35)) { W.phase = 'spend'; W.phaseT = 0; W.nextFly = 0; }
+    return;
+  }
+  if (W.phase === 'spend') {
+    /* one flyer per coin of the haul, accelerating, launched from whoever is
+       standing there - so three survivors visibly send three streams and the
+       multiplier is something you SEE rather than read. */
+    if (W.spent < W.total) {
+      W.nextFly -= dt;
+      if (W.nextFly <= 0) {
+        const alive = aliveParty(W);
+        const src = alive.length ? alive[W.spent % alive.length]
+                                 : { x: W.cam.x - 30, y: FLOOR_Y - BODY_H };
+        const jx = ((W.spent * 37) % 11) - 5;
+        W.flyers.push({ x: src.x + BODY_W / 2 + jx, y: src.y + 8,
+          x0: src.x + BODY_W / 2 + jx, y0: src.y + 8, u: 0,
+          lift: 26 + (W.spent % 5) * 8 });
+        W.spent++;
+        W.nextFly = Math.max(0.018, 0.10 - W.spent * 0.004);
+      }
+    }
+    for (const f of W.flyers) {
+      if (f.u >= 1) continue;
+      f.u = Math.min(1, f.u + dt * 1.9);
+      const e = f.u * f.u * (3 - 2 * f.u);
+      f.x = f.x0 + (CHEST_X - f.x0) * e;
+      f.y = f.y0 + ((FLOOR_Y - CHEST_H + 12) - f.y0) * e - Math.sin(f.u * Math.PI) * f.lift;
+      if (f.u >= 1) {
+        W.banked++; W.hudPop = 1; W.shake = Math.max(W.shake, 0.9);
+        for (let k = 0; k < 3; k++) {                // a little pop at the lock
+          const a = -1.9 + k * 0.55;
+          W.sparks.push({ x: CHEST_X, y: FLOOR_Y - CHEST_H + 14,
+            vx: Math.cos(a) * 34, vy: Math.sin(a) * 34, t: 0.3, t0: 0.3, r: 1.5 });
+        }
+      }
+    }
+    if (W.spent >= W.total && W.banked >= W.total) { W.phase = 'lock'; W.phaseT = 0; }
+    return;
+  }
+  if (W.phase === 'lock') {
+    /* ANTICIPATION. The chest rattles harder and harder while the lock loads,
+       so the opening is something you can feel coming rather than a swap. */
+    W.shake = Math.min(1, W.phaseT / LOCK_S) * 2.6;
+    if (W.phaseT >= LOCK_S) {
+      W.phase = 'open'; W.phaseT = 0;
+      W.burst = 1; W.shake = 4.5;
+      for (let i = 0; i < 34; i++) {                 // the lock lets go
+        const a = -Math.PI / 2 + (Math.random ? 0 : 0) + (i / 34) * Math.PI * 2;
+        const sp = 42 + (i % 7) * 13;
+        W.sparks.push({ x: CHEST_X, y: FLOOR_Y - CHEST_H + 14,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 26, t: 0.75, t0: 0.75,
+          r: 1.6 + (i % 4) * 0.7 });
+      }
+      W.events.push({ t: +W.simT.toFixed(3), kind: 'chest-open' });
+    }
+    return;
+  }
+  if (W.phase === 'open') {
+    const was = W.openU;
+    W.openU = Math.min(1, W.phaseT / OPEN_S);
+    if (was < 1 && W.openU >= 1) {
+      /* THE FLOOR GIVES WAY - but only for a haul that earned it. */
+      if (vaultComing(W)) {
+        W.phase = 'vault'; W.phaseT = 0;
+        W.burst = 1; W.shake = 3.2;
+        W.events.push({ t: +W.simT.toFixed(3), kind: 'vault-open',
+          tier: W.tier.name, total: W.total });
+      } else {
+        W.phase = 'done';
+        W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out', tier: W.tier.name, total: W.total });
+      }
+    }
+    return;
+  }
+  if (W.phase === 'vault') {
+    /* RELIQUARY gets the long look, SANCTUM a shorter one. Nothing is decided
+       here - this is a timer over a result that is already fixed. */
+    const hold = W.tier.name === 'RELIQUARY' ? VAULT_S : VAULT_S * 0.66;
+    if (W.phaseT >= hold) {
+      W.phase = 'done';
+      W.events.push({ t: +W.simT.toFixed(3), kind: 'pack-out', tier: W.tier.name, total: W.total });
+    }
+  }
+}
+
+/* Does this run end downstairs? One place to ask, because the door, the phase
+   change and the room all have to agree - and a door that opens onto a vault
+   that never arrives is worse than no door at all. */
+function vaultComing(W) {
+  return !!(W.tier && VAULT_TIERS[W.tier.name] && aliveParty(W).length);
+}
+
+/* THE VAULT, PAINTED. Only the survivors are in the room: the ones security
+   caught are still being held, which is what makes standing in here mean
+   something. They play the catch cycle - arms up, scooping - even before there
+   is anything to catch, because a body standing still in a treasure room reads
+   as a body that has not noticed it. */
+function drawVault(W) {
+  const fadeIn = Math.min(1, W.phaseT / 0.45);
+  const im = ART.vault;
+
+  if (ok(im)) {
+    /* COVER-FIT, ANCHORED ON THE FLOOR LINE. Fitting by height would float the
+       paving somewhere arbitrary; the plate is placed so its measured floor
+       edge lands where the party's feet go, and whatever spills off the top or
+       the sides is wall, which nobody misses. */
+    const scale = Math.max(cv.width / im.naturalWidth, cv.height / im.naturalHeight);
+    const dw = im.naturalWidth * scale, dh = im.naturalHeight * scale;
+    const dx = (cv.width - dw) / 2;
+    const dy = cv.height * VAULT_FLOOR_Y - dh * VAULT_FLOOR_U;
+    cx.globalAlpha = fadeIn;
+    cx.drawImage(im, dx, dy, dw, dh);
+    cx.globalAlpha = 1;
+  } else {
+    cx.fillStyle = 'rgba(60,44,14,' + fadeIn + ')';
+    cx.fillRect(0, 0, cv.width, cv.height);
+  }
+
+  /* NO SCRIM OVER THE ROOM. There was a flat wash plus a vignette here to
+     stop the cast sinking into all that gold, and it did work - but a full
+     screen tint is a filter laid over the whole picture, and it read as one:
+     the jackpot room came out grey and flat, which is the opposite of what it
+     is for. The legibility problem is a LOCAL one - it is about the bodies
+     against the wall directly behind them - so it is solved locally below,
+     with a pool of shade under each character, instead of by dimming the one
+     thing in this game that is supposed to look expensive. */
+
+  /* the shaft of light from the oculus, pulsing gently so the room breathes */
+  const beat = 0.86 + Math.sin(W.phaseT * 2.4) * 0.14;
+  const sh = cx.createLinearGradient(cv.width * 0.5, 0, cv.width * 0.5, cv.height * VAULT_FLOOR_Y);
+  sh.addColorStop(0, 'rgba(255,232,168,' + (0.42 * beat * fadeIn) + ')');
+  sh.addColorStop(1, 'rgba(255,232,168,0)');
+  cx.save();
+  cx.beginPath();
+  cx.moveTo(cv.width * 0.40, 0); cx.lineTo(cv.width * 0.60, 0);
+  cx.lineTo(cv.width * 0.78, cv.height * VAULT_FLOOR_Y);
+  cx.lineTo(cv.width * 0.22, cv.height * VAULT_FLOOR_Y);
+  cx.closePath(); cx.fillStyle = sh; cx.fill();
+  cx.restore();
+
+  /* THE PARTY, LINED UP ON THE PAVING. Drawn in screen space at a fixed size,
+     bigger than they run at - this is the one moment in the round that is
+     entirely about looking at them. */
+  const crew = aliveParty(W);
+  const floorY = cv.height * VAULT_FLOOR_Y;
+  const figH = cv.height * 0.42;   // bigger than they run at: this shot is about them
+  const step = cv.width / (crew.length + 1);
+  cx.globalAlpha = fadeIn;
+  for (let i = 0; i < crew.length; i++) {
+    const r = crew[i];
+    const cxp = step * (i + 1);
+    const strip = ART[r.id + 'Catch'], cells = CATCHCELLS;
+    /* a small stagger so three bodies are never in lockstep, which is what
+       makes a line-up read as a crowd rather than as one sprite repeated */
+    const t = W.phaseT * 9 + i * 1.7;
+    if (ok(strip)) {
+      const cw = strip.naturalWidth / cells, chh = strip.naturalHeight;
+      const dh = figH, dw = dh * cw / chh;
+      const cell = ((Math.floor(t) % cells) + cells) % cells;
+      /* A POOL OF SHADE, NOT A FILTER. This is what replaced the full-screen
+         scrim: a soft dark ellipse standing each body off the wall behind it,
+         reaching high enough to sit behind the torso where the contrast is
+         actually needed. It costs the room nothing - the gold either side of
+         them stays at full brightness. */
+      const pool = cx.createRadialGradient(cxp, floorY - dh * 0.34, dh * 0.04,
+        cxp, floorY - dh * 0.34, dh * 0.62);
+      pool.addColorStop(0, 'rgba(28,14,2,.46)');
+      pool.addColorStop(1, 'rgba(28,14,2,0)');
+      cx.fillStyle = pool;
+      cx.fillRect(cxp - dh * 0.7, floorY - dh * 1.1, dh * 1.4, dh * 1.2);
+      /* their shadow, so they are standing on the paving not hovering over it */
+      cx.fillStyle = 'rgba(40,22,4,.42)';
+      cx.beginPath();
+      cx.ellipse(cxp, floorY - 2, dw * 0.30, dh * 0.045, 0, 0, 6.2832);
+      cx.fill();
+      cx.save();
+      /* every plate faces left; the two on the left of the room turn inward */
+      if (i < crew.length / 2) {
+        cx.translate(cxp, 0); cx.scale(-1, 1); cx.translate(-cxp, 0);
+      }
+      cx.drawImage(strip, cell * cw, 0, cw, chh,
+        cxp - dw / 2, floorY - dh + dh * stancePad(strip, cells), dw, dh);
+      cx.restore();
+    } else {
+      cx.fillStyle = r.hex;
+      cx.fillRect(cxp - 10, floorY - 34, 20, 34);
+    }
+  }
+  cx.globalAlpha = 1;
+}
+
+/* -------------------------------- camera ---------------------------------- */
+function driveCamera(W, viewW, dt) {
+  const L = leaderOf(W);
+  /* once the run is over the camera goes to the chest - carrying the party if
+     there is one, travelling on alone if there is not. */
+  const target = (W.phase !== 'run') ? CHEST_X - viewW * 0.52
+                                     : L.x + BODY_W / 2 - viewW * 0.38;
+  W.cam.sm += (target - W.cam.sm) * Math.min(1, dt * 4.4);
+  W.cam.x = Math.max(W.cam.x, W.cam.sm);
+  W.cam.x = Math.max(0, Math.min(LEVEL_W - viewW, W.cam.x));
+}
+
+/* --------------------------------- art ------------------------------------
+   Everything painted, loaded once. The renderer falls back to a flat shape for
+   any plate that has not decoded, so a slow asset can never blank the stage. */
+const ART = {};
+/* BUMP THIS WHENEVER A PLATE CHANGES ON DISK.
+   Re-cutting a sprite does not change its filename, so the browser keeps
+   serving the copy it already has - and it does that on the phone the build is
+   being tested on, not just here. It cost a real debugging detour: the beetle
+   had already been mirrored on disk and was still walking backwards on screen,
+   because the page was painting a cached PNG. A stamp on the URL is a one-word
+   edit that makes an asset change actually arrive; a timestamp would work too
+   but would re-download every plate on every load, which is the wrong trade
+   for a phone. */
+const ART_V = '?v=34';
+function loadArt() {
+  const want = {
+    farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
+    chest: 'tp-chest.png', chestOpen: 'tp-chest-open.png',
+    block: 'tp-block.png',
+    coin: 'tp-coin.png', star: 'tp-star.png', fore: 'tp-fore.png',
+    uiPanel: 'tp-ui-panel.png', uiCard: 'tp-ui-card.png',
+    vault: 'tp-vault.jpg',
+    doorShut: 'tp-door-shut.png', doorOpen: 'tp-door-open.png',
+    tibboCatch: 'tp-tibbo-catch.png', moskaCatch: 'tp-moska-catch.png',
+    corliCatch: 'tp-corli-catch.png',
+    /* THE CAST, CUT OUT OF FOOTAGE. Each of these strips is frames lifted from
+       a four-second clip of the character performing one action against a
+       chroma field on a locked camera. That is why they carry weight the old
+       hand-placed plates never did: the bob of the run and the arc of the jump
+       are the ones that were shot, not ones invented afterwards by nudging a
+       drawing up and down.
+
+       Every strip of one character is cut on a single shared scale and
+       bottom-aligned (tools/vidstrip.py --scaleref), so nobody changes size
+       between actions - without that a jump crops taller than a run and the
+       body visibly shrinks the moment it leaves the ground. And every strip is
+       mirrored on the way out, because all the older art faces left and two
+       facing conventions inside one draw call is the bug that reads as the
+       animation playing backwards. */
+    tibbo: 'tp-tibbo-idle.png', moska: 'tp-moska-idle.png', corli: 'tp-corli-idle.png',
+    tibboRun: 'tp-tibbo-run.png', moskaRun: 'tp-moska-run.png', corliRun: 'tp-corli-run.png',
+    tibboAir: 'tp-tibbo-jump.png', moskaAir: 'tp-moska-jump.png', corliAir: 'tp-corli-jump.png',
+    tibboCheer: 'tp-tibbo-cheer.png', moskaCheer: 'tp-moska-cheer.png', corliCheer: 'tp-corli-cheer.png',
+    /* CAUGHT, NOT KILLED. Nobody dies in this temple - security catches them,
+       which is why the plate is a startle, a surrender and a sulk rather than
+       a death pose, and why the clock in the panel is a rescue clock. */
+    tibboHurt: 'tp-tibbo-caught.png', moskaHurt: 'tp-moska-caught.png',
+    corliHurt: 'tp-corli-caught.png',
+    miasma: 'tp-miasma.png', miasmaWisp: 'tp-miasma-wisp.png',
+    /* THE GUARDIANS. SKARN is the scarab that patrols the floor, VYRE the
+       wasp-moth that bursts out of a block. Both are cut from locked-camera
+       footage like the cast, and both are painted near-black obsidian with
+       molten amber in the shell cracks - which is not decoration. They have to
+       be told apart from three brightly coloured heroes at thirty pixels, and
+       the cheapest way to do that is VALUE: a dark shape on a pale sandstone
+       floor reads instantly without competing for a hue. It also happens to be
+       the easiest thing in the world to key off a green screen. */
+    skarnWalk: 'tp-skarn-walk.png', skarnSquash: 'tp-skarn-squash.png',
+    vyreFly: 'tp-vyre-fly.png', vyreDive: 'tp-vyre-dive.png',
+  };
+  let n = 0;
+  for (const k in want) {
+    const im = new Image();
+    im.onload = function () { n++; ART.loaded = n; };
+    im.src = 'assets/' + want[k] + ART_V;
+    ART[k] = im;
+  }
+  ART.total = Object.keys(want).length;
+}
+const ok = function (im) { return im && im.complete && im.naturalWidth > 0; };
+
+/* PIT GAS, COMPOSITED OFF-SCREEN.
+   Drawing the miasma plate straight into a clipped pit rectangle produced a
+   flat purple SLAB: the source is a full-bleed painting, so a narrow slice of
+   it is uniformly dense right up to a hard rectangular top edge. Gas has soft
+   boundaries or it is not gas. So the two layers are drawn into an offscreen
+   buffer, feathered there with destination-out gradients - thinning as it
+   escapes the mouth, swallowed by the dark at the bottom of the shaft, easing
+   off against the walls - and only then screened into the stage. That is the
+   same order of operations a compositor would use, and it is the difference
+   between a coloured box and something billowing. */
+const PITFX = {};
+function pitGas(key, w, h, t, thick) {
+  const PX = 2;                                     // supersampled, then downscaled
+  const cw = Math.max(8, Math.round(w * PX)), ch = Math.max(8, Math.round(h * PX));
+  let o = PITFX[key];
+  if (!o || o.width !== cw || o.height !== ch) {
+    o = PITFX[key] = document.createElement('canvas');
+    o.width = cw; o.height = ch;
+  }
+  const g = o.getContext('2d');
+  g.clearRect(0, 0, cw, ch);
+  if (!ok(ART.miasma)) return o;
+
+  const ih = ch * 0.94, iw = ih * ART.miasma.naturalWidth / ART.miasma.naturalHeight;
+  g.globalAlpha = 0.82 * thick;
+  for (let x = -iw + (-(t * 6 * PX) % iw); x < cw + iw; x += iw)
+    g.drawImage(ART.miasma, x, ch * 0.04 + Math.sin(t * 0.8) * 2 * PX, iw, ih);
+  if (ok(ART.miasmaWisp)) {
+    g.globalAlpha = 0.44 * thick;
+    const wh = ch * 0.72, ww = wh * ART.miasmaWisp.naturalWidth / ART.miasmaWisp.naturalHeight;
+    for (let x = -ww + (-(t * 19 * PX) % ww); x < cw + ww; x += ww)
+      g.drawImage(ART.miasmaWisp, x, -ch * 0.04 + Math.sin(t * 1.6 + 1.2) * 3 * PX, ww, wh);
+  }
+  g.globalAlpha = 1;
+
+  g.globalCompositeOperation = 'destination-out';
+  const hx = g.createLinearGradient(0, 0, cw, 0);
+  /* a much wider feather against the walls - at 16% the gas still met the
+     sides of the hole at almost full strength and the whole thing read as a
+     lavender rectangle rather than as something swirling inside an opening */
+  hx.addColorStop(0, 'rgba(0,0,0,1)'); hx.addColorStop(0.34, 'rgba(0,0,0,0)');
+  hx.addColorStop(0.66, 'rgba(0,0,0,0)'); hx.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = hx; g.fillRect(0, 0, cw, ch);
+  const vy = g.createLinearGradient(0, 0, 0, ch);
+  vy.addColorStop(0, 'rgba(0,0,0,.97)');            // only wisps clear the lip
+  vy.addColorStop(0.13, 'rgba(0,0,0,.34)');
+  vy.addColorStop(0.30, 'rgba(0,0,0,0)');
+  vy.addColorStop(0.46, 'rgba(0,0,0,0)');
+  vy.addColorStop(0.74, 'rgba(0,0,0,.55)');
+  vy.addColorStop(1, 'rgba(0,0,0,1)');              // dissolves into open air
+  g.fillStyle = vy; g.fillRect(0, 0, cw, ch);
+  g.globalCompositeOperation = 'source-over';
+  return o;
+}
+
+/* WHERE A PLATE'S FEET ACTUALLY ARE - MEASURED PER CELL.
+   Two separate things kept the cast hovering. First, a run strip is ONE shared
+   crop over six cells whose bodies bob, so a single pad for the whole strip
+   plants only the lowest cell and every other frame floats by its own margin:
+   the pad has to be per cell. Second, the scan took the lowest opaque ROW,
+   which found a tail tip or a trailing flame rather than the feet, and
+   returned ~0 - which is why the first version of this measured "planted" on
+   a build that visibly was not. Both are fixed below, cached per (plate,
+   cell), so the art tells the renderer where its own feet are. */
+const FOOT = {};
+function footPad(im, cell, cells) {
+  if (!ok(im)) return 0;
+  cells = cells || 1; cell = cell || 0;
+  const key = im.src + '#' + cell + '/' + cells;
+  if (FOOT[key] !== undefined) return FOOT[key];
+  FOOT[key] = 0;                                   // safe default if it throws
+  try {
+    const srcW = im.naturalWidth / cells;
+    const W0 = Math.max(8, Math.min(200, Math.round(srcW)));
+    const H0 = Math.max(8, Math.round(im.naturalHeight * W0 / srcW));
+    const c = document.createElement('canvas');
+    c.width = W0; c.height = H0;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W0, H0);
+    g.drawImage(im, cell * srcW, 0, srcW, im.naturalHeight, 0, 0, W0, H0);
+    const d = g.getImageData(0, 0, W0, H0).data;
+    const rows = new Array(H0); let widest = 0;
+    for (let y = 0; y < H0; y++) {
+      let n = 0;
+      for (let x = 0; x < W0; x++) if (d[(y * W0 + x) * 4 + 3] > 16) n++;
+      rows[y] = n; if (n > widest) widest = n;
+    }
+    /* THE STANCE LINE, NOT THE LAST STRAY PIXEL. Taking the lowest opaque row
+       put the "feet" on a trailing tail tip - a few pixels wide, hanging below
+       the actual stance - so the body still floated while the scan reported it
+       planted. The feet are the lowest row that is
+       a decent fraction of the widest part of the silhouette. */
+    const thresh = Math.max(2, widest * 0.22);
+    let stance = H0 - 1;
+    for (let y = H0 - 1; y >= 0; y--) if (rows[y] >= thresh) { stance = y; break; }
+    FOOT[key] = (H0 - 1 - stance) / H0;
+  } catch (e) { FOOT[key] = 0; }
+  return FOOT[key];
+}
+/* ONE PAD FOR A STRIP THAT WAS SHOT, NOT DRAWN.
+   footPad above measures every cell separately, and it has to: the old plates
+   were separate drawings, each framed on its own, so the only way to plant
+   them was to ask each one where its feet were.
+
+   The new cast is cut out of video shot on a LOCKED camera and cropped through
+   ONE rectangle at fixed pixel coordinates, so the cells are already in true
+   vertical register with each other - the difference between the lowest frame
+   and the highest IS the bob of the run and the arc of the jump. Measuring
+   those cells one at a time would read that motion as framing error and
+   flatten it: every cell would get shoved down until its own lowest pixel sat
+   on the floor, so the feet would stay welded to the ground and the body would
+   never leave it. The jump in particular would stop being a jump.
+
+   So a shot strip gets ONE pad, taken from its LOWEST cell - the frame where
+   he is actually standing on something. That plants the contact frame and lets
+   every other frame ride above the floor by exactly as much as it did in the
+   footage. */
+const STANCE = {};
+function stancePad(im, cells) {
+  if (!ok(im)) return 0;
+  cells = cells || 1;
+  const key = im.src + '#strip/' + cells;
+  if (STANCE[key] !== undefined) return STANCE[key];
+  let lo = 1;
+  for (let i = 0; i < cells; i++) lo = Math.min(lo, footPad(im, i, cells));
+  STANCE[key] = lo;
+  return lo;
+}
+
+/* Cell counts. Every strip is cut to the smallest number of frames that still
+   reads as motion, measured as the minimum delta between CONSECUTIVE cells -
+   the run and the cheer carry a full cycle so they get eight, the one-shots
+   are six. */
+const RUNCELLS = 8;
+/* THE CHEER IS PER CHARACTER, IN BOTH LENGTH AND TEMPO.
+   A strip carries an implied duration: it was cut from N frames of 24fps
+   footage, so it wants to be played back over exactly that long. One global
+   rate for all three ignored that, and the error was not small - CORLI's
+   celebration covers 1.25 SECONDS of source and was being played over 0.67,
+   which is 1.9x too fast. That is what "super spazzy" was. The same constant
+   ran TIBBO and MOSKA at roughly half the speed they were performed at.
+
+   The three of them also do not celebrate for the same length of time, and
+   forcing them to share a cell count meant taking a worse window for somebody:
+   MOSKA has one clean five-cell bounce and no good eight-cell one, and cutting
+   him to five is what got his loop to stop snapping (his old strip closed on a
+   95% jump from last cell back to first - a cut, once per cycle, forever).
+
+   So each of them gets the cell count its footage actually supports and the
+   rate its own frames were shot at. */
+const CHEER = {
+  tibbo: { cells: 8, fps: 10.7 },   // 18 source frames
+  moska: { cells: 5, fps: 8.6 },    // 14
+  corli: { cells: 8, fps: 6.4 },    // 30 - the slow, big one
+};
+function cheerOf(id) { return CHEER[id] || { cells: 8, fps: 10.0 }; }
+/* Five, not six: the strip was shot with an anticipation crouch at the front
+   and the sim has no anticipation - a jump here begins the instant it is
+   decided - so that cell would never have been reachable. It was cut off the
+   asset rather than left in as a frame nothing can ever select. */
+const JUMPCELLS = 5;
+const CAUGHTCELLS = 6;
+/* Four. Six cells of a catch measured 15-30% between neighbours; the same
+   clips cut to four measure 29-63%. Same finding as the run and the breath -
+   match the cell count to the motion that is actually in the footage. */
+const CATCHCELLS = 4;
+/* Ground distance per run cell. The strip went from six cells to eight over
+   the same stride, so the distance each cell covers has to shrink in step or
+   the cadence changes and the feet skate: 78 units per cycle, unchanged. */
+const RUN_STEP = 78 / RUNCELLS;
+const BUGCELLS = 6;      // SKARN scuttle  (min consecutive frame delta 27.9%)
+const SQUASHCELLS = 4;   // SKARN stomped   (22.1%)
+const FLYCELLS = 4;      // VYRE wingbeat   (42.7%)
+const DIVECELLS = 4;     // VYRE wind-up and dive (85.2%)
+
+/* ------------------------------- rendering -------------------------------- */
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+/* ZOOMED OUT TO FIT THREE ROADS. At 1.86 the frame held 231 world units and
+   the sunken lane at 236 was simply off the bottom of it. 1.45 holds 297,
+   which puts the high deck at 96 and the tunnel floor at 236 both comfortably
+   in shot - and seeing all three at once is the entire point of the split. */
+const SCALE = 1.45, VIEW_W = cv.width / SCALE, VIEW_TOP = -34;
+loadArt();
+
+function draw(W) {
+  const cam = W.cam;
+  /* THE TEMPLE, not a blue sky. The far and mid plates were generated in
+     earlier sessions and are horizontally tileable; they scroll at 0.22x and
+     0.55x so the chamber has depth behind the play plane. */
+  if (ok(ART.farBg)) {
+    const im = ART.farBg;
+    const H = cv.height * 0.94, W2 = im.naturalWidth * H / im.naturalHeight;
+    let x = -((cam.x * 0.22) % W2);
+    while (x < cv.width) { cx.drawImage(im, x, 0, W2, H); x += W2 - 1; }
+    cx.fillStyle = 'rgba(58,38,22,.26)'; cx.fillRect(0, 0, cv.width, cv.height);
+  } else {
+    cx.fillStyle = '#C9A97C'; cx.fillRect(0, 0, cv.width, cv.height);
+  }
+  if (ok(ART.midBg)) {
+    const im = ART.midBg;
+    const H = cv.height * 0.80, W2 = im.naturalWidth * H / im.naturalHeight;
+    let x = -((cam.x * 0.55) % W2);
+    cx.globalAlpha = 0.92;
+    while (x < cv.width) { cx.drawImage(im, x, cv.height * 0.08, W2, H); x += W2 - 1; }
+    cx.globalAlpha = 1;
+  }
+  const shaft = cx.createLinearGradient(cv.width * 0.34, 0, cv.width * 0.62, cv.height);
+  shaft.addColorStop(0, 'rgba(255,226,150,.20)');
+  shaft.addColorStop(1, 'rgba(255,226,150,0)');
+  cx.fillStyle = shaft; cx.fillRect(0, 0, cv.width, cv.height);
+  const vig = cx.createRadialGradient(cv.width / 2, cv.height * 0.52, cv.height * 0.30,
+    cv.width / 2, cv.height * 0.52, cv.height * 0.98);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(24,12,4,.44)');
+  cx.fillStyle = vig; cx.fillRect(0, 0, cv.width, cv.height);
+
+  cx.save();
+  /* screen shake, applied to the PLAY PLANE only so the chrome stays put */
+  if (W.shake > 0) {
+    const a = W.shake;
+    cx.translate((((W.simT * 91) % 2) - 1) * a * 1.7, (((W.simT * 143) % 2) - 1) * a * 1.3);
+  }
+  cx.scale(SCALE, SCALE);
+  cx.translate(-cam.x, -VIEW_TOP);
+
+  /* THE SUNKEN LANE IS A CARVED PASSAGE, NOT A PLANK IN THE VOID.
+     The lower road was a thin stone slab floating in open sky: nothing above
+     it, nothing behind it, so a runner down there read as falling past the
+     level rather than travelling through it. A tunnel needs three things the
+     slab alone cannot give - a CEILING (the underside of the ground he was
+     walking on a moment ago), a BACK WALL to sit against, and darkness that
+     deepens away from the mouth. Drawn before the pits, so that looking down
+     a hole in the ground you see into this passage, which is exactly what is
+     actually under there. */
+  (function () {
+    const x0 = LOW_RUN[0][0], x1 = LOW_RUN[LOW_RUN.length - 1][1];
+    const ceil = FLOOR_Y + 10;                 // underside of the ground slab
+    const base = LOW_Y + 20;
+    const g = cx.createLinearGradient(0, ceil, 0, base);
+    g.addColorStop(0, '#231508');
+    g.addColorStop(0.42, '#3B2714');
+    g.addColorStop(1, '#1B1006');
+    cx.fillStyle = g;
+    cx.fillRect(x0, ceil, x1 - x0, base - ceil);
+
+    /* ribs down the back wall, so travelling through it reads as motion */
+    cx.fillStyle = 'rgba(92,64,32,.30)';
+    for (let gx = Math.ceil(x0 / 96) * 96; gx < x1; gx += 96)
+      cx.fillRect(gx, ceil + 6, 10, base - ceil - 6);
+
+    /* the ceiling: a lit lip where the ground ends, then its shadow */
+    cx.fillStyle = '#6B4C2A'; cx.fillRect(x0, ceil, x1 - x0, 4);
+    cx.fillStyle = 'rgba(210,170,110,.35)'; cx.fillRect(x0, ceil, x1 - x0, 1.4);
+    const sh = cx.createLinearGradient(0, ceil + 4, 0, ceil + 26);
+    sh.addColorStop(0, 'rgba(12,6,2,.72)'); sh.addColorStop(1, 'rgba(12,6,2,0)');
+    cx.fillStyle = sh; cx.fillRect(x0, ceil + 4, x1 - x0, 22);
+
+    /* and the mouths: the passage fades in at both ends instead of starting
+       with a hard vertical seam against the backdrop */
+    const capL = cx.createLinearGradient(x0, 0, x0 + 46, 0);
+    capL.addColorStop(0, 'rgba(20,12,5,.95)'); capL.addColorStop(1, 'rgba(20,12,5,0)');
+    cx.fillStyle = capL; cx.fillRect(x0, ceil, 46, base - ceil);
+    const capR = cx.createLinearGradient(x1 - 46, 0, x1, 0);
+    capR.addColorStop(0, 'rgba(20,12,5,0)'); capR.addColorStop(1, 'rgba(20,12,5,.95)');
+    cx.fillStyle = capR; cx.fillRect(x1 - 46, ceil, 46, base - ceil);
+  })();
+
+  /* THE PITS ARE MIASMA, NOT A BLACK WALL.
+     A flat #160A10 rectangle is a hole in the RENDER, not a hole in the world -
+     it has no depth, no motion, and nothing about it says "this will kill you".
+     Two painted layers now fill it, both SCREEN-blended so the black they were
+     generated on contributes nothing and only the gas survives: a dense bank
+     drifting slowly, and thin wisps drifting three times faster over the top.
+     Two speeds is what makes it read as a volume rather than a texture.
+     The clip runs 20 units ABOVE the lip so the gas spills out of the mouth,
+     and because the ground solids are drawn after this, the spill is masked
+     everywhere except over the hole itself - which is exactly where gas
+     escaping a pit should be. */
+  for (const s of PROFILE) {
+    if (s.top !== null) continue;
+    const x0 = s.x0, x1 = s.x1, top = FLOOR_Y - 1, depth = 130;
+    /* the beat-3 trap is the one that kills, so it gets the thickest gas; the
+       fork and the merge are passages and only smoke faintly. */
+    const thick = s.id === 'TRAP' ? 1 : 0.46;
+    /* NO DARK SHAFT. A 130-deep opaque rectangle was a purple BOX standing on
+       the backdrop with hard sides and a hard bottom - the ground slab is only
+       10 units thick, so a hole in it is a cut edge and then open air, not a
+       mine shaft. What is left is the cut itself, fading out within ~34 units,
+       and after that only gas. */
+    /* only the cut through the slab itself - the shadowed underside of the
+       ten units of stone the hole is punched through, and nothing below it */
+    /* TRANSLUCENT, NOT OPAQUE. The sunlit temple showing through a gap made
+       the hole the BRIGHTEST thing in the shot, which is the opposite of what
+       a pit should say. A tint sunk over it keeps the see-through - you can
+       still read the pillars behind - while putting the opening back in shade,
+       and the cut through the slab is now a soft edge rather than a bar. */
+    const g = cx.createLinearGradient(0, top, 0, top + 74);
+    g.addColorStop(0, 'rgba(14,6,16,.62)');
+    g.addColorStop(0.22, 'rgba(12,5,14,.46)');
+    g.addColorStop(1, 'rgba(10,4,12,.10)');
+    cx.fillStyle = g; cx.fillRect(x0, top, x1 - x0, 74);
+    const gh = 96;
+    const buf = pitGas(s.id || ('p' + x0), x1 - x0, gh, W.simT, thick);
+    cx.save();
+    cx.globalCompositeOperation = 'screen';
+    cx.drawImage(buf, x0, top - 9, x1 - x0, gh);
+    cx.restore();
+    /* NO INNER VIGNETTE, AND NO DARK FILL. Both were attempts to make the
+       opening look deep, and both made it worse for the same reason: a gap in
+       a floor is a place where you SEE THROUGH to what is behind, and the one
+       thing that cannot read as a hole is an opaque box sitting in the hole.
+       The temple behind shows through exactly as it does everywhere else, the
+       floor simply stops, and the gas is the only thing added. */
+    /* a hard dark lip, so the ground edge stays crisp against the gas */
+    cx.fillStyle = 'rgba(14,6,10,.9)';
+    cx.fillRect(x0, top, x1 - x0, 2.5);
+  }
+
+  for (const s of W.solids) {
+    if (s.kind === 'bedrock' || s.kind === 'block') continue;
+    const h = Math.min(s.y1, 250) - s.y0;
+    if (s.kind === 'pitfloor') {
+      /* INVISIBLE ON PURPOSE. This solid only exists so a body that falls in
+         stops somewhere it still reads in frame instead of dropping out of
+         shot; drawn, it was a lit shelf hanging in the middle of the gas with
+         nothing holding it up. The gas is what the pit looks like. */
+      continue;
+    }
+    if (s.kind === 'wall') continue;   // invisible: it only exists to stop a
+                                       // human player running off the level
+    if (ok(ART.floor)) {
+      /* A SHALLOWER, DARKER FLOOR. Tiled at 74 tall and untinted it filled the
+         bottom third of the frame with pale sandstone and competed with the
+         cast for attention - the brightest thing on screen has to be the
+         character, not the ground he is standing on. */
+      const im = ART.floor, TH = 46, TW = im.naturalWidth * TH / im.naturalHeight;
+      cx.save();
+      cx.beginPath(); cx.rect(s.x0, s.y0, s.x1 - s.x0, h); cx.clip();
+      let x = s.x0 - (((s.x0 % TW) + TW) % TW);
+      while (x < s.x1) { cx.drawImage(im, x, s.y0, TW, TH); x += TW - 1; }
+      if (h > TH) { cx.fillStyle = '#3B2814'; cx.fillRect(s.x0, s.y0 + TH - 1, s.x1 - s.x0, h - TH + 1); }
+      /* push it back behind the cast and let it fall away into shadow */
+      const gy = cx.createLinearGradient(0, s.y0, 0, s.y0 + Math.min(h, 92));
+      gy.addColorStop(0, 'rgba(46,26,10,.20)');
+      gy.addColorStop(1, 'rgba(28,14,4,.86)');
+      cx.fillStyle = gy; cx.fillRect(s.x0, s.y0, s.x1 - s.x0, Math.min(h, 92));
+      cx.restore();
+    } else {
+      cx.fillStyle = '#7A5630'; cx.fillRect(s.x0, s.y0, s.x1 - s.x0, h);
+    }
+    if (s.kind === 'deck') {
+      /* A WALKWAY IS HELD UP BY SOMETHING. Drawn as a bare 16-unit slab the
+         high road was a plank hanging in mid-air; it gets corbels under it and
+         a shadow on its underside so it reads as built into the temple. */
+      const wD = s.x1 - s.x0;
+      cx.fillStyle = 'rgba(24,13,5,.55)';
+      for (let bx = s.x0 + 14; bx < s.x1 - 10; bx += 58) {
+        cx.beginPath();
+        cx.moveTo(bx, s.y1); cx.lineTo(bx + 16, s.y1);
+        cx.lineTo(bx + 11, s.y1 + 17); cx.lineTo(bx + 5, s.y1 + 17);
+        cx.closePath(); cx.fill();
+      }
+      const und = cx.createLinearGradient(0, s.y1, 0, s.y1 + 14);
+      und.addColorStop(0, 'rgba(18,10,4,.70)'); und.addColorStop(1, 'rgba(18,10,4,0)');
+      cx.fillStyle = und; cx.fillRect(s.x0, s.y1, wD, 14);
+    }
+    if (s.kind === 'deck' || s.kind === 'plinth' || s.kind === 'lowfloor') {
+      /* LANE GEOMETRY. The upper deck and the sunken floor are their own
+         built stone - a capstone with a lit edge over a darker mass - so at a
+         glance you can see there are three roads and which one each runner
+         took. */
+      const w = s.x1 - s.x0, hh = s.y1 - s.y0;
+      cx.fillStyle = 'rgba(26,14,6,.5)'; cx.fillRect(s.x0 + 2, s.y0 + 4, w, hh);
+      cx.fillStyle = s.kind === 'lowfloor' ? '#6E5433' : '#8E6B41';
+      cx.fillRect(s.x0, s.y0, w, hh);
+      cx.fillStyle = 'rgba(56,33,14,.5)';
+      for (let gx = s.x0 + 8; gx < s.x1 - 4; gx += 15) cx.fillRect(gx, s.y0 + 5, 2, hh - 6);
+      cx.fillStyle = '#B08E5C'; cx.fillRect(s.x0, s.y0, w, 5);
+      cx.fillStyle = '#E6C48E'; cx.fillRect(s.x0, s.y0, w, 1.8);
+      cx.strokeStyle = 'rgba(30,17,6,.8)'; cx.lineWidth = 1.4;
+      cx.strokeRect(s.x0, s.y0, w, hh);
+      continue;
+    }
+    if (s.kind === 'pipe' || s.kind === 'ledge') {
+      /* A RAISED BLOCK IS A CARVED PLINTH, not a rectangle of the same floor
+         texture with a hairline around it - drawn that way it read as a pale
+         slab pasted over the level. It gets its own darker stone, a capstone
+         that overhangs, and vertical grooves, so it reads as something built
+         and something you can stand on. */
+      const w = s.x1 - s.x0, hh = Math.min(h, 76);
+      cx.fillStyle = 'rgba(30,17,7,.42)'; cx.fillRect(s.x0, s.y0 + 6, w, hh - 6);
+      cx.fillStyle = '#8E6B41'; cx.fillRect(s.x0 + 2, s.y0 + 7, w - 4, hh - 7);
+      cx.fillStyle = 'rgba(56,33,14,.55)';
+      for (let gx = s.x0 + 9; gx < s.x1 - 5; gx += 13) cx.fillRect(gx, s.y0 + 11, 2.2, hh - 13);
+      cx.fillStyle = '#B08E5C'; cx.fillRect(s.x0 - 3, s.y0, w + 6, 8);      // capstone
+      cx.fillStyle = '#E0BE86'; cx.fillRect(s.x0 - 3, s.y0, w + 6, 2.2);    // lit top edge
+      cx.fillStyle = 'rgba(40,22,8,.6)'; cx.fillRect(s.x0 - 3, s.y0 + 8, w + 6, 2);
+      cx.strokeStyle = 'rgba(34,19,7,.8)'; cx.lineWidth = 1.5;
+      cx.strokeRect(s.x0 - 3, s.y0, w + 6, 8);
+    } else {
+      /* the carved lip: the line the eye reads as "stand here" from a moving
+         camera (session 22, decision 169). Warm, not white. */
+      cx.fillStyle = '#C9A063'; cx.fillRect(s.x0, s.y0, s.x1 - s.x0, 1.8);
+      cx.fillStyle = 'rgba(52,28,10,.6)'; cx.fillRect(s.x0, s.y0 + 1.8, s.x1 - s.x0, 1.4);
+    }
+  }
+
+  for (const b of W.blocks) {
+    const y = SOFFIT - BLOCK_H - b.bump * 7;
+    if (ok(ART.block)) {
+      const w = BLOCK_W + 7, hh = w * ART.block.naturalHeight / ART.block.naturalWidth;
+      cx.save();
+      if (b.spent) { cx.globalAlpha = 0.6; cx.filter = 'grayscale(0.8)'; }
+      cx.drawImage(ART.block, b.x - 3.5, y - (hh - BLOCK_H) / 2, w, hh);
+      cx.restore();
+    } else {
+      cx.fillStyle = b.spent ? '#8A6238' : '#E0A83C';
+      cx.fillRect(b.x, y, BLOCK_W, BLOCK_H);
+    }
+  }
+
+  for (const c of W.coins) {
+    if (c.taken && !c.pop) continue;
+    cx.globalAlpha = c.taken ? Math.max(0, c.pop / 0.4) : 1;
+    if (ok(ART.coin)) {
+      const cw = ART.coin.naturalWidth / 6, chh = ART.coin.naturalHeight;
+      const f = Math.floor((W.simT * 9 + c.x * 0.11) % 6);
+      const dh = COIN_R * 2.7, dw = dh * cw / chh;
+      cx.drawImage(ART.coin, f * cw, 0, cw, chh, c.x - dw / 2, c.y - dh / 2, dw, dh);
+    } else {
+      cx.fillStyle = '#F5C518';
+      cx.beginPath(); cx.ellipse(c.x, c.y, COIN_R * 0.64, COIN_R, 0, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+  }
+
+  for (const p of W.pickups) {                       // the star: a multiplier
+    if (p.taken) continue;
+    if (ok(ART.star)) {
+      const dh = 27, dw = dh * ART.star.naturalWidth / ART.star.naturalHeight;
+      cx.save(); cx.translate(p.x, p.y);
+      cx.rotate(Math.sin(W.simT * 2.2) * 0.16);
+      const g = cx.createRadialGradient(0, 0, 2, 0, 0, dh);
+      g.addColorStop(0, 'rgba(255,226,140,.6)'); g.addColorStop(1, 'rgba(255,226,140,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(0, 0, dh, 0, 6.2832); cx.fill();
+      cx.drawImage(ART.star, -dw / 2, -dh / 2, dw, dh);
+      cx.restore();
+    } else {
+      cx.fillStyle = '#FFE27A';
+      cx.beginPath(); cx.arc(p.x, p.y, 9, 0, 6.2832); cx.fill();
+    }
+  }
+
+  for (const e of W.enemies) {
+    if (e.dead) {
+      /* STOMPED, AND THE ART DOES THE FLATTENING. This used to take cell 0 of
+         the standing plate and draw it into an 8-unit-tall box - a smear, not
+         a squash, and it read as the beetle being deleted rather than being
+         jumped on. There is a drawn four-cell flatten now: stand, splat wide,
+         settle, and the amber in his cracks fading down to a dull ember. It
+         plays once across the 0.6s the body is on screen for, so the last cell
+         is what fades out rather than a pose nobody reached. */
+      if (e.deadT > 0 && ok(ART.skarnSquash)) {
+        const im = ART.skarnSquash;
+        const cw = im.naturalWidth / SQUASHCELLS, chh = im.naturalHeight;
+        const cell = Math.min(SQUASHCELLS - 1,
+          Math.floor((0.6 - e.deadT) * (SQUASHCELLS / 0.55)));
+        const dh = WALK_H * 1.55, dw = dh * cw / chh;
+        cx.globalAlpha = Math.min(1, e.deadT / 0.35);
+        cx.drawImage(im, cell * cw, 0, cw, chh,
+          e.x + WALK_W / 2 - dw / 2,
+          (e.floor || FLOOR_Y) - dh + dh * stancePad(im, SQUASHCELLS), dw, dh);
+        cx.globalAlpha = 1;
+      }
+      continue;
+    }
+    if (e.kind === 'fly') {
+      /* THE FLYING BUG. Everything here exists to make the strike readable
+         BEFORE it lands: a ground shadow that tightens as it drops so you can
+         read its height, a wingbeat squash fast enough to buzz, a wind-up that
+         flashes and paints a warning arc down at the target, and streaks
+         behind it once it commits. */
+      /* WIND-UP AND DIVE ARE DIFFERENT DRAWINGS, NOT THE SAME ONE ROTATED.
+         The tell is wings FLARED WIDE - the biggest, loudest silhouette he
+         has, because its whole job is to be noticed before the strike. The
+         dive is the opposite shape: wings swept back tight, body streamlined.
+         Two silhouettes that read differently at a glance is the telegraph.
+
+         The dive cell used is the STREAMLINED one, not the nose-down one, on
+         purpose: the renderer already rotates the sprite to aim it along its
+         travel, so picking art that is drawn pointing down as well would turn
+         it twice and send it in head-first at the wrong angle. Let the code do
+         the aiming and give it art that points straight ahead. */
+      const flap = Math.sin(W.simT * 34);
+      const diving = e.ph === 'dive';
+      const telling = e.ph === 'tell';
+      const spent = e.ph === 'spent';
+      const im = (telling || diving || spent) && ok(ART.vyreDive) ? ART.vyreDive
+               : ok(ART.vyreFly) ? ART.vyreFly : null;
+      /* its shadow, on the ground it is about to arrive at */
+      const drop = Math.max(0, Math.min(1, (FLOOR_Y - WALK_H - e.y) / 90));
+      cx.fillStyle = 'rgba(40,20,6,' + (0.30 * (1 - drop * 0.75)) + ')';
+      cx.beginPath();
+      cx.ellipse(e.x + WALK_W / 2, FLOOR_Y - 1.5,
+        WALK_W * (0.52 - drop * 0.26), 2.6 * (1 - drop * 0.4), 0, 0, 6.2832);
+      cx.fill();
+      if (telling) {
+        /* the wind-up, aimed: a thin arc from the bug down to the target */
+        const tg = e.tgt;
+        if (tg) {
+          cx.save();
+          /* the wind-up has to be LOUD - at 1.6 units wide and 30% alpha the
+             warning line was invisible at play scale, which defeats the whole
+             point of telegraphing. */
+          cx.globalAlpha = 0.55 + 0.40 * Math.abs(Math.sin(W.simT * 14));
+          cx.strokeStyle = '#FF6B57'; cx.lineWidth = 3.2;
+          cx.setLineDash([7, 5]);
+          cx.beginPath();
+          cx.moveTo(e.x + WALK_W / 2, e.y + WALK_H);
+          cx.lineTo(tg.x + BODY_W / 2, tg.y + BODY_H / 2);
+          cx.stroke();
+          cx.restore();
+        }
+      }
+      if (diving) {
+        for (let k = 1; k <= 3; k++) {
+          cx.globalAlpha = 0.20 / k;
+          cx.fillStyle = '#C9A2FF';
+          cx.beginPath();
+          cx.ellipse(e.x + WALK_W / 2 - e.dx * 0.012 * k,
+            e.y + WALK_H / 2 - e.dy * 0.012 * k,
+            WALK_W * 0.42, WALK_H * 0.32, 0, 0, 6.2832);
+          cx.fill();
+        }
+        cx.globalAlpha = 1;
+      }
+      if (ok(im)) {
+        /* A DRAWN WINGBEAT. Squashing one plate vertically is not a flap - the
+           wings have to change ANGLE, which only frames can do. Five cells at
+           22fps buzz; the body tilt and the dive rotation stay procedural
+           because those follow the physics, not the cycle.
+           SIZED AGAINST THE CAST, not against the plate: at 1.9x WALK_H it was
+           half again the height of the character it was attacking. */
+        const fcells = (im === ART.vyreDive) ? DIVECELLS : FLYCELLS;
+        const fw = im.naturalWidth / fcells;
+        /* every cell of this strip has a job: two flare poses flutter through
+           the wind-up, the streamlined one flies the dive, and the nose-down
+           one is where he ends up - buried head-first in the floor he just
+           missed. A cell nothing can ever select is a cell that should have
+           been cut, so none are left over. */
+        const ff = im === ART.vyreDive
+          ? (diving ? 2 : spent ? 3 : Math.floor(W.simT * 9) % 2)
+          : Math.floor(W.simT * 22) % fcells;           // hover: the wingbeat
+        const dh = WALK_H * 1.24 * (1 - flap * 0.05), dw = dh * fw / im.naturalHeight;
+        cx.save();
+        cx.translate(e.x + WALK_W / 2, e.y + WALK_H / 2);
+        cx.rotate(diving ? Math.atan2(e.dy, e.dx) + Math.PI : Math.sin(W.simT * 5) * 0.07);
+        if (diving && e.dx > 0) cx.scale(1, -1);      // never fly upside down
+        if (telling && Math.floor(W.simT * 12) % 2) cx.filter = 'brightness(1.7) saturate(1.4)';
+        cx.drawImage(im, ff * fw, 0, fw, im.naturalHeight, -dw / 2, -dh / 2, dw, dh);
+        cx.restore();
+      } else {
+        cx.fillStyle = telling ? '#FF6B57' : '#7A5CA8';
+        cx.fillRect(e.x, e.y, WALK_W, WALK_H);
+      }
+      continue;
+    }
+    const cw8 = ok(ART.skarnWalk) ? ART.skarnWalk : null;
+    if (ok(cw8)) {
+      /* A DRAWN WALK CYCLE. The first attempt at this cycled the four cells of
+         the old plate, which came back near-identical, so nothing moved; the
+         second faked it with a squash and a counter-rotation, which is a
+         wobble, not a walk. This is a five-frame cycle where the legs are
+         actually drawn stepping, and it is clocked off DISTANCE WALKED rather
+         than off wall time, so the feet keep pace with the body instead of
+         sliding. A small bob is kept on top for weight. */
+      const cells = BUGCELLS;
+      const cw = cw8.naturalWidth / cells, chh = cw8.naturalHeight;
+      const gait = e.x * 0.085;
+      const f = ((Math.floor(-gait) % cells) + cells) % cells;
+      const bob = Math.abs(Math.sin(gait * 1.6)) * 1.1;
+      const dh = WALK_H * 1.55, dw = dh * cw / chh;
+      const fy = (e.floor || FLOOR_Y);
+      cx.fillStyle = 'rgba(40,20,6,' + (0.26 - bob * 0.05) + ')';
+      cx.beginPath();
+      cx.ellipse(e.x + WALK_W / 2, fy - 1.5, WALK_W * 0.5, 2.4, 0, 0, 6.2832);
+      cx.fill();
+      /* NO HAND-ADDED LIFT. The drawn cycle already carries the shell's bob,
+         so subtracting one here lifted it off the floor a second time and the
+         beetle walked on air. `bob` now only drives the shadow, which is what
+         a bob should do. */
+      /* one pad for the whole strip, not one per cell - see stancePad. The
+         scuttle was shot on a locked camera, so the shell's rise and fall
+         between cells is the walk, and measuring each cell separately would
+         iron it flat. */
+      cx.drawImage(cw8, f * cw, 0, cw, chh,
+        e.x + WALK_W / 2 - dw / 2,
+        e.y + WALK_H - dh + dh * stancePad(cw8, cells), dw, dh);
+    } else {
+      cx.fillStyle = '#8B4A2B'; cx.fillRect(e.x, e.y, WALK_W, WALK_H);
+    }
+  }
+
+  /* FLOATING LOSS TEXT - drawn in the play plane so it rises off the body
+     that took the hit, with a dark rim so it reads over any wall. */
+  for (const f of W.floats) {
+    if (f.t <= 0) continue;
+    const u = 1 - f.t / 0.9;
+    cx.save();
+    cx.globalAlpha = Math.min(1, (1 - u) * 2.2);
+    cx.font = '800 17px ui-monospace,monospace';
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.lineJoin = 'round';
+    cx.strokeStyle = 'rgba(16,6,4,.9)'; cx.lineWidth = 4;
+    cx.strokeText(f.txt, f.x, f.y - u * 30);
+    cx.fillStyle = f.hex; cx.fillText(f.txt, f.x, f.y - u * 30);
+    cx.restore();
+  }
+
+  for (const f of W.spawnFx) {
+    if (f.t <= 0) continue;
+    const a = f.t / 0.7;
+    cx.globalAlpha = Math.min(1, a);
+    if (f.kind === 'char') { cx.fillStyle = '#7FE8A0'; }
+    else if (f.kind === 'bad') { cx.fillStyle = '#E8607F'; }
+    else { cx.fillStyle = '#D9D2C4'; }
+    for (let i = 0; i < 6; i++) {
+      const ang = i * 1.047, rr = (1 - a) * 22 + 4;
+      cx.beginPath(); cx.arc(f.x + Math.cos(ang) * rr, f.y + Math.sin(ang) * rr, 3, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+  }
+
+  /* ======================= THE CHEST, AS A SEQUENCE =======================
+     It used to swap the closed plate for the open one at the halfway mark,
+     which is not an animation, it is a cut. The opening is staged now:
+
+       lock   the chest rattles harder and harder while the haul loads
+       burst  a white ring blows out, the lock lets go, sparks fly
+       open   god-rays sweep, the pack rises on an overshoot and settles
+
+     Everything below is driven off openU (0..1) so the whole thing is one
+     readable curve rather than a pile of timers. */
+  /* THE VAULT DOOR, standing behind the chest. Drawn BEFORE it so the chest
+     and everybody celebrating in front of it read on top, which is the right
+     depth order - the door is the back wall of this scene, not a prop in it.
+
+     It swaps to the open plate late in the chest's opening curve rather than
+     the instant the lock goes, so the two events read as cause and effect: the
+     chest opens, the haul is counted, and THEN the far door answers it. The
+     swap is a swap and not a tween because there are two drawn states and no
+     in-between art; a scale-fudge between them would look like the door
+     breathing. What sells it instead is everything around the swap - the light
+     that was not there a moment ago, the dust, and the shake the phase change
+     already carries. */
+  (function () {
+    const opening = (W.phase === 'open' && vaultComing(W) && W.openU > 0.55)
+                 || W.phase === 'vault';
+    const im = opening ? ART.doorOpen : ART.doorShut;
+    if (!ok(im)) return;
+    const dh = DOOR_H, dw = dh * im.naturalWidth / im.naturalHeight;
+    const dx = DOOR_X - dw / 2, dy = FLOOR_Y - dh;
+
+    if (opening) {
+      /* the room behind it, seen through the gap - a warm slab of light that
+         did not exist a second ago, which is what makes the swap land */
+      const g = cx.createLinearGradient(0, dy, 0, FLOOR_Y);
+      g.addColorStop(0, 'rgba(255,226,150,.10)');
+      g.addColorStop(0.45, 'rgba(255,214,120,.62)');
+      g.addColorStop(1, 'rgba(255,196,90,.30)');
+      cx.fillStyle = g;
+      cx.fillRect(dx + dw * 0.24, dy + dh * 0.10, dw * 0.52, dh * 0.90);
+      const halo = cx.createRadialGradient(DOOR_X, dy + dh * 0.52, 2,
+        DOOR_X, dy + dh * 0.52, dh * 0.95);
+      halo.addColorStop(0, 'rgba(255,226,150,.34)');
+      halo.addColorStop(1, 'rgba(255,226,150,0)');
+      cx.fillStyle = halo;
+      cx.fillRect(dx - dw, dy - dh * 0.3, dw * 3, dh * 1.6);
+    }
+
+    cx.fillStyle = 'rgba(30,16,4,.30)';
+    cx.beginPath();
+    cx.ellipse(DOOR_X, FLOOR_Y - 1.2, dw * 0.44, 3.0, 0, 0, 6.2832);
+    cx.fill();
+    cx.drawImage(im, dx, dy, dw, dh);
+  })();
+
+  (function () {
+    const u = W.openU, cy = FLOOR_Y - CHEST_H, cx0 = CHEST_X - CHEST_W / 2;
+    const seg = function (a, b) { return Math.max(0, Math.min(1, (u - a) / (b - a))); };
+    const easeOut = function (t) { return 1 - Math.pow(1 - t, 3); };
+    const back = function (t) {          // overshoot, for the pack
+      const c = 1.9;
+      return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+    };
+
+    /* GOD-RAYS, sweeping out from the lid once it is open */
+    const rayU = seg(0.10, 0.55);
+    if (rayU > 0) {
+      cx.save();
+      cx.translate(CHEST_X, cy + 6);
+      cx.globalCompositeOperation = 'lighter';
+      const spin = W.simT * 0.5;
+      for (let k = 0; k < 9; k++) {
+        const a = spin + k * (Math.PI * 2 / 9);
+        const len = 26 + rayU * 92, w = 0.10 + (k % 3) * 0.03;
+        const g = cx.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+        g.addColorStop(0, 'rgba(255,226,140,' + (0.42 * rayU).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(255,226,140,0)');
+        cx.fillStyle = g;
+        cx.beginPath(); cx.moveTo(0, 0);
+        cx.arc(0, 0, len, a - w, a + w); cx.closePath(); cx.fill();
+      }
+      cx.restore();
+    }
+
+    /* the lit shaft up out of the lid */
+    if (u > 0.06) {
+      const a = seg(0.06, 0.4);
+      const gr = cx.createLinearGradient(0, cy - 78, 0, cy + 8);
+      gr.addColorStop(0, 'rgba(255,232,150,0)');
+      gr.addColorStop(1, 'rgba(255,232,150,' + (0.62 * a).toFixed(3) + ')');
+      cx.fillStyle = gr; cx.beginPath(); cx.moveTo(cx0 + 3, cy + 4);
+      cx.lineTo(cx0 - 24, cy - 80); cx.lineTo(cx0 + CHEST_W + 24, cy - 80);
+      cx.lineTo(cx0 + CHEST_W - 3, cy + 4); cx.fill();
+    }
+
+    /* THE LOCK CHARGING, while the haul goes in */
+    if (W.phase === 'spend' || W.phase === 'lock') {
+      const chg = W.total ? W.banked / W.total : 1;
+      const pulse = W.phase === 'lock' ? 1 + Math.sin(W.phaseT * 40) * 0.4 : 1;
+      const g = cx.createRadialGradient(CHEST_X, cy + 20, 1, CHEST_X, cy + 20, 50 * pulse);
+      g.addColorStop(0, 'rgba(255,238,170,' + (0.95 * chg * pulse).toFixed(3) + ')');
+      g.addColorStop(0.5, 'rgba(255,200,90,' + (0.4 * chg).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,200,90,0)');
+      cx.fillStyle = g; cx.fillRect(CHEST_X - 56, cy - 38, 112, 94);
+    }
+
+    cx.fillStyle = 'rgba(40,20,6,.34)';
+    cx.beginPath(); cx.ellipse(CHEST_X, FLOOR_Y - 1.5, CHEST_W * 0.56, 3.4, 0, 0, 6.2832); cx.fill();
+
+    /* the chest itself, swapping to the open plate the instant the lock goes,
+       with a squash-and-settle so the lid has weight */
+    const im = (u >= 0.02 && ok(ART.chestOpen)) ? ART.chestOpen : ART.chest;
+    if (ok(im)) {
+      const pop = 1 + Math.sin(Math.min(1, seg(0, 0.16)) * Math.PI) * 0.12;
+      const dw = CHEST_W * 1.22 * pop, dh = dw * im.naturalHeight / im.naturalWidth;
+      cx.drawImage(im, CHEST_X - dw / 2, FLOOR_Y - dh + 1, dw, dh);
+    } else {
+      cx.fillStyle = '#8A5A2E'; cx.fillRect(cx0, cy, CHEST_W, CHEST_H);
+    }
+
+    /* THE PACK, rising on an overshoot and settling */
+    const pu = seg(0.18, 0.78);
+    if (pu > 0) {
+      const e = back(pu);
+      const pw = 21, ph = 29;
+      const py = cy + 6 - e * 46;
+      cx.save();
+      cx.translate(CHEST_X, py);
+      cx.rotate(Math.sin(pu * Math.PI * 1.5) * 0.13 * (1 - pu));
+      const sc = 0.55 + 0.45 * Math.min(1, pu * 2.2);
+      cx.scale(sc, sc);
+      const halo = cx.createRadialGradient(0, 0, 2, 0, 0, 34);
+      halo.addColorStop(0, 'rgba(255,236,170,.5)');
+      halo.addColorStop(1, 'rgba(255,236,170,0)');
+      cx.fillStyle = halo; cx.beginPath(); cx.arc(0, 0, 34, 0, 6.2832); cx.fill();
+      cx.fillStyle = '#E8B94A'; cx.fillRect(-pw / 2 - 2, -ph / 2 - 2, pw + 4, ph + 4);
+      cx.fillStyle = '#27427C'; cx.fillRect(-pw / 2, -ph / 2, pw, ph);
+      cx.fillStyle = '#4E74BC'; cx.fillRect(-pw / 2 + 2.5, -ph / 2 + 2.5, pw - 5, 6);
+      cx.fillStyle = '#F2C75B';
+      cx.beginPath(); cx.arc(0, 2, 5.6, 0, 6.2832); cx.fill();
+      cx.strokeStyle = '#101C36'; cx.lineWidth = 1.5;
+      cx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+      cx.restore();
+    }
+
+    /* THE BURST RING, the frame the lock lets go */
+    if (W.burst > 0) {
+      const b = 1 - W.burst;
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      cx.strokeStyle = 'rgba(255,244,200,' + (W.burst * 0.9).toFixed(3) + ')';
+      cx.lineWidth = 4 * W.burst + 0.6;
+      cx.beginPath(); cx.arc(CHEST_X, cy + 12, 8 + b * 78, 0, 6.2832); cx.stroke();
+      cx.restore();
+    }
+  })();
+
+  /* THE SPEND: coins in flight, each with a short trail so a stream of them
+     reads as a STREAM and not as a row of dots. */
+  for (const f of W.flyers) {
+    if (f.u >= 1) continue;
+    for (let t = 3; t >= 1; t--) {
+      const uu = Math.max(0, f.u - t * 0.035);
+      const e2 = uu * uu * (3 - 2 * uu);
+      const tx = f.x0 + (CHEST_X - f.x0) * e2;
+      const ty = f.y0 + ((FLOOR_Y - CHEST_H + 12) - f.y0) * e2 - Math.sin(uu * Math.PI) * f.lift;
+      cx.globalAlpha = 0.15 * (4 - t);
+      cx.fillStyle = '#FFD860';
+      cx.beginPath(); cx.arc(tx, ty, COIN_R * (0.30 + 0.11 * (4 - t)), 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    if (ok(ART.coin)) {
+      const cw = ART.coin.naturalWidth / 6, chh = ART.coin.naturalHeight;
+      const fr = Math.floor((W.simT * 16 + f.x0) % 6);
+      const dh = COIN_R * 2.9, dw = dh * cw / chh;
+      cx.drawImage(ART.coin, fr * cw, 0, cw, chh, f.x - dw / 2, f.y - dh / 2, dw, dh);
+    } else {
+      cx.fillStyle = '#F5C518';
+      cx.beginPath(); cx.ellipse(f.x, f.y, COIN_R * 0.7, COIN_R, 0, 0, 6.2832); cx.fill();
+    }
+  }
+
+  /* sparks, from the burst and from every coin that lands */
+  for (const k of W.sparks) {
+    const a = k.t / k.t0;
+    cx.globalAlpha = a;
+    cx.fillStyle = a > 0.55 ? '#FFF6D8' : '#F5C518';
+    cx.beginPath(); cx.arc(k.x, k.y, k.r * (0.4 + a * 0.8), 0, 6.2832); cx.fill();
+    cx.globalAlpha = 1;
+  }
+
+  /* THE CAST. Painted plates from the established library: the run strips are
+     six-cell rows played off his ACTUAL horizontal speed, so the legs move
+     because he is moving. A body with no strip falls back to its idle plate,
+     and a body with no plate at all falls back to a coloured box - the rig
+     never depends on the art existing. */
+  const order = W.party.slice().sort(function (a, b) { return a.x - b.x; });
+  for (const r of order) {
+    const idle = ART[r.id], run = ART[r.id + 'Run'], hurt = ART[r.id + 'Hurt'];
+    const sq = r.out ? 0 : Math.max(-0.14, Math.min(0.14, -r.vy / 3600));
+    /* his shadow on the floor, so he is standing ON the temple not in front */
+    /* HIS OWN FLOOR. Pinned to FLOOR_Y the shadow stayed on the middle road
+       while the body was up on the deck or down in the tunnel - the shadow of
+       somebody else. It tracks the last surface he actually stood on and
+       shrinks as he rises off it, which is also what sells the jump height. */
+    if (r.onGround) r.shadowY = r.y + BODY_H;
+    const shY = r.shadowY === undefined ? FLOOR_Y : r.shadowY;
+    const lift = Math.max(0, Math.min(1, (shY - (r.y + BODY_H)) / 70));
+    cx.fillStyle = 'rgba(40,20,6,' + (0.30 * (1 - lift * 0.70)) + ')';
+    cx.beginPath();
+    cx.ellipse(r.x + BODY_W / 2, shY - 1.5,
+      BODY_W * 0.52 * (1 - lift * 0.32), 2.8 * (1 - lift * 0.32), 0, 0, 6.2832);
+    cx.fill();
+
+    const air = ART[r.id + 'Air'];
+    const cheer = ART[r.id + 'Cheer'];
+    let im = null, cells = 1, cell = 0;
+    /* THEY CELEBRATE WHEN THEY WIN. Everyone who reached the chest stood in
+       their idle pose through the entire payout - the one moment in the run
+       that is unambiguously good and nobody on screen reacted to it. The
+       drawn five-frame jump-and-cheer strip plays once the chest is open and
+       then holds on its last frame. */
+    if (!r.out && W.phase !== 'run' && W.phase !== 'gather' && ok(cheer)) {
+      /* the cheer LOOPS while the payout runs - it is a bounce, and a bounce
+         that stops on its last frame is a body that froze mid-air. Played at
+         the strip's OWN rate, not a shared one: see CHEER. */
+      const ch = cheerOf(r.id);
+      im = cheer; cells = ch.cells;
+      cell = Math.floor((W.phaseT || 0) * ch.fps) % ch.cells;
+    }
+    else if (r.out && ok(hurt)) {
+      /* CAUGHT, PLAYED ONCE. Startle, hands up, struggle, slump, sulk - it
+         runs through from the instant he was caught and then holds on the
+         sulk, which is where he stays for the rest of the round. */
+      im = hurt; cells = CAUGHTCELLS;
+      cell = Math.min(CAUGHTCELLS - 1,
+        Math.floor(Math.max(0, W.simT - (r.outT || 0)) * 11));
+    }
+    else if (!r.out && ok(air) && (r.anim === 'jump-up' || r.anim === 'jump-down' || r.anim === 'land')) {
+      /* THE AIR POSES ARE READ OFF PHYSICS like everything else: rising picks
+         the leap, falling picks the tuck, the first 130ms after a landing
+         picks the crouch. A character without an air strip falls back to his
+         idle plate, so the rig never depends on the art existing. */
+      /* THE JUMP IS READ OFF VERTICAL SPEED, NOT OFF A TIMER. Six drawn cells
+         - crouch, launch, apex, fall, land, recover - and which one shows is
+         decided by what the body is actually doing: hard rising picks the
+         launch, coasting near the top picks the tuck, dropping picks the reach
+         for the ground, and the two after touchdown are the squash and the
+         stand. Tie it to a clock instead and the pose drifts out of step with
+         the arc the moment the jump is cut short. */
+      im = air; cells = JUMPCELLS;
+      cell = r.anim === 'jump-up' ? (r.vy < -260 ? 0 : 1)
+        : r.anim === 'jump-down' ? (r.vy < 200 ? 1 : 2)
+        : (r.sinceLand < 0.06 ? 3 : 4);
+    } else if (!r.out && r.onGround && Math.abs(r.vx) > 18 && ok(run)) {
+      im = run; cells = RUNCELLS;
+      cell = Math.floor(r.x / RUN_STEP) % RUNCELLS;  // stride tied to distance
+      if (cell < 0) cell += RUNCELLS;
+    } else if (ok(idle)) im = idle;
+
+    cx.globalAlpha = (r.flash > 0 && Math.floor(r.flash * 16) % 2) ? 0.42 : 1;
+    if (im) {
+      const cw = im.naturalWidth / cells, chh = im.naturalHeight;
+      /* one scale for the whole cast so nobody is accidentally bigger */
+      const dh = BODY_H * 1.72 * (1 + sq), dw = dh * cw / chh;
+      const dx = r.x + BODY_W / 2 - dw / 2;
+      const dy = r.y + BODY_H - dh + dh * stancePad(im, cells);
+      cx.save();
+      /* EVERY CAST PLATE IS DRAWN FACING LEFT - the run strips, the air strip,
+         all three characters. So the flip happens when he is moving RIGHT, not
+         left. Unflipped he was drawn facing backwards while running forwards,
+         which reads exactly like the animation playing in reverse. */
+      if (r.face > 0) { cx.translate(dx + dw / 2, 0); cx.scale(-1, 1); cx.translate(-(dx + dw / 2), 0); }
+      if (r.out) cx.filter = 'grayscale(1) brightness(0.82)';
+      cx.drawImage(im, cell * cw, 0, cw, chh, dx, dy, dw, dh);
+      cx.restore();
+    } else {
+      cx.fillStyle = r.out ? '#8C8C8C' : r.hex;
+      cx.fillRect(r.x, r.y, BODY_W, BODY_H);
+    }
+    cx.globalAlpha = 1;
+  }
+  cx.restore();
+
+  /* THE FOREGROUND, at 1.30x - faster than the play plane, so the parallax
+     reads as depth rather than as a flat backdrop with a character on it. */
+  if (ok(ART.fore)) {
+    const im = ART.fore;
+    /* SHORT. At 0.30 of the canvas it covered the pit mouth, and the pit is
+       where beat 3 happens - a foreground that hides the drama is decoration
+       working against the game. */
+    const H = cv.height * 0.185, W2 = im.naturalWidth * H / im.naturalHeight;
+    let x = -((cam.x * 1.30 * SCALE / 3) % W2);
+    /* IT STEPS ASIDE OVER THE TUNNEL. This band is ground-level clutter -
+       barrels, rocks, grass - drawn against the bottom of the frame. Once the
+       sunken lane existed, the bottom of the frame stopped being ground and
+       became a passage with a runner in it, so the props were standing in mid
+       air across the tunnel mouth and burying whoever took the low road.
+       Where the ground is cut away there is nothing to stand on, so the
+       foreground is clipped out of the tunnel's span. */
+    const tx0 = (LOW_RUN[0][0] - cam.x) * SCALE;
+    const tx1 = (LOW_RUN[LOW_RUN.length - 1][1] - cam.x) * SCALE;
+    cx.save();
+    cx.beginPath();
+    cx.rect(0, 0, Math.max(0, Math.min(cv.width, tx0)), cv.height);
+    cx.rect(Math.max(0, Math.min(cv.width, tx1)), 0,
+      Math.max(0, cv.width - Math.max(0, Math.min(cv.width, tx1))), cv.height);
+    cx.clip();
+    cx.globalAlpha = 0.97;
+    while (x < cv.width) { cx.drawImage(im, x, cv.height - H, W2, H); x += W2 - 1; }
+    cx.globalAlpha = 1;
+    cx.restore();
+  }
+
+  /* ========================= THE VAULT CHAMBER ==========================
+     Drawn as a full-screen SCENE rather than as a place in the level, and that
+     is a deliberate limit rather than a shortcut. The level's geometry, its
+     camera and the sealed profile it is built from are all load-bearing;
+     carving a real room into them to show a thing that happens after the run
+     is over would put the riskiest possible change next to the part of this
+     build nobody is allowed to touch. An overlay costs nothing and can be
+     removed in one line.
+
+     The scrim is the important detail. The plate is a bright gold room and
+     TIBBO is a bright orange jerboa, so painted straight the cast would sink
+     into the wall behind them. It is knocked back with a warm scrim and a
+     vignette - the same move the main temple already makes over its far layer
+     - so the room stays rich but the bodies read against it. */
+  if (W.phase === 'vault') drawVault(W);
+
+  /* ============================ THE CHROME ==============================
+     Drawn in SCREEN space, outside the shaken play plane. Everything here is
+     built from the same three primitives - a rounded panel with a lit top
+     edge, a gold-stroked pill, and a number with a dark rim - so the HUD reads
+     as one designed set rather than three unrelated boxes.
+
+     Panels sit on the safe margins, values pop when they change, and the beat
+     rail across the top says where you are in the run without a word of copy. */
+
+  /* A PAINTED FRAME, 3-SLICED. Drawing the panel with roundRect and a stroke
+     was the programmer-art shortcut; this is the generated plate, cut into a
+     left cap, a stretched middle and a right cap so the carved gold corners
+     and the turquoise studs keep their proportions at any width. Content is
+     then laid ON it - frame, then recess, then value - which is the layering
+     the whole HUD is built from. */
+  function panel(x, y, w, h, r, a) {
+    const im = ART.uiPanel;
+    cx.save();
+    if (a !== undefined) cx.globalAlpha = a;
+    if (ok(im)) {
+      const cap = Math.round(im.naturalWidth * 0.17);
+      const capW = Math.min(w * 0.42, h * cap / im.naturalHeight);
+      cx.drawImage(im, 0, 0, cap, im.naturalHeight, x, y, capW, h);
+      cx.drawImage(im, cap, 0, im.naturalWidth - cap * 2, im.naturalHeight,
+        x + capW, y, Math.max(1, w - capW * 2), h);
+      cx.drawImage(im, im.naturalWidth - cap, 0, cap, im.naturalHeight,
+        x + w - capW, y, capW, h);
+    } else {
+      cx.fillStyle = 'rgba(28,18,10,.9)';
+      cx.beginPath();
+      if (cx.roundRect) cx.roundRect(x, y, w, h, r); else cx.rect(x, y, w, h);
+      cx.fill();
+    }
+    cx.restore();
+  }
+  function bigNum(txt, x, y, size, fill) {
+    cx.font = '800 ' + size + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
+    cx.lineJoin = 'round';
+    cx.strokeStyle = 'rgba(12,7,3,.92)'; cx.lineWidth = size * 0.22;
+    cx.strokeText(txt, x, y);
+    cx.fillStyle = fill; cx.fillText(txt, x, y);
+  }
+
+  /* ---------------- LAYER 0: SEPARATE THE CARD FROM THE STAGE. It read as a
+     sticker pasted on a busy temple, so a scrim sinks the level behind it.
+     This fires HERE, before the tracker and the rail, because chrome belongs
+     on top of everything - dimming the level and the HUD together was the
+     same mistake as shaking the HUD with the world. --------------------- */
+  if (W.phase !== 'run') {
+    const su = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
+    cx.save();
+    cx.globalAlpha = (1 - Math.pow(1 - su, 3)) * 0.58;
+    cx.fillStyle = '#0B0704';
+    cx.fillRect(0, 0, cv.width, cv.height);
+    cx.restore();
+  }
+
+  /* ---------------- the run tracker: coins, and what the multiplier is made
+     of. Both cells pop when they change, which is the whole reason the number
+     feels like it is accumulating rather than just being displayed. ------- */
+  (function () {
+    const m = liveMult(W);
+    const cp = W.coinPulse ? W.coinPulse / 0.28 : 0;
+    const mp = W.multPulse ? W.multPulse / 0.6 : 0;
+    const PX = 16, PY = 14, PW = 196, PH = 46;
+    panel(PX, PY, PW, PH, 13);
+
+    cx.save();
+    cx.translate(PX + 30, PY + PH / 2);
+    cx.scale(1 + cp * 0.34, 1 + cp * 0.34);
+    if (ok(ART.coin)) {
+      const cw = ART.coin.naturalWidth / 6;
+      const dh = 30, dw = dh * cw / ART.coin.naturalHeight;
+      const fr = Math.floor((W.simT * 8) % 6);
+      cx.drawImage(ART.coin, fr * cw, 0, cw, ART.coin.naturalHeight, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      cx.fillStyle = '#F5C518';
+      cx.beginPath(); cx.ellipse(0, 0, 8, 12, 0, 0, 6.2832); cx.fill();
+    }
+    cx.restore();
+
+    cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
+    bigNum(String(W.coinsGot), PX + 50, PY + 32, 25, cp > 0 ? '#FFF6D0' : '#FFD860');
+
+    /* what the multiplier is MADE of: a chip per body, a star per star */
+    let px = PX + 104;
+    for (const b of W.party) {
+      cx.fillStyle = b.out ? 'rgba(150,150,150,.45)' : b.hex;
+      cx.beginPath();
+      if (cx.roundRect) cx.roundRect(px, PY + 16, 8, 13, 2.5); else cx.rect(px, PY + 16, 8, 13);
+      cx.fill();
+      cx.strokeStyle = 'rgba(12,7,3,.7)'; cx.lineWidth = 1; cx.stroke();
+      px += 11;
+    }
+    for (let k = 0; k < W.stars; k++) {
+      cx.fillStyle = '#FFE27A';
+      cx.beginPath();
+      for (let q = 0; q < 10; q++) {
+        const a = -Math.PI / 2 + q * Math.PI / 5, rr = q % 2 ? 2.4 : 5.6;
+        cx[q ? 'lineTo' : 'moveTo'](px + 5 + Math.cos(a) * rr, PY + 23 + Math.sin(a) * rr);
+      }
+      cx.closePath(); cx.fill();
+      cx.strokeStyle = 'rgba(120,80,0,.8)'; cx.lineWidth = 1; cx.stroke();
+      px += 12;
+    }
+
+    cx.save();
+    cx.translate(PX + PW - 22, PY + PH / 2);
+    cx.scale(1 + mp * 0.5, 1 + mp * 0.5);
+    cx.textAlign = 'right';
+    bigNum('\u00d7' + m, 0, 9, 24, m > 1 ? (mp > 0 ? '#FFFFFF' : '#8CF0AE') : 'rgba(255,255,255,.55)');
+    cx.restore();
+  })();
+
+  /* ---------------- the beat rail: three nodes across the top. Done nodes
+     fill in, the live one glows and breathes. No copy on the stage. ------- */
+  (function () {
+    const N = 3, RW = 210, x0 = cv.width / 2 - RW / 2, y = 30;
+    cx.strokeStyle = 'rgba(255,232,180,.22)'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(x0, y); cx.lineTo(x0 + RW, y); cx.stroke();
+    let doneN = 0;
+    for (const b of W.beats) if (b.done) doneN++;
+    cx.strokeStyle = 'rgba(240,200,110,.95)'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(x0, y);
+    cx.lineTo(x0 + RW * (doneN / N), y); cx.stroke();
+    for (let k = 0; k < N; k++) {
+      const px = x0 + (RW / (N - 1)) * k;
+      const b = W.beats[k];
+      const live = !b.done && (k === 0 || W.beats[k - 1].done);
+      const pulse = live ? 1 + Math.sin(W.simT * 5) * 0.16 : 1;
+      const bad = b.verdict === 'out' || (b.verdict && String(b.verdict).indexOf('0 of') === 0);
+      cx.beginPath(); cx.arc(px, y, 9 * pulse, 0, 6.2832);
+      cx.fillStyle = b.done ? (bad ? '#C4574F' : '#5FD08A')
+                   : live ? 'rgba(240,200,110,.95)' : 'rgba(60,42,26,.9)';
+      cx.fill();
+      cx.strokeStyle = 'rgba(16,10,5,.85)'; cx.lineWidth = 2; cx.stroke();
+      if (b.done) {                                   // a tick or a cross
+        cx.strokeStyle = '#12240F'; cx.lineWidth = 2.4; cx.lineCap = 'round';
+        cx.beginPath();
+        if (bad) { cx.moveTo(px - 3.4, y - 3.4); cx.lineTo(px + 3.4, y + 3.4);
+                   cx.moveTo(px + 3.4, y - 3.4); cx.lineTo(px - 3.4, y + 3.4); }
+        else { cx.moveTo(px - 3.8, y); cx.lineTo(px - 1, y + 3.2); cx.lineTo(px + 4, y - 3.4); }
+        cx.stroke(); cx.lineCap = 'butt';
+      }
+    }
+  })();
+
+  /* ---------------- the payout card. Slides down, counts up, and lands on a
+     tier ribbon in the tier's own colour. ------------------------------- */
+  /* NOT DURING THE VAULT. The card is the payout stated as a number, and the
+     vault is the same payout stated as a room - running both at once means the
+     number covers the thing it is describing, and on the left third it sat
+     squarely on top of whoever was standing there. The room gets the screen to
+     itself, then the card lands on the way out. */
+  if (W.phase !== 'run' && W.phase !== 'vault') {
+    const shown = Math.min(W.banked, W.total);
+    const done = W.phase === 'open' || W.phase === 'done';
+    const inU = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
+    const slide = (1 - Math.pow(1 - inU, 3));
+    /* THE CARD SITS BESIDE THE CHEST, NOT ON TOP OF IT. Centred, it covered
+       the chest and every celebrating character with it - the payout hid the
+       thing the payout is about. It is on the left third now, and the chest
+       and the cast sit clear of it on the right. */
+    const PW = 316, PH = 236;
+    /* CLEAR OF THE TRACKER. Moved to the left margin the card landed on top
+       of the HUD panel, which lives in the same corner - the haul was drawn
+       over the coin counter and both read as broken. It sits at the vertical
+       middle of the stage now, so the chrome keeps the top strip and the card
+       has the flank to itself, and it slides in from the left rather than
+       down through the tracker. */
+    const PX = Math.round(cv.width * 0.045) - (1 - slide) * 210;
+    const PY = Math.round((cv.height - PH) * 0.56);
+
+    cx.save();
+    cx.globalAlpha = Math.min(1, slide * 1.3);
+    const CXm = PX + PW / 2;                    // the card's own centre line
+    const bloom = cx.createRadialGradient(CXm, PY + PH * 0.45, 10,
+      CXm, PY + PH * 0.45, PW * 0.78);
+    bloom.addColorStop(0, 'rgba(255,206,110,.42)');
+    bloom.addColorStop(0.55, 'rgba(214,140,52,.16)');
+    bloom.addColorStop(1, 'rgba(214,140,52,0)');
+    cx.fillStyle = bloom;
+    cx.fillRect(CXm - PW, PY - PH * 0.3, PW * 2, PH * 1.7);
+
+    /* LAYER 1 - the painted frame, with its own drop shadow */
+    cx.shadowColor = 'rgba(0,0,0,.55)'; cx.shadowBlur = 22; cx.shadowOffsetY = 8;
+    if (ok(ART.uiCard)) cx.drawImage(ART.uiCard, PX, PY, PW, PH);
+    else panel(PX, PY, PW, PH, 16);
+    cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0;
+
+    /* LAYER 2 - THE SAFE AREAS, MEASURED OFF THE PLATE ITSELF.
+       Every value on this card was placed by a guessed fraction of the card's
+       height, and the guesses were wrong: a 54px haul on a baseline at 0.44
+       reached up to 0.21, which is out of the recess entirely and into the
+       gold crown - the score really was being drawn outside the frame. The
+       four numbers below are the painted opening and the painted banner,
+       scanned off tp-ui-card.png (contiguous dark interior 0.342-0.687 of
+       height by 0.156-0.844 of width; cream banner 0.696-0.842 by
+       0.306-0.694). Everything is laid out INSIDE them and centred with
+       textBaseline 'middle', so no value can drift out of the art. */
+    const oX = PX + PW * 0.156, oW = PW * 0.688;
+    const oY = PY + PH * 0.342, oH = PH * 0.345;
+    const bX = PX + PW * 0.306, bW = PW * 0.388;
+    const bMid = PY + PH * 0.769;
+    cx.fillStyle = 'rgba(24,12,4,.30)';
+    cx.beginPath();
+    if (cx.roundRect) cx.roundRect(oX, oY, oW, oH, 8); else cx.rect(oX, oY, oW, oH);
+    cx.fill();
+
+    /* LAYER 3 - the haul, counting up, popping on every coin that lands */
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const pop = 1 + (W.hudPop || 0) * 0.18;
+    cx.save();
+    cx.translate(oX + oW / 2, oY + oH * 0.37);
+    cx.scale(pop, pop);
+    /* IT HAS TO FIT. The size was hard-coded at 54px, so a four-figure haul
+       ran straight out through the sides of the recess and the payout - the
+       one number the whole run is for - read as broken. It is measured against
+       the recess and stepped down until it sits inside it. */
+    /* fitted to the opening in BOTH axes, and divided by the pop so that a
+       number pulsing on a landed coin cannot punch through the frame at the
+       top of its bounce */
+    let fs = Math.min(oH * 0.54, 54) / pop;
+    cx.font = '800 ' + fs + 'px ui-monospace,monospace';
+    while (fs > 14 && cx.measureText(String(shown)).width > oW * 0.88 / pop) {
+      fs -= 1; cx.font = '800 ' + fs + 'px ui-monospace,monospace';
+    }
+    bigNum(String(shown), 0, 0, fs, '#FFE27A');
+    cx.restore();
+
+    /* LAYER 4 - the arithmetic that produced it */
+    const sumTxt = W.coinsGot + '  ×' + W.mult
+      + (W.stars ? '   (' + aliveParty(W).length + '+' + W.stars + '★)' : '  party');
+    let sfs = Math.min(13, oH * 0.20);
+    cx.font = '600 ' + sfs + 'px ui-monospace,monospace';
+    while (sfs > 7 && cx.measureText(sumTxt).width > oW * 0.92) {
+      sfs -= 0.5; cx.font = '600 ' + sfs + 'px ui-monospace,monospace';
+    }
+    cx.fillStyle = 'rgba(255,244,214,.95)';
+    cx.fillText(sumTxt, oX + oW / 2, oY + oH * 0.83);
+
+    /* LAYER 5 - the tier, on the frame's own banner, in its own colour */
+    if (done && W.tier) {
+      /* ON THE BANNER, filling it. The tier hex is picked to read against the
+         dark stage, not against cream vellum - SANCTUM's pink vanished into
+         the ribbon. It gets a dark carved rim and a lit top edge so it sits
+         IN the banner the way stamped lettering would. */
+      /* ON the banner and inside its painted ends. It used to sit on a
+         baseline at 0.845 against a ribbon that stops at 0.842, so the word
+         hung off the bottom of the scroll and ran past both of its ends. */
+      const ty = bMid;
+      let tfs = Math.min(PH * 0.146 * 0.72, 24);
+      cx.font = '800 ' + tfs + 'px ui-monospace,monospace';
+      while (tfs > 9 && cx.measureText(W.tier.name).width > bW * 0.90) {
+        tfs -= 0.5; cx.font = '800 ' + tfs + 'px ui-monospace,monospace';
+      }
+      cx.lineJoin = 'round';
+      cx.strokeStyle = 'rgba(52,28,8,.92)'; cx.lineWidth = Math.max(3, tfs * 0.26);
+      cx.strokeText(W.tier.name, bX + bW / 2, ty);
+      const tg = cx.createLinearGradient(0, ty - tfs * 0.6, 0, ty + tfs * 0.5);
+      tg.addColorStop(0, '#FFF3C8'); tg.addColorStop(0.55, W.tier.hex);
+      tg.addColorStop(1, 'rgba(90,44,10,.95)');
+      cx.fillStyle = tg;
+      cx.fillText(W.tier.name, bX + bW / 2, ty);
+    }
+    cx.restore();
+  }
+}
+
+/* ------------------------------- input ------------------------------------ */
+const keys = Object.create(null);
+addEventListener('keydown', function (e) {
+  if (['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) e.preventDefault();
+  keys[e.code] = true;
+  if (e.code === 'KeyD') { W.driverOn = !W.driverOn; }
+  if (e.code === 'KeyR') restart();
+  if (e.code === 'KeyP') W.paused = !W.paused;
+  /* Shift+F as asked for, and bare F too - there is nothing else on F and
+     having to hold a modifier to get a bigger picture is a small tax to pay
+     every time */
+  if (e.code === 'KeyF') { e.preventDefault(); toggleFull(); }
+});
+addEventListener('keyup', function (e) { keys[e.code] = false; });
+function humanInput() {
+  return { left: !!(keys.ArrowLeft || keys.KeyA), right: !!(keys.ArrowRight || keys.KeyL),
+    jump: !!(keys.Space || keys.ArrowUp || keys.KeyW) };
+}
+
+/* ------------------------------- the loop --------------------------------- */
+let W = makeWorld(SEED);
+let acc = 0, last = null;
+function frame(ts) {
+  schedule();
+  if (last === null) last = ts;
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt > 0.25) dt = 0.25;
+  if (W.paused) { draw(W); return; }
+  acc += dt;
+  let guard = 0;
+  while (acc >= STEP && guard++ < 8) { acc -= STEP; advance(W); }
+  driveCamera(W, VIEW_W, dt);
+  draw(W); hud();
+}
+
+const VERD = { clear: 'good', out: 'bad' };
+function hud() {
+  const L = leaderOf(W), alive = aliveParty(W).length;
+  document.getElementById('h-party').textContent = alive + ' of ' + W.party.length;
+  document.getElementById('h-lead').textContent = L.out ? '—' : L.id;
+  document.getElementById('h-anim').textContent = L.anim;
+  document.getElementById('h-x').textContent = L.x.toFixed(0);
+  document.getElementById('h-vy').textContent = L.vy.toFixed(0);
+  document.getElementById('h-t').textContent = W.simT.toFixed(2) + 's';
+  document.getElementById('h-coins').textContent =
+    W.coinsGot + ' ×' + liveMult(W) + (W.stars ? ' (' + W.stars + '★)' : '');
+  document.getElementById('h-seed').textContent = W.seed;
+  document.getElementById('h-st').textContent =
+      W.phase === 'done' ? (W.tier.name + '  ' + W.total)
+    : W.phase === 'open' ? 'the chest opens'
+    : W.phase === 'lock' ? 'the lock gives'
+    : W.phase === 'spend' ? 'spending ' + W.banked + '/' + W.total
+    : W.phase === 'gather' ? (W.how === 'wiped' ? 'the camera goes on alone' : 'at the chest')
+    : W.driverOn ? 'running' : 'running (keyboard)';
+  const label = [
+    W.beats[0].verdict === 'out' ? 'he did not make it' : W.beats[0].verdict === 'clear' ? 'he got over it' : null,
+    W.beats[1].verdict,
+    W.beats[2].verdict ? W.beats[2].verdict + ' made it over' : null,
+  ];
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('bt' + i);
+    const sp = el.querySelector('span');
+    sp.textContent = label[i] || '—';
+    sp.className = W.beats[i].verdict === 'out' ? 'bad'
+      : W.beats[i].verdict === 'clear' ? 'good' : 'mid';
+    el.className = 'bt' + (W.beats[i].done ? ' done' : (i === 0 || W.beats[i - 1].done ? ' live' : ''));
+  }
+}
+
+function restart() { W = makeWorld(SEED); acc = 0; }
+/* ------------------------------- FULL SCREEN -----------------------------
+   Real fullscreen where it exists, a pinned-canvas fallback where it does
+   not. Vendor prefixes are still required: Safari has never unprefixed this,
+   and the iPhone exposes NEITHER, which is what the fallback is for. */
+function fsElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+function fsSupported() {
+  return !!(cv.requestFullscreen || cv.webkitRequestFullscreen);
+}
+/* DO NOT TRUST THE FULLSCREEN API - CHECK WHETHER IT ACTUALLY WENT FULLSCREEN.
+   The first version asked `requestFullscreen` and assumed the only two
+   outcomes were "it worked" and "the promise rejected". There is a third, and
+   it is the common one: inside an embedded view - the desktop app's browser
+   pane, an in-app webview, any iframe served without allow="fullscreen" - the
+   method EXISTS, reports itself supported, returns without throwing, and then
+   silently does nothing at all. No element, no rejection, no error. So every
+   check the old code made passed and the button did nothing, which is exactly
+   what you saw.
+
+   The fix is to stop asking the API whether it succeeded and look at the
+   document instead: fire the request, then a moment later check whether there
+   really is a fullscreen element, and if there is not, blow the canvas up with
+   CSS. That one path covers the silent no-op, an async rejection, a synchronous
+   throw, and browsers with no API at all (iPhone Safari has never had one for
+   anything but <video>) - so the button always does something. */
+function blowUp(on) {
+  document.body.classList.toggle('blownup', on);
+  syncFullBtn();
+}
+function toggleFull() {
+  if (fsElement()) {                                   // leave real fullscreen
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    try { exit.call(document); } catch (e) { }
+    return;
+  }
+  if (document.body.classList.contains('blownup')) return blowUp(false);
+
+  const req = fsSupported() && (cv.requestFullscreen || cv.webkitRequestFullscreen);
+  if (!req) return blowUp(true);                        // no API at all
+  let asked = false;
+  try {
+    const r = req.call(cv);
+    asked = true;
+    if (r && r.catch) r.catch(function () { blowUp(true); });
+  } catch (e) { }
+  if (!asked) return blowUp(true);
+  /* the verification. 220ms is long enough for a real transition to have
+     registered and short enough that a failure still feels like the click */
+  setTimeout(function () { if (!fsElement()) blowUp(true); }, 220);
+}
+function syncFullBtn() {
+  const on = !!fsElement() || document.body.classList.contains('blownup');
+  const b = document.getElementById('btn-fs');
+  if (!b) return;
+  b.textContent = on ? 'exit full screen' : 'full screen';
+  b.classList.toggle('on', on);
+}
+document.getElementById('btn-fs').onclick = toggleFull;
+document.getElementById('btn-fsx').onclick = function () {
+  document.body.classList.remove('blownup');
+  syncFullBtn();
+};
+addEventListener('fullscreenchange', syncFullBtn);
+addEventListener('webkitfullscreenchange', syncFullBtn);
+/* Escape leaves real fullscreen on its own, but not the CSS fallback */
+addEventListener('keydown', function (e) {
+  if (e.code === 'Escape' && document.body.classList.contains('blownup')) {
+    document.body.classList.remove('blownup');
+    syncFullBtn();
+  }
+});
+syncFullBtn();
+
+document.getElementById('btn-rst').onclick = restart;
+document.getElementById('btn-roll').onclick = function () {
+  SEED = 'beats-' + Math.floor(Math.random() * 100000); W = makeWorld(SEED); acc = 0;
+};
+/* ----------------------- FORCING AN OUTCOME ------------------------------
+   These buttons do NOT set the result. They cannot: the outcome is drawn in
+   the sealed region before the first frame, and reaching in to overwrite it
+   would mean every beat after it - the coins on the floor, the lanes, the
+   tier, the payout - was describing something that had not actually been
+   drawn. The whole build rests on those agreeing.
+
+   So the button SEARCHES instead. It rolls seeds, runs each one headlessly to
+   completion through exactly the same code the live game uses, and stops at
+   the first one that happens to produce what you asked for. What you get back
+   is an ordinary seed that genuinely plays out that way, which means it is
+   replay-identical, it can be shared, and nothing downstream has been lied to.
+
+   The seed is printed next to the buttons for exactly that reason. */
+function forceOutcome(test, label, btn) {
+  const TRIES = 600;
+  const note = document.getElementById('force-note');
+  if (btn) btn.classList.add('hunting');
+  note.textContent = 'searching...';
+  /* let the disabled state paint before the search blocks the thread */
+  setTimeout(function () {
+    let found = null, tried = 0;
+    for (; tried < TRIES && !found; tried++) {
+      const seed = 'beats-' + Math.floor(Math.random() * 1000000);
+      const r = window.__probe.run(seed, 60);
+      if (test(r)) found = { seed: seed, r: r };
+    }
+    if (btn) btn.classList.remove('hunting');
+    if (!found) {
+      note.textContent = label + ': no seed in ' + TRIES + ' tries';
+      return;
+    }
+    SEED = found.seed; W = makeWorld(SEED); acc = 0;
+    note.textContent = found.seed + '  ->  ' + found.r.tier + '  ' + found.r.total
+      + '  (' + found.r.partyFinal + '/' + found.r.partyTotal + ' home, '
+      + tried + ' seed' + (tried === 1 ? '' : 's') + ' tried)';
+  }, 0);
+}
+[].forEach.call(document.querySelectorAll('#force button'), function (b) {
+  b.onclick = function () {
+    const tier = b.getAttribute('data-tier'), want = b.getAttribute('data-want');
+    if (tier) return forceOutcome(function (r) { return r.tier === tier; }, tier, b);
+    if (want === 'vault') return forceOutcome(
+      function (r) { return !!VAULT_TIERS[r.tier] && r.partyFinal > 0; }, 'vault', b);
+    /* THREE means three. `partyFinal === partyTotal` also matched a party of
+       two that both got home, which is a different picture entirely. */
+    if (want === 'all3') return forceOutcome(
+      function (r) { return r.partyFinal === 3; }, 'all 3 home', b);
+    if (want === 'wipe') return forceOutcome(
+      function (r) { return r.partyFinal === 0; }, 'wipe', b);
+  };
+});
+
+document.getElementById('btn-dump').onclick = function () {
+  document.getElementById('log').textContent =
+    'SEED ' + W.seed + '\nDRAW ' + JSON.stringify(W.draw, null, 1) + '\n\n'
+    + W.events.map(function (e) { return '  ' + String(e.t).padStart(7) + '  ' + JSON.stringify(e); }).join('\n');
+};
+
+/* ------------------------------- probes ----------------------------------- */
+window.__probe = {
+  world: function () { return W; },
+  draw: function () { return W.draw; },
+  state: function () {
+    const L = leaderOf(W);
+    return { t: W.simT, x: L.x, y: L.y, vy: L.vy, anim: L.anim, leader: L.id,
+      party: aliveParty(W).length, total: W.party.length,
+      beats: W.beats.map(function (b) { return b.verdict; }),
+      finished: W.finished, wiped: !!W.wiped, openU: W.openU,
+      phase: W.phase, coins: W.coinsGot, stars: W.stars, liveMult: liveMult(W),
+      mult: W.mult, total: W.total,
+      tier: W.tier ? W.tier.name : null };
+  },
+  events: function () { return W.events; },
+  setSeed: function (s) { SEED = s; W = makeWorld(s); acc = 0; return W.draw; },
+  setDriver: function (v) { W.driverOn = !!v; },
+  restart: restart,
+  /* headless: run one seed to completion and report the beats */
+  run: function (seed, seconds) {
+    const S = makeWorld(seed || SEED);
+    const N = 120 * (seconds || 60);
+    for (let i = 0; i < N; i++) {
+      advance(S);
+      if (S.phase === 'done') break;
+    }
+    return { seed: seed || SEED, draw: S.draw, t: +S.simT.toFixed(2),
+      coins: S.coinsGot, stars: S.stars, reach: S.draw.reach, mult: S.mult, total: S.total,
+      tier: S.tier ? S.tier.name : null, phase: S.phase, how: S.how,
+      beats: S.beats.map(function (b) { return b.verdict; }),
+      partyFinal: S.party.filter(function (b) { return !b.out; }).length,
+      partyTotal: S.party.length,
+      reachedChest: S.finished, wiped: !!S.wiped,
+      diag: S.party.map(function(b){return b.driver.diag||null;}),
+      events: S.events, errors: window.__consoleErrors.length };
+  },
+};
+
+/* rAF starvation guard: preview panes report visibilityState 'hidden' and
+   never deliver rAF, which froze the clock on frame one. Worker timers escape
+   the hidden-page clamp. */
+let framePending = false, frameRaf = 0;
+const frameWorker = (function () {
+  try {
+    return new Worker(URL.createObjectURL(new Blob(
+      ['setInterval(function(){postMessage(0)},8)'], { type: 'text/javascript' })));
+  } catch (e) { return null; }
+})();
+function pump(ts) { framePending = false; cancelAnimationFrame(frameRaf); frame(ts); }
+if (frameWorker) frameWorker.onmessage = function () { if (framePending) pump(performance.now()); };
+function schedule() {
+  framePending = true;
+  frameRaf = requestAnimationFrame(pump);
+  if (!frameWorker) setTimeout(function () { if (framePending) pump(performance.now()); }, 16);
+}
+schedule();
+</script>
+</body>
+</html>
