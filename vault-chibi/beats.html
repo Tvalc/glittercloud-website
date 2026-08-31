@@ -1204,9 +1204,32 @@ function runEnding(W, dt) {
      on one spot and hid one body behind the other. */
   for (const b of aliveParty(W)) {
     if (b.slot === undefined) b.slot = W.party.indexOf(b);
-    const want = CHEST_X - CHEST_W / 2 - 42 - b.slot * 27;
-    b.input = { left: b.x > want + 2, right: b.x < want - 2, jump: false };
+    /* 52 APART, AND WALKED THERE DIRECTLY.
+       Two separate faults were stacking here. The gap was 27 units for bodies
+       drawn about 45 wide, so even a crew that arrived correctly overlapped by
+       nearly half. And they did not arrive correctly: the marks were hit by
+       feeding synthetic left/right into the same physics the run uses, and
+       that quietly failed - the bodies crawled at about 3.6 units a second
+       against a run speed of 138 and simply stopped short, two of them a
+       single unit apart, which is the pile-up you could see.
+
+       The ending is not gameplay. It is flat empty ground with no obstacles
+       and a mark for each body to stand on, so they are moved to it directly
+       and arrive every time. stepBody still runs for gravity and ground
+       contact; only the horizontal is taken off it. vx is kept truthful
+       because the run cycle and the plate chooser both read it. */
+    const want = CHEST_X - CHEST_W / 2 - 42 - b.slot * 52;
+    b.input = { left: false, right: false, jump: false };
     stepBody(W, b, dt);
+    const dx = want - b.x;
+    if (Math.abs(dx) > 0.5) {
+      const step = (dx < 0 ? -1 : 1) * Math.min(Math.abs(dx), 118 * dt);
+      b.x += step;
+      b.vx = step / dt;
+      b.face = step < 0 ? -1 : 1;
+    } else {
+      b.x = want; b.vx = 0;
+    }
   }
   if (W.phase === 'gather') {
     if (W.phaseT > (W.how === 'wiped' ? 1.9 : 1.35)) { W.phase = 'spend'; W.phaseT = 0; W.nextFly = 0; }
@@ -1272,7 +1295,7 @@ function runEnding(W, dt) {
     if (was < 1 && W.openU >= 1) {
       /* THE FLOOR GIVES WAY - but only for a haul that earned it. */
       if (vaultComing(W)) {
-        W.phase = 'vault'; W.phaseT = 0;
+        W.phase = 'vault'; W.phaseT = 0; W.vaulted = true;
         W.burst = 1; W.shake = 3.2;
         W.events.push({ t: +W.simT.toFixed(3), kind: 'vault-open',
           tier: W.tier.name, total: W.total });
@@ -1304,6 +1327,14 @@ function runEnding(W, dt) {
    RELIQUARY on his own - beats-698864 pays 75 with one body home. So the old
    gate let a solo finish into a room that is supposed to mean the whole crew
    got out. All three, or the door stays shut. */
+/* Is the vault on screen right now? Once a run has gone down there it STAYS
+   down there - the round does not cut back up to the chest for its last few
+   seconds. That return trip was doing two bad things at once: it threw away
+   the best shot in the game to show an empty room, and it put the cast back on
+   the cheer loop at the chest, which is where the twitch was being seen. */
+function inVault(W) {
+  return W.phase === 'vault' || (W.phase === 'done' && W.vaulted);
+}
 function vaultComing(W) {
   return W.party.length === 3 && aliveParty(W).length === 3;
 }
@@ -1497,7 +1528,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=37';
+const ART_V = '?v=39';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
@@ -2524,7 +2555,7 @@ function draw(W) {
      into the wall behind them. It is knocked back with a warm scrim and a
      vignette - the same move the main temple already makes over its far layer
      - so the room stays rich but the bodies read against it. */
-  if (W.phase === 'vault') drawVault(W);
+  if (inVault(W)) drawVault(W);
 
   /* ============================ THE CHROME ==============================
      Drawn in SCREEN space, outside the shaken play plane. Everything here is
@@ -2574,7 +2605,13 @@ function draw(W) {
      This fires HERE, before the tracker and the rail, because chrome belongs
      on top of everything - dimming the level and the HUD together was the
      same mistake as shaking the HUD with the world. --------------------- */
-  if (W.phase !== 'run') {
+  /* NOT OVER THE VAULT. This is the grey. It is a 58% black wash across the
+     whole canvas and it fires on every phase that is not the run, which
+     included the vault - so the room was being dimmed by more than twice
+     anything I had put in drawVault, and removing things from drawVault could
+     never have fixed it. The scrim exists to sink a busy temple behind the
+     payout card; the vault does not show that card, so it has nothing to sink. */
+  if (W.phase !== 'run' && !inVault(W)) {
     const su = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
     cx.save();
     cx.globalAlpha = (1 - Math.pow(1 - su, 3)) * 0.58;
@@ -2680,7 +2717,7 @@ function draw(W) {
      number covers the thing it is describing, and on the left third it sat
      squarely on top of whoever was standing there. The room gets the screen to
      itself, then the card lands on the way out. */
-  if (W.phase !== 'run' && W.phase !== 'vault') {
+  if (W.phase !== 'run' && !inVault(W)) {
     const shown = Math.min(W.banked, W.total);
     const done = W.phase === 'open' || W.phase === 'done';
     const inU = Math.min(1, (W.phase === 'gather' ? W.phaseT / 0.45 : 1));
