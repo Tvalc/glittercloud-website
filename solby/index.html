@@ -233,7 +233,7 @@
   const FIXED = 1 / 60;
   const VIEW_Z = 0.62;
   let viewZ = VIEW_Z;
-  const WORLD_W = 7200;
+  const WORLD_W = 10500;
   function viewW() { return W / viewZ; }
   function viewH() { return H / viewZ; }
   function camLimit() {
@@ -244,7 +244,7 @@
     return Math.max(0, WORLD_W - viewW());
   }
   const PIT_Y = 860;
-  const END_X = 6100;
+  const END_X = 9400;
   const LOW_Y = 708;
   const STEP_Y = LOW_Y - 132;
   const STEP2_Y = STEP_Y - 124;
@@ -252,7 +252,7 @@
   const HI_STEP_Y = HIGH_Y - 132;
   const HI_STEP2_Y = HI_STEP_Y - 124;
   const HIGHER_Y = HI_STEP2_Y - 120;
-  const ROAD_END = 5680;
+  const ROAD_END = 9000;
   const DROP_X = ROAD_END - 40;
   const JUMP_POWER = -920;
   const FRIEND_MULT = 1;
@@ -319,11 +319,26 @@
     return "enemy";
   }
 
+  const STAGE_BOX_LOOT = [
+    "empty", "powerup", "empty", "character",
+    "enemy", "powerup", "empty", "powerup",
+    "empty", "empty", "character", "character",
+    "character", "character", "character", "character",
+  ];
+  const WIPE_BOX_LOOT = [
+    "empty", "enemy", "powerup", "empty",
+    "empty", "enemy", "powerup", "empty",
+    "enemy", "empty", "powerup", "empty",
+    "enemy", "empty", "powerup", "enemy",
+  ];
+  const DUO_BOX_LOOT = STAGE_BOX_LOOT.map(function (loot, i) {
+    return ([8, 11, 12, 13, 14, 15].indexOf(i) >= 0) ? "empty" : loot;
+  });
+
   const STAGE_SEAL = {
     stomp: true,
-    boxes: ["character", "powerup"],
-    higherBox: "character",
-    trap: { solby: true, guest: false, third: true },
+    boxLoot: STAGE_BOX_LOOT,
+    trap: { solby: true, guest: true, third: true },
     highRoad: { solby: false, guest: true, third: false },
     higherRoad: { solby: false, guest: false, third: true },
   };
@@ -336,8 +351,7 @@
     if (SEED === "wipe-001") {
       return {
         stomp: false,
-        boxes: ["empty", "enemy"],
-        higherBox: "empty",
+        boxLoot: WIPE_BOX_LOOT,
         trap: { solby: false, guest: false, third: false },
         highRoad: { solby: false, guest: false, third: false },
         higherRoad: { solby: false, guest: false, third: false },
@@ -346,8 +360,7 @@
     if (SEED === "duo-001") {
       return {
         stomp: true,
-        boxes: ["character", "powerup"],
-        higherBox: "empty",
+        boxLoot: DUO_BOX_LOOT,
         trap: { solby: true, guest: true, third: false },
         highRoad: { solby: false, guest: true, third: false },
         higherRoad: { solby: false, guest: false, third: false },
@@ -355,8 +368,7 @@
     }
     return {
       stomp: rng() < 0.62,
-      boxes: [pickLoot(), pickLoot()],
-      higherBox: rng() < 0.55 ? "character" : "empty",
+      boxLoot: Array.from({ length: 16 }, function () { return pickLoot(); }),
       trap: { solby: rng() < 0.7, guest: rng() < 0.45, third: rng() < 0.5 },
       highRoad: { solby: false, guest: rng() < 0.7, third: false },
       higherRoad: { solby: false, guest: false, third: true },
@@ -382,25 +394,34 @@
     return out;
   }
   const STEP_SPAN = ISLE_HIT_W + 48;
-  const STAIR_X = 880;
-  const HIGH_START = STAIR_X + STEP_SPAN * 2 + ISLE_HIT_W + ISLE_GAP;
-  const HIGH_STAIR_X = 1980;
-  const HIGHER_START = HIGH_STAIR_X + STEP_SPAN * 2 + ISLE_HIT_W + ISLE_GAP;
+  function makeStairRun(lane, x, ys) {
+    const arts = ["isleA", "isleC", "isleD"];
+    return ys.map(function (y, i) {
+      return { kind: "isle", art: arts[i], lane: lane, x: x + STEP_SPAN * i, y: y, w: ISLE_HIT_W, h: 22, stair: true };
+    });
+  }
+  const LOW_HIGH_STAIRS = [880, 2100, 3350, 5850, 7600];
+  const HIGH_HIGHER_STAIRS = [2050, 4550, 6900, 8200];
+  const HIGH_START = LOW_HIGH_STAIRS[0] + STEP_SPAN * 2 + ISLE_HIT_W + ISLE_GAP;
+  const HIGHER_START = HIGH_HIGHER_STAIRS[0] + STEP_SPAN * 2 + ISLE_HIT_W + ISLE_GAP;
   const SOLIDS = [
     { kind: "mound", art: "floor", lane: "low", x: 0, y: LOW_Y, w: 2760, h: 36 },
-    { kind: "mound", art: "floor", lane: "low", x: 2900, y: LOW_Y, w: 1400, h: 36 },
-    { kind: "mound", art: "floor", lane: "low", x: 4480, y: LOW_Y, w: 2050, h: 36 },
-    { kind: "isle", art: "isleA", lane: "high", x: STAIR_X, y: STEP_Y, w: ISLE_HIT_W, h: 22 },
-    { kind: "isle", art: "isleC", lane: "high", x: STAIR_X + STEP_SPAN, y: STEP2_Y, w: ISLE_HIT_W, h: 22 },
-    { kind: "isle", art: "isleD", lane: "high", x: STAIR_X + STEP_SPAN * 2, y: HIGH_Y, w: ISLE_HIT_W, h: 22 },
-    { kind: "isle", art: "isleA", lane: "higher", x: HIGH_STAIR_X, y: HI_STEP_Y, w: ISLE_HIT_W, h: 22 },
-    { kind: "isle", art: "isleC", lane: "higher", x: HIGH_STAIR_X + STEP_SPAN, y: HI_STEP2_Y, w: ISLE_HIT_W, h: 22 },
-    { kind: "isle", art: "isleD", lane: "higher", x: HIGH_STAIR_X + STEP_SPAN * 2, y: HIGHER_Y, w: ISLE_HIT_W, h: 22 },
-  ].concat(layLong("high", HIGH_Y, HIGH_START, ROAD_END)).concat(layLong("higher", HIGHER_Y, HIGHER_START, ROAD_END));
+    { kind: "mound", art: "floor", lane: "low", x: 2900, y: LOW_Y, w: 2400, h: 36 },
+    { kind: "mound", art: "floor", lane: "low", x: 5440, y: LOW_Y, w: 1860, h: 36 },
+    { kind: "mound", art: "floor", lane: "low", x: 7440, y: LOW_Y, w: 2410, h: 36 },
+  ]
+    .concat(LOW_HIGH_STAIRS.reduce(function (all, x) {
+      return all.concat(makeStairRun("high", x, [STEP_Y, STEP2_Y, HIGH_Y]));
+    }, []))
+    .concat(HIGH_HIGHER_STAIRS.reduce(function (all, x) {
+      return all.concat(makeStairRun("higher", x, [HI_STEP_Y, HI_STEP2_Y, HIGHER_Y]));
+    }, []))
+    .concat(layLong("high", HIGH_Y, HIGH_START, ROAD_END))
+    .concat(layLong("higher", HIGHER_Y, HIGHER_START, ROAD_END));
   const PIT_X0 = 2760;
   const PIT_X1 = 2900;
-  const CHEST = { x: 6420, y: LOW_Y - 70, w: 78, h: 64 };
-  const FLOOR_LIP = 6530;
+  const CHEST = { x: 9740, y: LOW_Y - 70, w: 78, h: 64 };
+  const FLOOR_LIP = 9850;
   const VAULT_PAD = { kind: "mound", art: "vaultFloor", lane: "low", vault: true, x: 0, y: LOW_Y, w: WORLD_W, h: 36 };
 
   const CAST_ORDER = ["embit", "puddli"];
@@ -646,19 +667,47 @@
 
   function makeCoins() {
     return sprinkleCoins("low", LOW_Y - 110, 320, 500, 80, true)
+      .concat(sprinkleCoins("low", LOW_Y - 110, 1120, ROAD_END, 420, false))
       .concat(coinsOnPads("low", LOW_Y - 168, 280))
       .concat(coinsOnPads("high", HIGH_Y - 168, 240))
       .concat(coinsOnPads("higher", HIGHER_Y - 160, 260));
   }
 
+  const BOX_LAYOUT = [
+    { x: 520, lane: "low" },
+    { x: 720, lane: "low" },
+    { x: 1180, lane: "low" },
+    { x: 1450, lane: "low" },
+    { x: 1700, lane: "high" },
+    { x: 2800, lane: "high" },
+    { x: 3100, lane: "higher" },
+    { x: 3600, lane: "low" },
+    { x: 4100, lane: "high", unlock: "third" },
+    { x: 4700, lane: "higher" },
+    { x: 5550, lane: "low" },
+    { x: 6400, lane: "high", unlock: "third" },
+    { x: 7200, lane: "higher", unlock: "third" },
+    { x: 7700, lane: "low", unlock: "third" },
+    { x: 8350, lane: "high", unlock: "third" },
+    { x: 8650, lane: "higher", unlock: "third" },
+  ];
+
   function makeBoxes() {
-    const pad = isleNear("high", 1788);
-    const higherX = pad ? pad.x + Math.floor(pad.w * 0.42) : 1788;
-    return [
-      { x: 520, y: LOW_Y - 208, w: 52, h: 52, loot: activeSeal.boxes[0], used: false, bounce: 0, lane: "low", skin: "brown" },
-      { x: 670, y: LOW_Y - 208, w: 52, h: 52, loot: activeSeal.boxes[1], used: false, bounce: 0, lane: "low", skin: "brown" },
-      { x: higherX, y: HIGH_Y - 200, w: 48, h: 48, loot: activeSeal.higherBox, used: false, bounce: 0, lane: "higher", unlock: "third", skin: "brown" },
-    ];
+    return BOX_LAYOUT.map(function (spot, i) {
+      const floor = spot.lane === "higher" ? HIGHER_Y : spot.lane === "high" ? HIGH_Y : LOW_Y;
+      return {
+        x: spot.x,
+        y: floor - (spot.lane === "low" ? 208 : 200),
+        w: spot.lane === "low" ? 52 : 48,
+        h: spot.lane === "low" ? 52 : 48,
+        loot: activeSeal.boxLoot[i] || "empty",
+        used: false,
+        bounce: 0,
+        lane: spot.lane,
+        unlock: spot.unlock,
+        skin: "brown",
+      };
+    });
   }
 
   function isleNear(lane, nearX) {
@@ -799,10 +848,13 @@
     runner = party[0];
     boxes = makeBoxes();
     if (testEndingTarget === "1") {
-      boxes[0].loot = "empty";
-      boxes[2].loot = "empty";
+      boxes.forEach(function (box) {
+        if (box.loot === "character") box.loot = "empty";
+      });
     } else if (testEndingTarget === "2") {
-      boxes[2].loot = "empty";
+      boxes.forEach(function (box) {
+        if (box.unlock === "third" && box.loot === "character") box.loot = "empty";
+      });
     }
     walkers = [
       walkerOnSolid("low", LOW_Y, 320),
@@ -817,7 +869,6 @@
     bats = [
       makeBat(1540, 1460, 1660, LOW_Y - 230, "low"),
       makeBat(3840, 3760, 3960, LOW_Y - 220, "low"),
-      makeBat(5340, 5260, 5460, LOW_Y - 235, "low"),
       makeBat(3280, 3200, 3400, HIGH_Y - 280, "high"),
     ];
     crushers = [
@@ -1410,6 +1461,8 @@
       if (s.x < right - 4) continue;
       if (s.kind === "isle" && !r.highRoad && !r.higherRoad) continue;
       if (s.kind === "isle" && lane !== "low" && s.lane !== lane) continue;
+      if (s.kind === "isle" && lane === "high" && Math.abs(s.y - HIGH_Y) > 10) continue;
+      if (s.kind === "isle" && lane === "higher" && Math.abs(s.y - HIGHER_Y) > 10) continue;
       if (s.kind === "mound" && lane !== "low") continue;
       if (!best || s.x < best.x) best = s;
     }
@@ -1419,12 +1472,14 @@
   function nextIsle(r) {
     const want = mountLane(r);
     if (!want) return null;
+    const feet = r.y + RUNNER_H;
     const solids = solidsFor(r);
     let best = null;
     for (let i = 0; i < solids.length; i++) {
       const s = solids[i];
       if (s.kind !== "isle") continue;
       if (want && s.lane !== want) continue;
+      if (s.y > feet + 8 || feet - s.y > 145) continue;
       if (s.x + s.w < r.x - 8) continue;
       if (!best || s.x < best.x) best = s;
     }
@@ -1542,13 +1597,13 @@
 
   function nextBox(r) {
     let best = null;
+    const lane = runnerLane(r);
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
       if (b.used) continue;
+      if (b.lane !== lane) continue;
       if (b.unlock === "third") {
         if (party.indexOf(r) !== 1) continue;
-      } else if (b.lane === "higher" && runnerLane(r) !== "higher" && !r.higherRoad) {
-        continue;
       }
       if (b.x + b.w < r.x - 8) continue;
       if (!best || b.x < best.x) best = b;
