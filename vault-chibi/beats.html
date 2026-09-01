@@ -1465,56 +1465,78 @@ function drawTally(W) {
   /* ---------------------------------------------- the card, filling up */
   /* sized off the gap ABOVE the pot rather than off the canvas width, so the
      two can never collide however the pot is scaled */
-  const cardH = cv.height * 0.44, cardW = cardH / 1.42;
-  const cardX = cxm - cardW / 2, cardY = cv.height * 0.035;
+  /* THE CARD IS THE PAINTED PLATE THE GAME ALREADY OWNS.
+     tp-ui-card.png is an ornate frame with a gem crest, a dark inner window and
+     a cream banner across the bottom - which is exactly the anatomy a rarity
+     card needs, and it is already the visual language of this game's chrome.
+     Drawing a second, different card would have made the finale look like it
+     belonged to another build.
+
+     The four numbers are the painted opening and banner, scanned off the plate
+     in an earlier pass and already load-bearing for the payout panel: window
+     0.156-0.844 of width by 0.342-0.687 of height, banner 0.306-0.694 by
+     0.696-0.842. Laying the fill and the name INSIDE them means neither can
+     drift off the art. */
+  const frameIm = ART.uiCard;
+  const cardH = cv.height * 0.46;
+  const cardW = cardH * (ok(frameIm)
+    ? frameIm.naturalWidth / frameIm.naturalHeight : 1.28);
+  const cardX = cxm - cardW / 2, cardY = cv.height * 0.025;
+  const winX = cardX + cardW * 0.156, winW = cardW * 0.688;
+  const winY = cardY + cardH * 0.342, winH = cardH * 0.345;
+  const banY = cardY + cardH * 0.769, banW = cardW * 0.388;
   const outU = seg(T_MULT, T_OUT);
   const showCard = seg(T_MULT - 0.25, T_MULT + 0.25);
   if (showCard > 0) {
     cx.save();
     cx.globalAlpha = showCard;
-    /* THE SILHOUETTE FIRST, THEN THE COLOUR. The card exists as an empty dark
-       shape before anything fills it, so the fill has something to happen TO -
-       a card that fades in already coloured has no moment in it. */
-    const r = cardW * 0.09;
-    const round = function () {
-      cx.beginPath();
-      if (cx.roundRect) cx.roundRect(cardX, cardY, cardW, cardH, r);
-      else cx.rect(cardX, cardY, cardW, cardH);
-    };
-    round(); cx.fillStyle = 'rgba(10,7,4,.92)'; cx.fill();
+    /* FRAME FIRST, THEN THE COLOUR RISING INSIDE ITS WINDOW. The plate's window
+       is painted opaque, not cut out, so the fill goes ON TOP of it rather than
+       behind - the opposite order to a frame with a real hole in it, and the
+       thing to change if the plate is ever replaced with a cut-out one. The
+       card arrives empty and dark so the fill has something to happen TO; one
+       that fades in already coloured has no moment in it. */
+    if (ok(frameIm)) cx.drawImage(frameIm, cardX, cardY, cardW, cardH);
+    cx.fillStyle = 'rgba(10,7,4,.94)';
+    cx.fillRect(winX, winY, winW, winH);
 
-    /* the fill climbs from the bottom as the coins arrive */
-    cx.save(); round(); cx.clip();
-    const fh = cardH * outU;
-    const fg = cx.createLinearGradient(0, cardY + cardH - fh, 0, cardY + cardH);
+    /* the fill climbs the WINDOW, not the whole card, so it pours in behind the
+       frame instead of painting over the metalwork */
+    const fh = winH * outU;
+    const fg = cx.createLinearGradient(0, winY + winH - fh, 0, winY + winH);
     fg.addColorStop(0, rar.glow);
     fg.addColorStop(1, rar.hex);
     cx.fillStyle = fg;
-    cx.fillRect(cardX, cardY + cardH - fh, cardW, fh);
-    /* a bright meniscus on the rising surface so it reads as liquid */
-    if (outU > 0.02 && outU < 0.995) {
+    cx.fillRect(winX, winY + winH - fh, winW, fh);
+    if (outU > 0.02 && outU < 0.995) {      // a meniscus, so it reads as liquid
       cx.fillStyle = 'rgba(255,255,255,.85)';
-      cx.fillRect(cardX, cardY + cardH - fh - 2, cardW, 3);
+      cx.fillRect(winX, winY + winH - fh - 2, winW, 3);
     }
-    cx.restore();
 
-    /* the frame, and once it is full an outer glow in the rarity's own colour
-       so the whole card announces which one it landed on from across the room */
+    /* once it is full, the rarity's own light spills out past the frame */
     if (outU >= 1) {
+      /* a HALO, not a wash. At two thirds alpha over a radius wider than the
+         card this tinted the gold frame itself, and a purple frame is not the
+         frame - it is the rarity eating the art. It starts outside the window
+         and stays weak, so the colour spills past the edges and announces
+         itself while the metalwork stays gold. */
+      const gl = cx.createRadialGradient(cxm, winY + winH / 2, cardW * 0.42,
+        cxm, winY + winH / 2, cardW * 0.95);
+      gl.addColorStop(0, rar.hex + '00');
+      gl.addColorStop(0.45, rar.hex + '4D');
+      gl.addColorStop(1, rar.hex + '00');
       cx.save();
       cx.globalCompositeOperation = 'lighter';
-      cx.shadowColor = rar.hex;
-      cx.shadowBlur = cardW * 0.55;
-      round();
-      cx.lineWidth = Math.max(2, cardW * 0.03);
-      cx.strokeStyle = rar.glow;
-      cx.stroke(); cx.stroke();
+      cx.fillStyle = gl;
+      cx.fillRect(cardX - cardW, cardY - cardH * 0.3, cardW * 3, cardH * 1.7);
       cx.restore();
     }
-    round();
-    cx.lineWidth = Math.max(2, cardW * 0.035);
-    cx.strokeStyle = outU >= 1 ? rar.glow : 'rgba(120,96,60,.9)';
-    cx.stroke();
+
+    if (!ok(frameIm)) {
+      cx.strokeStyle = outU >= 1 ? rar.glow : 'rgba(120,96,60,.9)';
+      cx.lineWidth = Math.max(2, cardW * 0.035);
+      cx.strokeRect(cardX, cardY, cardW, cardH);
+    }
     cx.restore();
   }
 
@@ -1563,14 +1585,23 @@ function drawTally(W) {
     /* ON the card, not under it. Under it the word sat across the pot, and a
        card's quality belongs on its face anyway. It is shrunk to fit rather
        than trusted to - LEGENDARY is nine characters on a narrow card. */
+    /* ON THE NAMEPLATE the frame provides - the strip of card below the window
+       - rather than across the middle of the art. Measured off the window, so
+       it follows the frame if the frame changes. Shrunk to fit rather than
+       trusted to fit: LEGENDARY is nine characters on a narrow card. */
     cx.globalAlpha = nameU;
-    let ns = Math.round(cv.height * 0.070 * (1 + (1 - nameU) * 0.4));
+    const plateY = banY;
+    const plateW = banW;
+    let ns = Math.round(cv.height * 0.060 * (1 + (1 - nameU) * 0.4));
     cx.font = '800 ' + ns + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
-    while (ns > 8 && cx.measureText(rar.name).width > cardW * 0.86) {
+    while (ns > 7 && cx.measureText(rar.name).width > plateW) {
       ns -= 1;
       cx.font = '800 ' + ns + 'px ui-monospace,SFMono-Regular,Menlo,monospace';
     }
-    stamp(rar.name, cxm, cardY + cardH * 0.5, ns, '#FFFFFF');
+    /* ink on a cream banner wants the SOLID rarity colour, not its glow - the
+       glow tints are chosen to read against a dark fill, and they disappear
+       against parchment */
+    stamp(rar.name, cxm, plateY, ns, rar.hex);
     cx.globalAlpha = 1;
   }
   cx.restore();
@@ -1833,7 +1864,7 @@ const ART = {};
    edit that makes an asset change actually arrive; a timestamp would work too
    but would re-download every plate on every load, which is the wrong trade
    for a phone. */
-const ART_V = '?v=42';
+const ART_V = '?v=45';
 function loadArt() {
   const want = {
     farBg: 'plx-far-sun.jpg', midBg: 'plx-mid-sun.jpg', floor: 'floor-sun.png',
