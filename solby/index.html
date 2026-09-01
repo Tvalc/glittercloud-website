@@ -287,6 +287,7 @@
 
   const params = new URLSearchParams(location.search);
   const SEED = params.get("seed") || "stage-001";
+  let runSeed = SEED;
   seedLine.textContent = "SEED  " + SEED;
 
   function xmur3(str) {
@@ -343,8 +344,39 @@
     higherRoad: { solby: false, guest: false, third: true },
   };
 
+  function makeVaultTestRun(requestedSeed) {
+    const token = Math.floor(Math.random() * 2176782336).toString(36).padStart(6, "0");
+    const seed = requestedSeed || ("vault-" + token);
+    const draw = mulberry32(xmur3(seed)());
+    const boxLoot = Array.from({ length: 16 }, function () {
+      return draw() < 0.52 ? "empty" : "powerup";
+    });
+    const guestBoxes = [3, 10];
+    const guestIndex = guestBoxes[Math.floor(draw() * guestBoxes.length)];
+    boxLoot[guestIndex] = "character";
+    // Every possible lane gets a reachable second-recruit checkpoint.
+    [8, 11, 12, 13, 14, 15].forEach(function (i) {
+      boxLoot[i] = "character";
+    });
+    return {
+      seed: seed,
+      seal: {
+        stomp: true,
+        boxLoot: boxLoot,
+        trap: { solby: true, guest: true, third: true },
+        highRoad: { solby: false, guest: true, third: false },
+        higherRoad: { solby: false, guest: false, third: true },
+        vaultTest: true,
+        guestIndex: guestIndex,
+      },
+    };
+  }
+
   // Sealed before frame one. Same seed → same show.
   const SEAL = (function () {
+    if (/^vault-[a-z0-9]{6}$/i.test(SEED)) {
+      return makeVaultTestRun(SEED.toLowerCase()).seal;
+    }
     if (SEED === "stage-001") {
       return STAGE_SEAL;
     }
@@ -842,8 +874,13 @@
   }
 
   function resetRun(options) {
-    testEndingTarget = options && options.testEnding ? options.testEnding : null;
-    activeSeal = testEndingTarget ? STAGE_SEAL : SEAL;
+    const requestedSeal = options && options.seal;
+    const sealedVault = !options && SEAL.vaultTest;
+    testEndingTarget = options && options.testEnding ? options.testEnding : (sealedVault ? "vault" : null);
+    activeSeal = requestedSeal || (sealedVault ? SEAL : (testEndingTarget ? STAGE_SEAL : SEAL));
+    runSeed = options && options.runSeed ? options.runSeed : SEED;
+    seedLine.textContent = (testEndingTarget === "vault" ? "VAULT DRAW  " : "SEED  ") + runSeed.toUpperCase();
+    seedIn.value = runSeed.toUpperCase();
     party = [createRunner("solby", 90, activeSeal.trap.solby, activeSeal.highRoad.solby, activeSeal.higherRoad.solby)];
     runner = party[0];
     boxes = makeBoxes();
@@ -1013,7 +1050,7 @@
   }
 
   function beginStorm() {
-    stormRand = mulberry32(xmur3(SEED + ":storm")());
+    stormRand = mulberry32(xmur3(runSeed + ":storm")());
     stormCoins = [];
     stormCaught = 0;
     stormSpawnAcc = 0;
@@ -1323,7 +1360,7 @@
 
   function beginVault() {
     endingCameraLock = null;
-    stormRand = mulberry32(xmur3(SEED + ":vault")());
+    stormRand = mulberry32(xmur3(runSeed + ":vault")());
     stormCoins = [];
     vaultCaught = 0;
     stormSpawnAcc = 0;
@@ -3220,16 +3257,25 @@
 
   function testEnding(kind) {
     const instant = document.getElementById("instant-complete").checked;
+    const vault = kind === "vault";
+    const vaultRun = vault ? makeVaultTestRun() : null;
     if (!instant) {
-      resetRun({ testEnding: kind });
+      resetRun({
+        testEnding: kind,
+        runSeed: vaultRun ? vaultRun.seed : SEED,
+        seal: vaultRun ? vaultRun.seal : null,
+      });
       setMode("driver");
       canvas.focus();
       return;
     }
-    const vault = kind === "vault";
     const count = vault ? 3 : Math.max(1, Math.min(3, Number(kind) || 1));
     const names = ["solby", "embit", "puddli"];
-    resetRun();
+    resetRun(vault ? {
+      testEnding: "vault",
+      runSeed: vaultRun.seed,
+      seal: vaultRun.seal,
+    } : null);
     party = [];
     for (let i = 0; i < count; i++) {
       const r = createRunner(names[i], CHEST.x - 260 + i * 88, true, true, true);
@@ -3263,6 +3309,15 @@
     canvas.focus();
   }
 
+  function replayRun() {
+    if (activeSeal && activeSeal.vaultTest) {
+      resetRun({ testEnding: "vault", runSeed: runSeed, seal: activeSeal });
+    } else {
+      resetRun();
+    }
+    canvas.focus();
+  }
+
   btnKey.addEventListener("click", function () { setMode("keyboard"); canvas.focus(); });
   btnDrv.addEventListener("click", function () { setMode("driver"); canvas.focus(); });
   document.querySelectorAll("[data-speed]").forEach(function (button) {
@@ -3273,7 +3328,7 @@
   btnFullscreenExit.addEventListener("click", exitFullscreen);
   document.addEventListener("fullscreenchange", syncFullscreenControls);
   document.addEventListener("webkitfullscreenchange", syncFullscreenControls);
-  document.getElementById("btn-reset").addEventListener("click", function () { resetRun(); canvas.focus(); });
+  document.getElementById("btn-reset").addEventListener("click", replayRun);
   document.querySelectorAll("[data-ending]").forEach(function (button) {
     button.addEventListener("click", function () { testEnding(button.dataset.ending); });
   });
@@ -3333,7 +3388,7 @@
     getState: function () {
       const lead = party[0] || {};
       return {
-        mode: mode, speed: playbackRate, t: simTime, seed: SEED, seal: activeSeal, testEnding: testEndingTarget,
+        mode: mode, speed: playbackRate, t: simTime, seed: runSeed, seal: activeSeal, testEnding: testEndingTarget,
         x: lead.x, y: lead.y, vx: lead.vx, vy: lead.vy,
         pose: lead.pose, onGround: lead.onGround,
         runPhase: lead.runPhase, idlePhase: lead.idlePhase,
@@ -3360,6 +3415,7 @@
     setMode: setMode,
     setSpeed: setPlaybackSpeed,
     finish: instantFinish,
+    testEnding: testEnding,
     reset: resetRun,
     pause: function (v) { paused = !!v; },
     hold: function (next) {
