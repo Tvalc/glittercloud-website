@@ -91,12 +91,17 @@
       opacity: 1; color: #fff7a8;
       transform: translateY(-1px);
     }
+    .speed-controls .finish-button {
+      min-width: 108px; color: #fff7a8;
+      filter: saturate(1.18) brightness(1.08);
+    }
     @media (max-width: 720px) {
       .speed-controls { top: 8px; right: 8px; gap: 2px; }
       .speed-controls button {
         min-width: 44px; padding: 5px 5px 9px;
         font-size: 9px; letter-spacing: -0.03em;
       }
+      .speed-controls .finish-button { min-width: 72px; }
     }
     .seed-in {
       border: 0; border-radius: 18px; padding: 8px 22px 16px;
@@ -173,6 +178,7 @@
       <button class="on" data-speed="1" aria-label="1x playback speed" aria-pressed="true">▶ 1X</button>
       <button data-speed="2" aria-label="2x playback speed" aria-pressed="false">▶▶ 2X</button>
       <button data-speed="5" aria-label="5x playback speed" aria-pressed="false">▶▶▶ 5X</button>
+      <button id="btn-finish" class="finish-button" aria-label="Instant finish">⏭ FINISH</button>
     </div>
     <div class="bar">
       <button id="btn-drv" class="on">AUTOPLAY</button>
@@ -3086,6 +3092,26 @@
     canvas.focus();
   }
 
+  function instantFinish() {
+    const wasPaused = paused;
+    const wasMode = mode;
+    paused = false;
+    mode = "driver";
+    let ticks = 0;
+    while (
+      ticks < 30000 &&
+      !(show.phase === "cards" && cardShow.fill >= 0.999 && cardShow.age >= 5.2)
+    ) {
+      step(FIXED);
+      ticks += 1;
+    }
+    mode = wasMode;
+    paused = wasPaused;
+    acc = 0;
+    draw();
+    canvas.focus();
+  }
+
   function fullscreenElement() {
     return document.fullscreenElement || document.webkitFullscreenElement || null;
   }
@@ -3187,6 +3213,7 @@
   document.querySelectorAll("[data-speed]").forEach(function (button) {
     button.addEventListener("click", function () { setPlaybackSpeed(button.dataset.speed); });
   });
+  document.getElementById("btn-finish").addEventListener("click", instantFinish);
   btnFullscreen.addEventListener("click", enterFullscreen);
   btnFullscreenExit.addEventListener("click", exitFullscreen);
   document.addEventListener("fullscreenchange", syncFullscreenControls);
@@ -3277,6 +3304,7 @@
     },
     setMode: setMode,
     setSpeed: setPlaybackSpeed,
+    finish: instantFinish,
     reset: resetRun,
     pause: function (v) { paused = !!v; },
     hold: function (next) {
