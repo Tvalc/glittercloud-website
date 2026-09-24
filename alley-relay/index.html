@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alley Relay</title>
+  <meta
+    name="description"
+    content="Alley Relay is an original belt-scroller. Walk the lane, chain hits, and carry the bag through three blocks."
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="stage">
+    <canvas id="game" width="1280" height="720" tabindex="0" aria-label="Alley Relay"></canvas>
+
+    <section class="card" id="title-panel">
+      <p class="eyebrow">Original belt scroller</p>
+      <h1>Alley<br />Relay</h1>
+      <p class="tag">Two couriers. Three blocks. The bag still has to move.</p>
+      <ul class="how">
+        <li>Arrows or WASD move. Double-tap forward to dash, then J to strike.</li>
+        <li>J light combo, K heavy, L special, Space jump.</li>
+        <li>Walk over a pipe or bottle to take it. J swings a pipe. K throws it.</li>
+      </ul>
+      <button type="button" class="play" id="start">Start the shift</button>
+    </section>
+
+    <section class="card" id="select-panel" hidden>
+      <p class="eyebrow">Who carries it</p>
+      <h2>Pick a courier</h2>
+      <div class="roster">
+        <button type="button" class="fighter on" id="pick-rook" data-id="rook">
+          <strong>Rook</strong>
+          <span>Long reach, heavy hits, slow feet. Wider combo window.</span>
+        </button>
+        <button type="button" class="fighter" id="pick-flick" data-id="flick">
+          <strong>Flick</strong>
+          <span>Fast feet, short combo window, lighter hits.</span>
+        </button>
+      </div>
+      <p class="hint">Left and right to choose. Enter to start.</p>
+      <button type="button" class="play" id="run">Take the bag</button>
+    </section>
+
+    <section class="card slim" id="clear-panel" hidden>
+      <p class="eyebrow">Block clear</p>
+      <h2 id="clear-title">Dock clear</h2>
+      <p id="clear-copy"></p>
+    </section>
+
+    <section class="card" id="end-panel" hidden>
+      <p class="eyebrow">Shift over</p>
+      <h2>The bag made it</h2>
+      <p id="end-copy"></p>
+      <button type="button" class="play" id="end-again">Back to the alley</button>
+    </section>
+
+    <section class="card" id="over-panel" hidden>
+      <p class="eyebrow">Down</p>
+      <h2>The relay broke</h2>
+      <p id="over-copy"></p>
+      <button type="button" class="play" id="over-again">Back to the alley</button>
+    </section>
+  </main>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
