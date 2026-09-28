@@ -1,16 +1,17 @@
 import { play, unlock } from "./audio.js";
 import { separate } from "./combat.js";
-import { makeEnemy, updateEnemy } from "./enemies.js";
+import { makeEnemy, updateEnemy } from "./enemies.js?v=foe";
 import { blankInput, createInput } from "./input.js";
-import { fighterById, makePlayer, updatePlayer } from "./player.js";
-import { draw } from "./render.js";
+import { fighterById, makePlayer, updatePlayer } from "./player.js?v=foe";
+import { draw } from "./render.js?v=foe";
+import { loadSprites } from "./sprites.js?v=foe";
 import { cloneStage, STAGES, WORLD } from "./stages.js";
-import { updatePickups, updateProjectiles } from "./weapons.js";
+import { updatePickups, updateProjectiles } from "./weapons.js?v=foe";
 
 export function createGame() {
   return {
     mode: "title",
-    fighterId: "rook",
+    fighterId: "zohran",
     stageIndex: 0,
     stage: cloneStage(0),
     lives: 3,
@@ -21,6 +22,7 @@ export function createGame() {
     shake: 0,
     time: 0,
     cameraX: 0,
+    zoom: 1,
     lockCam: null,
     waveIndex: 0,
     enemies: [],
@@ -73,7 +75,7 @@ export function updateGame(game, input, dt) {
   game.time += dt;
   if (game.mode !== "play") return;
 
-  game.shake *= Math.exp(-10 * dt);
+  game.shake *= Math.exp(-6 * dt);
   if (game.bannerT > 0) game.bannerT = Math.max(0, game.bannerT - dt);
   if (game.comboT > 0) {
     game.comboT -= dt;
@@ -105,11 +107,13 @@ export function updateGame(game, input, dt) {
     game.enemies.push(...game.pending);
     game.pending.length = 0;
   }
-  separate(game.enemies);
+  separate(game.player ? [game.player, ...game.enemies] : game.enemies);
   updatePickups(game);
   updateProjectiles(game, dt);
   updateWaves(game);
-  updateCamera(game);
+  updateCamera(game, dt);
+  puff(game, game.player, dt);
+  for (const enemy of game.enemies) puff(game, enemy, dt);
   for (const fx of game.fx) fx.t += dt;
   game.fx = game.fx.filter((fx) => fx.t < fx.life);
   game.enemies = game.enemies.filter((enemy) => !(enemy.state === "dead" && enemy.deadT <= 0));
@@ -144,7 +148,13 @@ function updateWaves(game) {
     game.lockCam = desired;
     const base = desired + 760;
     for (const member of wave.group) {
-      game.enemies.push(makeEnemy(member.kind, base + member.dx, member.y));
+      const enemy = makeEnemy(member.kind, base + member.dx, member.y);
+      if (wave.boss) {
+        enemy.isBoss = true;
+        enemy.hp = Math.max(enemy.hp, 220);
+        enemy.hpMax = enemy.hp;
+      }
+      game.enemies.push(enemy);
     }
     if (wave.boss) {
       game.banner = wave.bossName;
@@ -160,12 +170,34 @@ function updateWaves(game) {
   }
 }
 
-function updateCamera(game) {
-  if (game.lockCam != null) game.cameraX = game.lockCam;
-  else {
-    const maxCam = Math.max(0, game.stage.length - WORLD.viewW);
-    game.cameraX = Math.max(0, Math.min(maxCam, game.player.x - 480));
-  }
+function puff(game, ent, dt) {
+  if (!ent?.alive || (ent.z || 0) > 6) return;
+  if (ent.state !== "walk" && ent.state !== "dash" && ent.state !== "charge") return;
+  ent.dustT = (ent.dustT || 0) + dt;
+  if (ent.dustT < 0.14) return;
+  ent.dustT = 0;
+  game.fx.push({
+    kind: "dust",
+    x: ent.x - (ent.facing || 1) * 12,
+    y: ent.y + 4,
+    z: 0,
+    t: 0,
+    life: 0.32,
+    color: "rgba(214,206,190,0.4)",
+  });
+}
+
+function updateCamera(game, dt) {
+  const player = game.player;
+  const maxCam = Math.max(0, game.stage.length - WORLD.viewW);
+  const facing = player?.facing || 1;
+  const lead = facing * 150;
+  const goal = game.lockCam != null
+    ? game.lockCam
+    : Math.max(0, Math.min(maxCam, (player?.x || 0) - 500 + lead));
+  const blend = 1 - Math.exp(-6 * dt);
+  game.cameraX += (goal - game.cameraX) * blend;
+  game.zoom += (1 - (game.zoom || 1)) * blend;
   const minX = game.cameraX + 40;
   const maxX = game.cameraX + WORLD.viewW - 56;
   const clampX = (ent) => {
@@ -181,6 +213,7 @@ function boot() {
   const ctx = canvas.getContext("2d");
   const input = createInput();
   const game = createGame();
+  loadSprites();
   const titlePanel = document.getElementById("title-panel");
   const selectPanel = document.getElementById("select-panel");
   const clearPanel = document.getElementById("clear-panel");
@@ -202,10 +235,10 @@ function boot() {
     }
     if (game.mode === "ending") {
       document.getElementById("end-copy").textContent =
-        `${game.player?.name || "The courier"} got the bag across. Score ${game.score}.`;
+        `${game.player?.name || "The fighter"} cleared the street. Score ${game.score}.`;
     }
     if (game.mode === "gameover") {
-      document.getElementById("over-copy").textContent = `Score ${game.score}. The alley keeps the bag.`;
+      document.getElementById("over-copy").textContent = `Score ${game.score}. Down for the count.`;
     }
   }
 
@@ -248,7 +281,7 @@ function boot() {
       play("ui");
       game.mode = "select";
     } else if (game.mode === "select") {
-      const order = ["rook", "flick"];
+      const order = ["zohran", "abdul"];
       let index = order.indexOf(game.fighterId);
       if (snap.justLeft) index = (index + order.length - 1) % order.length;
       if (snap.justRight) index = (index + 1) % order.length;

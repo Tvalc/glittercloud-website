@@ -96,6 +96,71 @@ const KINDS = {
     pants: "#12151c",
     hat: "cap",
   },
+  greene: {
+    name: "Marjorie Taylor Greene",
+    sprite: "greene",
+    hp: 48,
+    speed: 200,
+    w: 44,
+    h: 96,
+    dmg: 9,
+    reach: 52,
+    scale: 1,
+    body: "#d9d4ea",
+    trim: "#1c1c1c",
+    skin: "#f0c8a8",
+    pants: "#cfc8e4",
+    hat: "none",
+  },
+  cruz: {
+    name: "Ted Cruz",
+    sprite: "cruz",
+    hp: 56,
+    speed: 92,
+    w: 44,
+    h: 96,
+    dmg: 10,
+    reach: 54,
+    scale: 1,
+    body: "#1d3f86",
+    trim: "#c4a15a",
+    skin: "#e4b48a",
+    pants: "#1a2744",
+    hat: "none",
+  },
+  vance: {
+    name: "JD Vance",
+    sprite: "vance",
+    hp: 110,
+    speed: 70,
+    w: 48,
+    h: 100,
+    dmg: 12,
+    reach: 62,
+    scale: 1.08,
+    body: "#243656",
+    trim: "#d7c4a3",
+    skin: "#e0b088",
+    pants: "#1c2430",
+    hat: "none",
+  },
+  trump: {
+    name: "Donald Trump",
+    sprite: "trump",
+    hp: 280,
+    speed: 48,
+    w: 64,
+    h: 110,
+    dmg: 16,
+    reach: 96,
+    scale: 1.2,
+    boss: true,
+    body: "#1d4e89",
+    trim: "#c9a227",
+    skin: "#f0c8a0",
+    pants: "#1a3358",
+    hat: "none",
+  },
 };
 
 let seq = 1;
@@ -106,6 +171,7 @@ export function makeEnemy(kind, x, y) {
     id: `e${seq++}`,
     team: "enemy",
     kind,
+    sprite: stats.sprite || kind,
     name: stats.name,
     x,
     y: clampY(y),
@@ -202,7 +268,7 @@ function updateGrunt(enemy, game, dt) {
     enemy.stateT += dt;
     enemy.vx = 0;
     enemy.vy = 0;
-    if (!enemy.spawned && enemy.stateT >= 0.26) {
+    if (!enemy.spawned && enemy.stateT >= 0.42) {
       enemy.spawned = true;
       melee(game, enemy, {
         dmg: enemy.dmg,
@@ -214,7 +280,7 @@ function updateGrunt(enemy, game, dt) {
         hitstop: 0.04,
       });
     }
-    if (enemy.stateT >= 0.58) {
+    if (enemy.stateT >= 0.92) {
       enemy.state = "idle";
       enemy.spawned = false;
       enemy.attackCd = 0.55;
@@ -223,7 +289,7 @@ function updateGrunt(enemy, game, dt) {
     }
     return;
   }
-  if (Math.abs(dx) < enemy.reach && Math.abs(dy) < 30 && enemy.attackCd <= 0 && claim(game, enemy)) {
+  if (Math.abs(dx) < Math.max(enemy.reach, 150) && Math.abs(dy) < 30 && enemy.attackCd <= 0 && claim(game, enemy)) {
     enemy.state = "attack";
     enemy.stateT = 0;
     enemy.spawned = false;
@@ -337,7 +403,7 @@ function updateCrane(enemy, game, dt) {
   const dx = Math.abs(player.x - enemy.x);
   const dy = Math.abs(player.y - enemy.y);
   face(enemy, player);
-  if (dx < enemy.reach && dy < 36 && enemy.attackCd <= 0) {
+  if (dx < Math.max(enemy.reach, 160) && dy < 36 && enemy.attackCd <= 0) {
     enemy.state = "attack";
     enemy.stateT = 0;
     enemy.spawned = false;
@@ -438,7 +504,7 @@ function updateSignal(enemy, game, dt) {
   }
   const dx = Math.abs(player.x - enemy.x);
   const dy = Math.abs(player.y - enemy.y);
-  if (dx < enemy.reach && dy < 32 && enemy.attackCd <= 0) {
+  if (dx < Math.max(enemy.reach, 150) && dy < 32 && enemy.attackCd <= 0) {
     enemy.state = "attack";
     enemy.stateT = 0;
     enemy.hit1 = false;
@@ -464,10 +530,10 @@ export function updateEnemy(enemy, game, dt) {
     return;
   }
   checkPhase(enemy, game);
-  if (enemy.kind === "grunt") updateGrunt(enemy, game, dt);
-  else if (enemy.kind === "rusher") updateRusher(enemy, game, dt);
+  if (enemy.kind === "grunt" || enemy.kind === "greene") updateGrunt(enemy, game, dt);
+  else if (enemy.kind === "rusher" || enemy.kind === "cruz") updateRusher(enemy, game, dt);
   else if (enemy.kind === "thrower") updateThrower(enemy, game, dt);
-  else if (enemy.kind === "crane") updateCrane(enemy, game, dt);
-  else if (enemy.kind === "mara") updateMara(enemy, game, dt);
+  else if (enemy.kind === "crane" || enemy.kind === "trump") updateCrane(enemy, game, dt);
+  else if (enemy.kind === "mara" || enemy.kind === "vance") updateMara(enemy, game, dt);
   else if (enemy.kind === "signal") updateSignal(enemy, game, dt);
 }

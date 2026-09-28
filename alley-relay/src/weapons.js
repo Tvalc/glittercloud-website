@@ -14,6 +14,25 @@ export function launchHeld(game, owner) {
   play("throw");
 }
 
+export function spawnBolt(game, owner) {
+  const facing = owner.facing || 1;
+  game.projectiles.push({
+    kind: "bolt",
+    x: owner.x + facing * 86,
+    y: owner.y,
+    z: 46,
+    vx: facing * 740,
+    vy: 0,
+    vz: 0,
+    team: owner.team,
+    dmg: 22 * (owner.fighter?.power ?? 1),
+    kb: 360,
+    life: 2.4,
+    alive: true,
+    spin: 0,
+  });
+}
+
 export function spawnShot(game, owner, spec) {
   const facing = owner.facing || 1;
   game.projectiles.push({
@@ -59,9 +78,11 @@ export function updateProjectiles(game, dt) {
     shot.life -= dt;
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
-    shot.z += shot.vz * dt;
-    shot.vz -= 900 * dt;
-    shot.spin += dt * 8;
+    if (shot.kind !== "bolt") {
+      shot.z += shot.vz * dt;
+      shot.vz -= 900 * dt;
+      shot.spin += dt * 8;
+    }
     if (shot.z <= 0) {
       shot.z = 0;
       shot.vz = 0;
@@ -83,7 +104,7 @@ export function updateProjectiles(game, dt) {
           x: shot.x,
           y: shot.y,
           dmg: shot.dmg,
-          kb: shot.kind === "pipe" ? 260 : 180,
+          kb: shot.kb ?? (shot.kind === "pipe" ? 260 : 180),
           lift: 50,
           facing: Math.sign(shot.vx) || 1,
           team: shot.team,

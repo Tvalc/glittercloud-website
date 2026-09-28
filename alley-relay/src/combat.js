@@ -75,19 +75,34 @@ export function applyHit(game, spec, target) {
     target.vz = Math.max(spec.lift, 90);
   } else {
     target.state = "hurt";
-    target.hurtT = 0.22;
+    target.hurtT = 0.42;
     target.vz = 0;
   }
   target.stateT = 0;
 
-  game.hitstop = Math.max(game.hitstop, spec.hitstop ?? 0.045);
-  game.shake = Math.max(game.shake, spec.shake ?? 5);
+  const heavy = spec.kind === "heavy" || spec.kind === "special";
+  game.hitstop = Math.max(game.hitstop, spec.hitstop ?? (heavy ? 0.1 : 0.055));
+  game.shake = Math.max(game.shake, spec.shake ?? (heavy ? 9 : 5));
+  const sparkX = target.x - facing * 16;
+  const sparkY = target.y;
+  const sparkZ = target.z + 86;
   game.fx.push({
-    x: target.x,
-    y: target.y,
-    z: target.z + 50,
+    kind: "spark",
+    x: sparkX,
+    y: sparkY,
+    z: sparkZ,
     t: 0,
-    life: 0.22,
+    life: 0.14,
+    color: spec.team === "player" ? "#ffe7a3" : "#ffb4a2",
+    rot: Math.random() * Math.PI,
+  });
+  game.fx.push({
+    kind: "ring",
+    x: sparkX,
+    y: sparkY,
+    z: sparkZ - 10,
+    t: 0,
+    life: 0.18,
     color: spec.team === "player" ? "#f4efe4" : "#ef6b4a",
   });
 
@@ -119,7 +134,7 @@ export function applyHit(game, spec, target) {
 }
 
 export function melee(game, owner, spec) {
-  const reach = spec.reach ?? 56;
+  const reach = spec.radial ? (spec.reach ?? 40) : Math.max(spec.reach ?? 56, 150);
   const hit = {
     x: spec.radial ? owner.x : owner.x + owner.facing * reach * 0.55,
     y: owner.y,
@@ -170,8 +185,10 @@ export function updateBody(ent, dt) {
     const z0 = ent.z;
     ent.vx *= Math.exp(-2.4 * dt);
     integrate(ent, dt);
+    ent.stateT += dt;
     if (ent.state === "air" && z0 > 0 && ent.z === 0) {
       ent.state = "down";
+      ent.stateT = 0;
       ent.hurtT = ent.team === "player" ? 0.62 : 0.48;
       ent.vx *= 0.25;
     } else if (ent.state === "hurt" || ent.state === "down" || ent.state === "getup") {
@@ -201,20 +218,15 @@ export function separate(list) {
       const a = list[i];
       const b = list[j];
       if (!a.alive || !b.alive || a.z > 24 || b.z > 24) continue;
+      const depth = Math.abs(a.y - b.y);
+      if (depth > 90) continue;
       let dx = b.x - a.x;
-      let dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 0.001;
-      const min = (a.w + b.w) * 0.42;
-      if (dist >= min) continue;
-      const push = (min - dist) / 2;
-      dx /= dist;
-      dy /= dist;
-      a.x -= dx * push;
-      a.y -= dy * push;
-      b.x += dx * push;
-      b.y += dy * push;
-      a.y = Math.max(WORLD.floorTop, Math.min(WORLD.floorBottom, a.y));
-      b.y = Math.max(WORLD.floorTop, Math.min(WORLD.floorBottom, b.y));
+      const gap = 66 * ((a.scale || 1) + (b.scale || 1));
+      if (Math.abs(dx) >= gap) continue;
+      const dir = Math.sign(dx) || 1;
+      const push = (gap - Math.abs(dx)) / 2;
+      a.x -= dir * push;
+      b.x += dir * push;
     }
   }
 }

@@ -22,14 +22,49 @@ function tone(freq, dur, type, gain, delay = 0) {
   osc.stop(t + dur);
 }
 
+function punch(heavy) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const len = Math.floor(ctx.sampleRate * (heavy ? 0.12 : 0.07));
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i += 1) {
+    const env = 1 - i / len;
+    data[i] = (Math.random() * 2 - 1) * env * env;
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(heavy ? 900 : 1400, t);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(heavy ? 0.55 : 0.38, t);
+  amp.gain.exponentialRampToValueAtTime(0.001, t + (heavy ? 0.12 : 0.07));
+  noise.connect(filter);
+  filter.connect(amp);
+  amp.connect(ctx.destination);
+  noise.start(t);
+  noise.stop(t + (heavy ? 0.12 : 0.07));
+  const thump = ctx.createOscillator();
+  const thumpAmp = ctx.createGain();
+  thump.type = "sine";
+  thump.frequency.setValueAtTime(heavy ? 140 : 180, t);
+  thump.frequency.exponentialRampToValueAtTime(50, t + (heavy ? 0.1 : 0.06));
+  thumpAmp.gain.setValueAtTime(heavy ? 0.5 : 0.32, t);
+  thumpAmp.gain.exponentialRampToValueAtTime(0.001, t + (heavy ? 0.12 : 0.07));
+  thump.connect(thumpAmp);
+  thumpAmp.connect(ctx.destination);
+  thump.start(t);
+  thump.stop(t + (heavy ? 0.12 : 0.07));
+}
+
 export function play(name, combo = 1) {
   if (!ctx) return;
   if (name === "hit") {
-    tone(160 + combo * 18, 0.06, "square", 0.045);
-    tone(80, 0.08, "sawtooth", 0.04);
+    punch(false);
+    tone(90 + combo * 8, 0.05, "sine", 0.08);
   } else if (name === "heavy") {
-    tone(110, 0.1, "sawtooth", 0.06);
-    tone(220, 0.08, "square", 0.04);
+    punch(true);
   } else if (name === "special") {
     tone(320, 0.16, "sawtooth", 0.05);
     tone(180, 0.22, "triangle", 0.04);

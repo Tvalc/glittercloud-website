@@ -1,8 +1,9 @@
 export const FIGHTERS = {
-  rook: {
-    id: "rook",
-    name: "Rook",
-    blurb: "Long reach, heavy hits, slow feet.",
+  zohran: {
+    id: "zohran",
+    name: "Zohran Mamdani",
+    blurb: "Long reach, heavy hits, slow feet. Wider combo window.",
+    sprite: "zohran",
     hp: 100,
     speed: 188,
     comboWindow: 0.34,
@@ -16,10 +17,11 @@ export const FIGHTERS = {
     bag: "#c4a574",
     hat: "cap",
   },
-  flick: {
-    id: "flick",
-    name: "Flick",
+  abdul: {
+    id: "abdul",
+    name: "Abdul El-Sayed",
     blurb: "Fast feet, short combo window, lighter hits.",
+    sprite: "abdul",
     hp: 100,
     speed: 268,
     comboWindow: 0.2,
@@ -35,7 +37,7 @@ export const FIGHTERS = {
   },
 };
 
-export const FIGHTER_LIST = [FIGHTERS.rook, FIGHTERS.flick];
+export const FIGHTER_LIST = [FIGHTERS.zohran, FIGHTERS.abdul];
 
 export const POSES = {
   idle: { punch: 0, step: 0, lean: 0 },

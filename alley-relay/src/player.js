@@ -1,31 +1,37 @@
 import { play } from "./audio.js";
 import { FIGHTERS } from "./fighters.js";
 import { integrate, melee, spendSpecial, updateBody } from "./combat.js";
-import { finishWeapon, launchHeld, noteWeaponSwing } from "./weapons.js";
+import { finishWeapon, launchHeld, noteWeaponSwing, spawnBolt } from "./weapons.js?v=foe";
 
 const LIGHTS = [
-  { startup: 0.05, active: 0.05, dmg: 7, kb: 130, lift: 0 },
-  { startup: 0.045, active: 0.05, dmg: 8, kb: 150, lift: 0 },
-  { startup: 0.06, active: 0.07, dmg: 12, kb: 340, lift: 200 },
+  { startup: 0.2, active: 0.12, dmg: 7, kb: 180, lift: 0 },
+  { startup: 0.18, active: 0.12, dmg: 8, kb: 200, lift: 0 },
+  { startup: 0.24, active: 0.14, dmg: 12, kb: 340, lift: 200 },
+];
+
+const KICKS = [
+  { startup: 0.08, active: 0.07, dmg: 7, kb: 180, lift: 0 },
+  { startup: 0.07, active: 0.07, dmg: 8, kb: 200, lift: 0 },
+  { startup: 0.1, active: 0.08, dmg: 12, kb: 340, lift: 200 },
 ];
 
 const MOVES = {
   heavy: {
-    startup: 0.12,
-    active: 0.08,
-    recover: 0.2,
+    startup: 0.28,
+    active: 0.14,
+    recover: 0.38,
     dmg: 14,
     kb: 250,
     lift: 100,
     kind: "heavy",
-    hitstop: 0.06,
-    shake: 7,
+    hitstop: 0.12,
+    shake: 11,
     points: 150,
   },
   dashatk: {
-    startup: 0.04,
-    active: 0.08,
-    recover: 0.16,
+    startup: 0.14,
+    active: 0.12,
+    recover: 0.28,
     dmg: 10,
     kb: 300,
     lift: 70,
@@ -36,19 +42,13 @@ const MOVES = {
     points: 130,
   },
   special: {
-    startup: 0.1,
-    active: 0.18,
-    recover: 0.28,
+    startup: 0.48,
+    active: 0.02,
+    recover: 0.16,
     dmg: 22,
-    kb: 420,
-    lift: 240,
+    kb: 360,
+    lift: 40,
     kind: "special",
-    radial: true,
-    rx: 156,
-    ry: 86,
-    rz: 70,
-    hitstop: 0.1,
-    shake: 11,
     points: 220,
   },
 };
@@ -133,14 +133,16 @@ function pipeMul(player) {
 }
 
 function swing(player, game, spec) {
+  const kick = player.kind === "abdul" && !spec.radial;
   const connected = melee(game, player, {
     dmg: spec.dmg * player.fighter.power * pipeMul(player),
     kb: spec.kb,
     lift: spec.lift,
-    reach: spec.radial ? 40 : reachOf(player),
-    rx: spec.rx,
-    ry: spec.ry,
-    rz: spec.rz,
+    reach: kick ? 300 : (spec.radial ? 40 : reachOf(player)),
+    rx: kick ? 78 : spec.rx,
+    ry: kick ? 56 : spec.ry,
+    z: kick ? 58 : spec.z,
+    rz: kick ? 52 : spec.rz,
     radial: spec.radial,
     kind: spec.kind,
     points: spec.points,
@@ -293,7 +295,8 @@ function steer(player, input) {
 }
 
 function updateLight(player, game, dt) {
-  const step = LIGHTS[player.combo] || LIGHTS[0];
+  const table = player.kind === "abdul" ? KICKS : LIGHTS;
+  const step = table[player.combo] || table[0];
   player.stateT += dt;
   player.vx = 0;
   player.vy = 0;
@@ -305,8 +308,8 @@ function updateLight(player, game, dt) {
       lift: step.lift,
       kind: player.combo === 2 ? "heavy" : "light",
       points: 100 + player.combo * 20,
-      hitstop: player.combo === 2 ? 0.07 : 0.045,
-      shake: player.combo === 2 ? 8 : 4,
+      hitstop: player.combo === 2 ? 0.1 : 0.055,
+      shake: player.combo === 2 ? 10 : 5,
     });
   }
   const linkAt = step.startup + step.active;
@@ -323,7 +326,21 @@ function updateLight(player, game, dt) {
 }
 
 function updateTimed(player, game, dt) {
+  if (player.state === "special") {
+    player.stateT += dt;
+    if (!player.spawned && player.stateT >= 0.42) {
+      player.spawned = true;
+      spawnBolt(game, player);
+    }
+    if (player.stateT >= 0.66) endMove(player);
+    return;
+  }
   const spec = MOVES[player.state];
+  const kickTime = player.kind === "abdul" && player.state === "heavy"
+    ? { startup: 0.1, active: 0.08, recover: 0.18 }
+    : player.kind === "abdul" && player.state === "dashatk"
+      ? { startup: 0.07, active: 0.07, recover: 0.16 }
+      : spec;
   player.stateT += dt;
   if (spec.lunge && player.stateT < spec.lungeFor) {
     player.vx = player.facing * player.fighter.speed * spec.lunge;
@@ -331,11 +348,11 @@ function updateTimed(player, game, dt) {
   } else {
     player.vx = 0;
   }
-  if (!player.spawned && player.stateT >= spec.startup && player.stateT < spec.startup + spec.active + 0.02) {
+  if (!player.spawned && player.stateT >= kickTime.startup && player.stateT < kickTime.startup + kickTime.active + 0.02) {
     player.spawned = true;
     swing(player, game, spec);
   }
-  if (player.stateT >= spec.startup + spec.active + spec.recover) endMove(player);
+  if (player.stateT >= kickTime.startup + kickTime.active + kickTime.recover) endMove(player);
 }
 
 function updateJump(player, game, input, dt) {
@@ -354,7 +371,7 @@ function updateJump(player, game, input, dt) {
   integrate(player, dt);
   if (player.state === "jatk") {
     player.jatkT += dt;
-    if (!player.spawned && player.jatkT >= 0.04) {
+    if (!player.spawned && player.jatkT >= (player.kind === "abdul" ? 0.08 : 0.12)) {
       player.spawned = true;
       swing(player, game, { dmg: 10, kb: 200, lift: 40, kind: "light", points: 120, reach: reachOf(player) });
     }
@@ -484,5 +501,5 @@ export function updatePlayer(player, game, input, dt) {
 }
 
 export function fighterById(id) {
-  return FIGHTERS[id] || FIGHTERS.rook;
+  return FIGHTERS[id] || FIGHTERS.zohran;
 }
